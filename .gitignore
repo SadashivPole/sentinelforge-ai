@@ -1,0 +1,22 @@
+__pycache__/
+*.py[c]
+*.pyc
+.env
+.venv/
+.venv*/
+data/*.db
+*.db
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+.DS_Store
+# Hermes internal files (do not publish)
+HERMES_CAPABILITY_ASSESSMENT.md
+LINKEDIN_*.md
+kb/
+# Data directory database files (binary, regenerated per run)
+data/generated/*.db

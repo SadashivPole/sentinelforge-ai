@@ -1,0 +1,344 @@
+{
+  "dataset_id": "sentinelforge-ds-001",
+  "seed": 42,
+  "generation_manifest": {
+    "dataset_id": "sentinelforge-ds-001",
+    "seed": 42,
+    "start_time": "2024-01-15T08:00:00Z",
+    "total_events": 11298,
+    "events_by_category": {
+      "windows_sysmon": 2000,
+      "linux_auth": 2000,
+      "firewall": 2000,
+      "dns": 2000,
+      "network": 2000,
+      "correlated_attacks": 641,
+      "benign_activity": 657
+    },
+    "ground_truth_entries": 19,
+    "output_directory": "data\\generated"
+  },
+  "dataset_validation": {
+    "valid": true,
+    "checks": {
+      "total_event_count": {
+        "value": 11298,
+        "passed": true
+      },
+      "unique_event_ids": {
+        "total": 11298,
+        "unique": 11298,
+        "passed": true
+      },
+      "schema_correctness": {
+        "errors": 0,
+        "passed": true
+      },
+      "timestamp_validity": {
+        "errors": 0,
+        "passed": true
+      },
+      "host_consistency": {
+        "distinct_hosts": 7,
+        "hosts": [
+          "DC-01",
+          "LAPTOP-01",
+          "SRV-01",
+          "SRV-02",
+          "WKSTN-01",
+          "WKSTN-02",
+          "WKSTN-03"
+        ],
+        "passed": true
+      },
+      "ground_truth_completeness": {
+        "entries": 19,
+        "labelled_events": 1298,
+        "missing_from_dataset": 0,
+        "passed": true
+      },
+      "no_label_leakage": {
+        "events_with_labels": 0,
+        "passed": true
+      },
+      "valid_jsonl": {
+        "errors": 0,
+        "passed": true
+      },
+      "dataset_manifest": {
+        "exists": true,
+        "passed": true
+      }
+    },
+    "errors": []
+  },
+  "pipeline_timing": {
+    "normalization": 0.591594299999997,
+    "detection": 0.15790710000146646,
+    "risk_scoring": 0.0020218999998178333,
+    "total": 0.7515233000012813
+  },
+  "db_verification": {
+    "integrity": "ok",
+    "fk_violations": 0,
+    "events_in_db": 11298,
+    "detections_in_db": 172,
+    "risk_in_db": 7
+  },
+  "event_ground_truth": {
+    "total": 11298,
+    "classification_counts": {
+      "unlabeled": 10000,
+      "suspicious": 641,
+      "benign": 657
+    }
+  },
+  "detection_evaluation": {
+    "dataset_id": "sentinelforge-ds-001",
+    "total_events": 11298,
+    "labeled_events": 1298,
+    "benign_events": 657,
+    "suspicious_events": 641,
+    "unlabeled_events": 10000,
+    "alert_level": {
+      "total_alerts": 172,
+      "true_positive_alerts": 17,
+      "false_positive_alerts": 2,
+      "attribution_error_alerts": 1,
+      "unassessed_alerts": 152,
+      "assessed_alerts": 20,
+      "precision": 0.85,
+      "assessment_coverage": 0.1163
+    },
+    "rule_alert_metrics": [
+      {
+        "rule_id": "sentinelforge.detection.c2_beacon",
+        "rule_name": "Potential C2 Beaconing",
+        "total_alerts": 3,
+        "true_positive_alerts": 2,
+        "false_positive_alerts": 1,
+        "attribution_error_alerts": 0,
+        "unassessed_alerts": 0,
+        "assessed_alerts": 3,
+        "precision": 0.6667
+      },
+      {
+        "rule_id": "sentinelforge.detection.failed_login_burst",
+        "rule_name": "Failed Login Burst",
+        "total_alerts": 2,
+        "true_positive_alerts": 2,
+        "false_positive_alerts": 0,
+        "attribution_error_alerts": 0,
+        "unassessed_alerts": 0,
+        "assessed_alerts": 2,
+        "precision": 1.0
+      },
+      {
+        "rule_id": "sentinelforge.detection.password_spray",
+        "rule_name": "Password Spray",
+        "total_alerts": 3,
+        "true_positive_alerts": 2,
+        "false_positive_alerts": 0,
+        "attribution_error_alerts": 1,
+        "unassessed_alerts": 0,
+        "assessed_alerts": 3,
+        "precision": 0.6667
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "rule_name": "Suspicious PowerShell",
+        "total_alerts": 160,
+        "true_positive_alerts": 8,
+        "false_positive_alerts": 1,
+        "attribution_error_alerts": 0,
+        "unassessed_alerts": 151,
+        "assessed_alerts": 9,
+        "precision": 0.8889
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_processtree",
+        "rule_name": "Suspicious Parent-Child Process",
+        "total_alerts": 4,
+        "true_positive_alerts": 3,
+        "false_positive_alerts": 0,
+        "attribution_error_alerts": 0,
+        "unassessed_alerts": 1,
+        "assessed_alerts": 3,
+        "precision": 1.0
+      }
+    ],
+    "event_level": {
+      "total_suspicious_events": 641,
+      "detected_suspicious_events": 498,
+      "undetected_suspicious_events": 143,
+      "recall": 0.7769
+    },
+    "rule_event_metrics": [
+      {
+        "rule_id": "sentinelforge.detection.c2_beacon",
+        "rule_name": "Potential C2 Beaconing",
+        "expected_events": 211,
+        "detected_events": 208,
+        "missed_events": 3,
+        "recall": 0.9858
+      },
+      {
+        "rule_id": "sentinelforge.detection.failed_login_burst",
+        "rule_name": "Failed Login Burst",
+        "expected_events": 212,
+        "detected_events": 69,
+        "missed_events": 143,
+        "recall": 0.3255
+      },
+      {
+        "rule_id": "sentinelforge.detection.password_spray",
+        "rule_name": "Password Spray",
+        "expected_events": 210,
+        "detected_events": 210,
+        "missed_events": 0,
+        "recall": 1.0
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "rule_name": "Suspicious PowerShell",
+        "expected_events": 11,
+        "detected_events": 8,
+        "missed_events": 3,
+        "recall": 0.7273
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_processtree",
+        "rule_name": "Suspicious Parent-Child Process",
+        "expected_events": 6,
+        "detected_events": 5,
+        "missed_events": 1,
+        "recall": 0.8333
+      }
+    ],
+    "f1_alert": {
+      "evaluation_unit": "alert",
+      "precision": 0.85,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "formula": "Alert-level F1 not defined (no alert population for recall).",
+      "valid": false
+    },
+    "f1_event": {
+      "evaluation_unit": "event",
+      "precision": 0.0,
+      "recall": 0.7769,
+      "f1_score": 0.0,
+      "formula": "Event-level F1 not defined (no event-level precision).",
+      "valid": false
+    },
+    "per_classification_breakdown": {
+      "benign": {
+        "alerts": 2
+      },
+      "suspicious": {
+        "alerts": 18,
+        "detected": 498
+      },
+      "unlabeled": {
+        "alerts": 152
+      }
+    }
+  },
+  "powershell_investigation": {
+    "total_powershell_alerts": 160,
+    "true_positives": 8,
+    "false_positives": 1,
+    "unlabeled_evidence": 151,
+    "indicator_breakdown": {
+      "encoded_command": 43,
+      "execution_policy_bypass": 116,
+      "download_and_execute": 2,
+      "hidden_execution": 1
+    },
+    "sample_alerts": [
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "evidence_event_ids": [
+          "scen-scenario-st-016-001292"
+        ],
+        "indicators": [
+          "encoded_command"
+        ],
+        "total_weight": 6,
+        "host": "WKSTN-03",
+        "is_true_positive": false
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "evidence_event_ids": [
+          "scen-scenario-st-001-000001"
+        ],
+        "indicators": [
+          "execution_policy_bypass"
+        ],
+        "total_weight": 6,
+        "host": "DC-01",
+        "is_true_positive": true
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "evidence_event_ids": [
+          "scen-scenario-st-001-000002"
+        ],
+        "indicators": [
+          "execution_policy_bypass"
+        ],
+        "total_weight": 6,
+        "host": "DC-01",
+        "is_true_positive": true
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "evidence_event_ids": [
+          "scen-scenario-st-006-000033"
+        ],
+        "indicators": [
+          "execution_policy_bypass"
+        ],
+        "total_weight": 6,
+        "host": "LAPTOP-01",
+        "is_true_positive": true
+      },
+      {
+        "rule_id": "sentinelforge.detection.suspicious_powershell",
+        "evidence_event_ids": [
+          "scen-scenario-st-017-001293"
+        ],
+        "indicators": [
+          "execution_policy_bypass"
+        ],
+        "total_weight": 6,
+        "host": "DC-01",
+        "is_true_positive": true
+      }
+    ]
+  },
+  "confusion_matrix": {
+    "suspicious_events_total": 641,
+    "suspicious_events_detected": 501,
+    "suspicious_events_missed": 140,
+    "alerts_on_suspicious_evidence": 18,
+    "alerts_on_benign_evidence": 2,
+    "alerts_on_unlabeled_evidence": 152
+  },
+  "sysmon_format_validation": {
+    "file": "windows_sysmon.jsonl",
+    "native_sysmon_structure": false,
+    "generic_normalized_structure": true,
+    "format_label": "generic JSONL (not native Sysmon)",
+    "sample_keys": [
+      "event_id",
+      "timestamp",
+      "event_type",
+      "host",
+      "user",
+      "source",
+      "process"
+    ]
+  }
+}

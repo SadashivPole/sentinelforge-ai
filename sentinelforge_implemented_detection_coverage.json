@@ -1,0 +1,115 @@
+{
+  "description": "Primary ATT&CK Navigator layer showing only the five genuine implemented detection mappings in SentinelForge AI. Parent roll-up techniques (T1110, T1059, T1204) are NOT included as independent detections. Catalogue membership is not detection coverage. ATT&CK version v20.1.",
+  "domain": "enterprise-attack",
+  "filters": {
+    "platforms": [],
+    "stages": []
+  },
+  "gradient": {
+    "colors": [
+      "#ff6666",
+      "#ffe766",
+      "#8ec843"
+    ],
+    "maxValue": 100,
+    "minValue": 0
+  },
+  "hideDisabled": false,
+  "layout": {
+    "expandedSubtechniques": "none",
+    "layout": "side",
+    "showAggregateScores": false,
+    "showName": true,
+    "showUnscored": false
+  },
+  "legend": [
+    {
+      "color": "#3a7ca5",
+      "label": "Implemented detection (5 techniques)"
+    }
+  ],
+  "metadata": [],
+  "name": "SentinelForge AI — Implemented Detection Coverage",
+  "selectTechniquesAcrossTactics": true,
+  "selectVisibleTechniques": true,
+  "showTacticRowBackground": false,
+  "sorting": 0,
+  "tacticRowBackground": "#dddddd",
+  "techniques": [
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.suspicious_powershell | CONFIDENCE: medium | RATIONALE: PowerShell process execution with suspicious indicators (encoded command, execution policy bypass, download-and-execute) is consistent with T1059.001, but benign administrative PowerShell usage can also contain encoded commands. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Decode encoded commands; Check user account activity; Review PowerShell transcription logs; Isolate host if command is malicious",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/001/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.001"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.c2_beacon | CONFIDENCE: medium | RATIONALE: Periodic outbound connections with non-standard ports and suspicious process context are consistent with C2 beaconing, but legitimate periodic traffic (EDR heartbeats, software updates) can produce identical patterns. T1071 is only mapped when protocol-specific C2 context is present. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Correlate with process execution events on source host; Check destination reputation; Review command-line context; Compare against baseline network behavior",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1071/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1071"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.failed_login_burst | CONFIDENCE: high | RATIONALE: Multiple failed authentication attempts against one account within a time window is the exact definition of password guessing against live authentication. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP; Force password reset for targeted accounts; Review account lockout thresholds",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/001/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.001"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.password_spray | CONFIDENCE: high | RATIONALE: One source IP attempting authentication against multiple distinct usernames is the exact definition of password spraying. The PasswordSprayRule groups failures by source IP and counts distinct target usernames. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP against targeted accounts; Force password reset for targeted accounts; Review account lockout thresholds",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/003/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.003"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.suspicious_processtree | CONFIDENCE: medium | RATIONALE: Parent-child process correlation (Office → PowerShell) plus correlated file activity can indicate malicious file execution. The SuspiciousProcessTreeRule maps T1204.002 when correlated file activity (create/download/open) exists on the same host/user within the time window. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check email attachments and web downloads; Review parent process context; Isolate host if malicious; Check for additional spawned processes",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1204/002/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1204.002"
+    }
+  ],
+  "versions": {
+    "attack": "v20.1",
+    "layer": "4.5",
+    "navigator": "4.9.0"
+  }
+}

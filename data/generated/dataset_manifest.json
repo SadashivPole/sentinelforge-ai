@@ -1,0 +1,17 @@
+{
+  "dataset_id": "sentinelforge-ds-001",
+  "seed": 42,
+  "start_time": "2024-01-15T08:00:00Z",
+  "total_events": 11298,
+  "events_by_category": {
+    "windows_sysmon": 2000,
+    "linux_auth": 2000,
+    "firewall": 2000,
+    "dns": 2000,
+    "network": 2000,
+    "correlated_attacks": 641,
+    "benign_activity": 657
+  },
+  "ground_truth_entries": 19,
+  "output_directory": "data\\generated"
+}

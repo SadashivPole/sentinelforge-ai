@@ -1,0 +1,629 @@
+{
+  "attack_version": "v20.1",
+  "catalogue_summary": {
+    "coverage_percentage": 7.2464,
+    "direct_mapping_count": 5,
+    "implemented_and_tested": 5,
+    "parent_rollups": 3,
+    "parent_technique_entries": 52,
+    "planned_requires_telemetry": 0,
+    "subtechnique_entries": 17,
+    "telemetry_available_no_detection": 17,
+    "total_entries": 69,
+    "unique_attack_ids": 69,
+    "unique_detection_rule_count": 5,
+    "unique_mapped_techniques": 5,
+    "unsupported_by_current_telemetry": 47
+  },
+  "coverage_terminology": {
+    "catalogue_coverage": "Number of curated entries in the reference catalogue (69). Not detection capability.",
+    "direct_detection_coverage": "Number of techniques/sub-techniques with an actual direct association to a validated detection rule (5 of 69, ~7.25%).",
+    "parent_level_coverage": "Parent techniques represented by mapped sub-techniques (3 roll-ups — not independent detection implementations).",
+    "telemetry_availability": "Number of catalogue entries with available telemetry but no implemented detection (17).",
+    "unsupported_techniques": "Techniques for which current telemetry is insufficient (47)."
+  },
+  "detection_mappings": [
+    {
+      "attack_id": "T1071",
+      "catalogue_status": "IMPLEMENTED_AND_TESTED",
+      "catalogue_version": "v20.1",
+      "detection_rule": "sentinelforge.detection.c2_beacon",
+      "evidence_fields": [
+        "event_id",
+        "timestamp",
+        "host",
+        "network.remote_address",
+        "network.remote_port",
+        "network.protocol",
+        "process.name"
+      ],
+      "investigation_recommendations": [
+        "Correlate with process execution events on source host",
+        "Check destination reputation",
+        "Review command-line context",
+        "Compare against baseline network behavior"
+      ],
+      "mapping_confidence": "medium",
+      "mapping_rationale": "Periodic outbound connections with non-standard ports and suspicious process context are consistent with C2 beaconing, but legitimate periodic traffic (EDR heartbeats, software updates) can produce identical patterns. T1071 is only mapped when protocol-specific C2 context is present.",
+      "subtechnique_id": "T1071",
+      "tactic": "Command and Control",
+      "tactic_id": "TA0011",
+      "technique_name": "Application Layer Protocol"
+    },
+    {
+      "attack_id": "T1110.001",
+      "catalogue_status": "IMPLEMENTED_AND_TESTED",
+      "catalogue_version": "v20.1",
+      "detection_rule": "sentinelforge.detection.failed_login_burst",
+      "evidence_fields": [
+        "event_id",
+        "timestamp",
+        "host",
+        "user",
+        "authentication.outcome",
+        "authentication.source_address"
+      ],
+      "investigation_recommendations": [
+        "Check for successful logins from source IP",
+        "Force password reset for targeted accounts",
+        "Review account lockout thresholds"
+      ],
+      "mapping_confidence": "high",
+      "mapping_rationale": "Multiple failed authentication attempts against one account within a time window is the exact definition of password guessing against live authentication.",
+      "subtechnique_id": "T1110.001",
+      "tactic": "Credential Access",
+      "tactic_id": "TA0006",
+      "technique_name": "Password Guessing"
+    },
+    {
+      "attack_id": "T1110.003",
+      "catalogue_status": "IMPLEMENTED_AND_TESTED",
+      "catalogue_version": "v20.1",
+      "detection_rule": "sentinelforge.detection.password_spray",
+      "evidence_fields": [
+        "event_id",
+        "timestamp",
+        "host",
+        "user",
+        "authentication.outcome",
+        "authentication.source_address"
+      ],
+      "investigation_recommendations": [
+        "Check for successful logins from source IP against targeted accounts",
+        "Force password reset for targeted accounts",
+        "Review account lockout thresholds"
+      ],
+      "mapping_confidence": "high",
+      "mapping_rationale": "One source IP attempting authentication against multiple distinct usernames is the exact definition of password spraying. The PasswordSprayRule groups failures by source IP and counts distinct target usernames.",
+      "subtechnique_id": "T1110.003",
+      "tactic": "Credential Access",
+      "tactic_id": "TA0006",
+      "technique_name": "Password Spraying"
+    },
+    {
+      "attack_id": "T1059.001",
+      "catalogue_status": "IMPLEMENTED_AND_TESTED",
+      "catalogue_version": "v20.1",
+      "detection_rule": "sentinelforge.detection.suspicious_powershell",
+      "evidence_fields": [
+        "event_id",
+        "timestamp",
+        "host",
+        "user",
+        "process.name",
+        "process.command_line"
+      ],
+      "investigation_recommendations": [
+        "Decode encoded commands",
+        "Check user account activity",
+        "Review PowerShell transcription logs",
+        "Isolate host if command is malicious"
+      ],
+      "mapping_confidence": "medium",
+      "mapping_rationale": "PowerShell process execution with suspicious indicators (encoded command, execution policy bypass, download-and-execute) is consistent with T1059.001, but benign administrative PowerShell usage can also contain encoded commands.",
+      "subtechnique_id": "T1059.001",
+      "tactic": "Execution",
+      "tactic_id": "TA0002",
+      "technique_name": "PowerShell"
+    },
+    {
+      "attack_id": "T1204.002",
+      "catalogue_status": "IMPLEMENTED_AND_TESTED",
+      "catalogue_version": "v20.1",
+      "detection_rule": "sentinelforge.detection.suspicious_processtree",
+      "evidence_fields": [
+        "event_id",
+        "timestamp",
+        "host",
+        "user",
+        "process.name",
+        "process.command_line",
+        "process.pid",
+        "process.ppid"
+      ],
+      "investigation_recommendations": [
+        "Check email attachments and web downloads",
+        "Review parent process context",
+        "Isolate host if malicious",
+        "Check for additional spawned processes"
+      ],
+      "mapping_confidence": "medium",
+      "mapping_rationale": "Parent-child process correlation (Office → PowerShell) plus correlated file activity can indicate malicious file execution. The SuspiciousProcessTreeRule maps T1204.002 when correlated file activity (create/download/open) exists on the same host/user within the time window.",
+      "subtechnique_id": "T1204.002",
+      "tactic": "Execution",
+      "tactic_id": "TA0002",
+      "technique_name": "Malicious File"
+    }
+  ],
+  "direct_detection_coverage": {
+    "covered_tactics": [
+      "TA0002",
+      "TA0006",
+      "TA0011"
+    ],
+    "direct_mapping_count": 5,
+    "uncovered_tactics": [
+      "TA0001",
+      "TA0003",
+      "TA0004",
+      "TA0005",
+      "TA0007",
+      "TA0008",
+      "TA0009",
+      "TA0010",
+      "TA0040",
+      "TA0042",
+      "TA0043",
+      "TA0112"
+    ],
+    "unique_detection_rule_count": 5
+  },
+  "domain": "enterprise",
+  "generated_at": "2026-11-20T00:00:00Z",
+  "limitations": [
+    "Catalogue is a curated subset of ATT&CK Enterprise v20.1.",
+    "Only five direct detection mappings are implemented.",
+    "Synthetic test results do not demonstrate real-world detection effectiveness.",
+    "T1204.002 mapping is conditional on file-activity correlation evidence.",
+    "T1071 mapping is conditional on protocol-specific C2 context — not confirmation of Command and Control.",
+    "ATT&CK mappings do not establish compromise or adversary attribution.",
+    "No full enterprise ATT&CK coverage is claimed (5 of 69 curated entries, ~7.25%)."
+  ],
+  "report_name": "SentinelForge AI ATT&CK Coverage",
+  "source_catalogue": {
+    "catalogue_version": "1.0.0",
+    "description": "Curated MITRE ATT&CK Enterprise technique catalogue — reference inventory only",
+    "path": "sentinelforge/attack/catalogue.json"
+  },
+  "tactic_coverage": [
+    {
+      "catalogue_entries": 2,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0043",
+      "tactic_name": "Reconnaissance",
+      "telemetry_available_no_detection": 1,
+      "telemetry_gaps": [
+        "network.connection",
+        "process.command_line"
+      ],
+      "unsupported_by_current_telemetry": 1
+    },
+    {
+      "catalogue_entries": 2,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0042",
+      "tactic_name": "Resource Development",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "authentication.log",
+        "cloud.api.log",
+        "credential.dump",
+        "network.connection"
+      ],
+      "unsupported_by_current_telemetry": 2
+    },
+    {
+      "catalogue_entries": 4,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0001",
+      "tactic_name": "Initial Access",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "email.gateway.log",
+        "file.hash",
+        "network.connection",
+        "process.command_line",
+        "software.update.log",
+        "web.browser.log",
+        "web.proxy.log",
+        "web.server.log"
+      ],
+      "unsupported_by_current_telemetry": 4
+    },
+    {
+      "catalogue_entries": 9,
+      "detection_rules": [
+        "sentinelforge.detection.suspicious_powershell",
+        "sentinelforge.detection.suspicious_processtree"
+      ],
+      "implemented_direct_mappings": 2,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0002",
+      "tactic_name": "Execution",
+      "telemetry_available_no_detection": 3,
+      "telemetry_gaps": [
+        "file.download",
+        "file.execute",
+        "network.connection",
+        "process.command_line",
+        "process.name",
+        "process.user"
+      ],
+      "unsupported_by_current_telemetry": 4
+    },
+    {
+      "catalogue_entries": 5,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0003",
+      "tactic_name": "Persistence",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "file.create",
+        "process.command_line",
+        "process.create",
+        "registry.modify",
+        "scheduled.task.create",
+        "service.create"
+      ],
+      "unsupported_by_current_telemetry": 5
+    },
+    {
+      "catalogue_entries": 1,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0004",
+      "tactic_name": "Privilege Escalation",
+      "telemetry_available_no_detection": 1,
+      "telemetry_gaps": [],
+      "unsupported_by_current_telemetry": 0
+    },
+    {
+      "catalogue_entries": 3,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0005",
+      "tactic_name": "Stealth",
+      "telemetry_available_no_detection": 1,
+      "telemetry_gaps": [
+        "file.content",
+        "file.delete",
+        "log.clear",
+        "process.command_line"
+      ],
+      "unsupported_by_current_telemetry": 2
+    },
+    {
+      "catalogue_entries": 3,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0112",
+      "tactic_name": "Defense Impairment",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "logging.disable",
+        "process.terminate",
+        "registry.modify",
+        "security.tool.disable",
+        "service.modify"
+      ],
+      "unsupported_by_current_telemetry": 3
+    },
+    {
+      "catalogue_entries": 10,
+      "detection_rules": [
+        "sentinelforge.detection.failed_login_burst",
+        "sentinelforge.detection.password_spray"
+      ],
+      "implemented_direct_mappings": 2,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0006",
+      "tactic_name": "Credential Access",
+      "telemetry_available_no_detection": 2,
+      "telemetry_gaps": [
+        "file.read",
+        "network.connection.port.88",
+        "process.command_line",
+        "process.memory",
+        "process.modify",
+        "service.modify"
+      ],
+      "unsupported_by_current_telemetry": 6
+    },
+    {
+      "catalogue_entries": 4,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0007",
+      "tactic_name": "Discovery",
+      "telemetry_available_no_detection": 3,
+      "telemetry_gaps": [
+        "file.enumerate",
+        "process.command_line"
+      ],
+      "unsupported_by_current_telemetry": 1
+    },
+    {
+      "catalogue_entries": 7,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0008",
+      "tactic_name": "Lateral Movement",
+      "telemetry_available_no_detection": 4,
+      "telemetry_gaps": [
+        "cloud.api.log",
+        "file.access",
+        "network.connection",
+        "network.remote_port=445",
+        "vulnerability.scan"
+      ],
+      "unsupported_by_current_telemetry": 3
+    },
+    {
+      "catalogue_entries": 4,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0009",
+      "tactic_name": "Collection",
+      "telemetry_available_no_detection": 1,
+      "telemetry_gaps": [
+        "cloud.storage.api",
+        "email.client.log",
+        "file.create",
+        "file.read",
+        "network.connection",
+        "process.command_line"
+      ],
+      "unsupported_by_current_telemetry": 3
+    },
+    {
+      "catalogue_entries": 5,
+      "detection_rules": [
+        "sentinelforge.detection.c2_beacon"
+      ],
+      "implemented_direct_mappings": 1,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0011",
+      "tactic_name": "Command and Control",
+      "telemetry_available_no_detection": 1,
+      "telemetry_gaps": [
+        "authentication.log",
+        "network.connection",
+        "packet.payload",
+        "proxy.log"
+      ],
+      "unsupported_by_current_telemetry": 3
+    },
+    {
+      "catalogue_entries": 3,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0010",
+      "tactic_name": "Exfiltration",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "cloud.storage.api",
+        "network.connection",
+        "process.command_line",
+        "web.proxy.log"
+      ],
+      "unsupported_by_current_telemetry": 3
+    },
+    {
+      "catalogue_entries": 7,
+      "detection_rules": [],
+      "implemented_direct_mappings": 0,
+      "planned_requires_telemetry": 0,
+      "tactic_id": "TA0040",
+      "tactic_name": "Impact",
+      "telemetry_available_no_detection": 0,
+      "telemetry_gaps": [
+        "database.write",
+        "disk.wipe",
+        "file.create",
+        "file.delete",
+        "file.modify",
+        "network.connection",
+        "network.connection.flood",
+        "process.command_line",
+        "process.resource.exhaustion",
+        "process.resource.usage",
+        "system.recovery.disable",
+        "web.server.log"
+      ],
+      "unsupported_by_current_telemetry": 7
+    }
+  ],
+  "telemetry_coverage": {
+    "log_sources": {
+      "linux_auth": {
+        "applicable_log_sources": [
+          "linux_auth"
+        ],
+        "gaps": [
+          "SSH key type monitoring not performed",
+          "Account creation/modification telemetry not available"
+        ],
+        "name": "Linux Authentication Logs",
+        "normalized_fields": [
+          "authentication.outcome",
+          "authentication.method",
+          "authentication.username",
+          "authentication.source_address"
+        ],
+        "raw_only_fields": [
+          "SSH key type",
+          "Terminal information"
+        ],
+        "supported_detections": [
+          "FailedLoginBurstRule (T1110.001)",
+          "PasswordSprayRule (T1110.003)"
+        ]
+      },
+      "windows_sysmon_event_id_1": {
+        "applicable_log_sources": [
+          "windows_sysmon"
+        ],
+        "gaps": [
+          "Parent command line not captured for parent process",
+          "File content hash verification not performed"
+        ],
+        "name": "Windows Sysmon Event ID 1 (Process Create)",
+        "normalized_fields": [
+          "process.name",
+          "process.path",
+          "process.pid",
+          "process.ppid",
+          "process.command_line",
+          "process.user",
+          "process.hash_sha256"
+        ],
+        "raw_only_fields": [
+          "process.parent.command_line (ParentImage/ParentCommandLine)",
+          "file hash verification"
+        ],
+        "supported_detections": [
+          "SuspiciousPowerShellRule (T1059.001)",
+          "SuspiciousProcessTreeRule (T1204.002 conditional)"
+        ]
+      },
+      "windows_sysmon_event_id_11": {
+        "applicable_log_sources": [
+          "windows_sysmon"
+        ],
+        "gaps": [
+          "File content hash verification not performed",
+          "File modification monitoring not performed"
+        ],
+        "name": "Windows Sysmon Event ID 11 (File Create)",
+        "normalized_fields": [
+          "process.name",
+          "process.path",
+          "process.command_line",
+          "process.user",
+          "file.target_filename"
+        ],
+        "raw_only_fields": [
+          "File content hash",
+          "File content analysis"
+        ],
+        "supported_detections": [
+          "SuspiciousProcessTreeRule (file activity correlation for T1204.002)"
+        ]
+      },
+      "windows_sysmon_event_id_22": {
+        "applicable_log_sources": [
+          "windows_sysmon"
+        ],
+        "gaps": [
+          "DNS response data not captured",
+          "DNS tunneling detection not implemented"
+        ],
+        "name": "Windows Sysmon Event ID 22 (DNS Query)",
+        "normalized_fields": [
+          "process.name",
+          "process.command_line",
+          "dns.query_name"
+        ],
+        "raw_only_fields": [
+          "DNS response data",
+          "DNS query type"
+        ],
+        "supported_detections": []
+      },
+      "windows_sysmon_event_id_3": {
+        "applicable_log_sources": [
+          "windows_sysmon"
+        ],
+        "gaps": [
+          "DNS response data not captured",
+          "Outbound data volume monitoring not performed",
+          "Packet payload inspection not performed"
+        ],
+        "name": "Windows Sysmon Event ID 3 (Network Connection)",
+        "normalized_fields": [
+          "network.direction",
+          "network.local_address",
+          "network.remote_address",
+          "network.local_port",
+          "network.remote_port",
+          "network.protocol"
+        ],
+        "raw_only_fields": [
+          "DNS response data",
+          "Packet payload"
+        ],
+        "supported_detections": [
+          "C2BeaconRule (T1071 conditional)"
+        ]
+      }
+    },
+    "normalized_data_model": {
+      "authentication": [
+        "outcome",
+        "method",
+        "username",
+        "source_address"
+      ],
+      "event": [
+        "event_id",
+        "timestamp",
+        "event_type",
+        "user",
+        "host",
+        "source"
+      ],
+      "network": [
+        "direction",
+        "local_address",
+        "remote_address",
+        "local_port",
+        "remote_port",
+        "protocol"
+      ],
+      "process": [
+        "pid",
+        "ppid",
+        "name",
+        "path",
+        "command_line",
+        "user",
+        "hash_sha256"
+      ]
+    },
+    "raw_only_fields": [
+      "DNS response data (Sysmon Event ID 22)",
+      "Packet payload inspection",
+      "File content hash verification",
+      "SSH key type",
+      "Terminal information",
+      "Outbound data volume monitoring",
+      "Registry monitoring",
+      "File modification monitoring"
+    ]
+  }
+}

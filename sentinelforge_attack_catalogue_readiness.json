@@ -1,0 +1,1019 @@
+{
+  "description": "Catalogue readiness inventory showing all 69 curated ATT&CK Enterprise techniques. Only the five genuine implemented detection mappings are enabled. All other entries are disabled and marked with their actual catalogue status. This is NOT a representation of implemented detection coverage. Parent roll-up techniques (T1110, T1059, T1204) remain disabled as independent detections. ATT&CK version v20.1.",
+  "domain": "enterprise-attack",
+  "filters": {
+    "platforms": [],
+    "stages": []
+  },
+  "gradient": {
+    "colors": [
+      "#ff6666",
+      "#ffe766",
+      "#8ec843"
+    ],
+    "maxValue": 100,
+    "minValue": 0
+  },
+  "hideDisabled": false,
+  "layout": {
+    "expandedSubtechniques": "none",
+    "layout": "side",
+    "showAggregateScores": false,
+    "showName": true,
+    "showUnscored": false
+  },
+  "legend": [
+    {
+      "color": "#3a7ca5",
+      "label": "Implemented detection (5 techniques)"
+    },
+    {
+      "color": "#f2b233",
+      "label": "Telemetry available, no detection (17 entries)"
+    },
+    {
+      "color": "#cccccc",
+      "label": "Unsupported by current telemetry (47 entries)"
+    }
+  ],
+  "metadata": [],
+  "name": "SentinelForge AI — Attack Catalogue Readiness Inventory",
+  "selectTechniquesAcrossTactics": true,
+  "selectVisibleTechniques": true,
+  "showTacticRowBackground": false,
+  "sorting": 0,
+  "tacticRowBackground": "#dddddd",
+  "techniques": [
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No process memory access telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement EDR telemetry for memory access; Review lsass.exe access patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1003/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1003"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Process command lines are observable, but file create monitoring beyond Sysmon Event ID 11 is not used by any detection rule. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review file access patterns on sensitive directories; Check for data staging behavior; Correlate with process execution",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1005/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0009",
+      "techniqueID": "T1005"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: SSH and RDP connection attempts are observable via network and auth telemetry, but no detection rule correlates them into lateral movement detection. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review remote access patterns from user workstations; Check for unusual SSH/RDP sessions; Correlate with authentication events",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1021/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1021"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: RDP connections on port 3389 are observable via Sysmon Event ID 3, but no detection rule exists for RDP lateral movement. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review RDP connection patterns; Check for unusual source-destination RDP sessions",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1021/001/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1021.001"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: SMB connections on port 445 are observable via Sysmon Event ID 3, but no detection rule exists for SMB lateral movement. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review SMB connection patterns; Check for unusual admin share access",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1021/002/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1021.002"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: SSH connections on port 22 are observable via network connection and authentication telemetry, but no detection rule exists for SSH lateral movement. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review SSH connection patterns; Check for unusual source-destination pairs; Correlate with authentication success/failure",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1021/004/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1021.004"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file access telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file access monitoring; Review admin share access",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1021/006/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1021.006"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file content analysis or decoding capability is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file content scanning; Review encoded or obfuscated scripts",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1027/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0005",
+      "techniqueID": "T1027"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Process name, path, and command line are observable, but no detection rule exists for masquerading detection. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review process names for suspicious spelling; Check process paths for unusual locations",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1036/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0005",
+      "techniqueID": "T1036"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No boot script telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement boot script monitoring; Review initialization scripts",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1037/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0003",
+      "techniqueID": "T1037"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: Network connection data is available but outbound data volume monitoring is not, making exfiltration detection impossible with current telemetry. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement outbound data volume monitoring; Review large data transfers to external destinations; Correlate with C2 beaconing alerts",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1041/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0010",
+      "techniqueID": "T1041"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Network connection data is available via Sysmon Event ID 3, but no detection rule correlates individual connections into scanning patterns. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review outbound connection patterns from hosts; Identify hosts connecting to many different ports; Check for port scanning behavior",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1046/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0007",
+      "techniqueID": "T1046"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No outbound data volume monitoring is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement network data volume monitoring; Review unusual protocol usage",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1048/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0010",
+      "techniqueID": "T1048"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No scheduled task telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement scheduled task monitoring; Review for unusual scheduled tasks",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1053/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0003",
+      "techniqueID": "T1053"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: medium | RATIONALE: Parent-level coverage for T1059.001 (PowerShell). The SuspiciousPowerShellRule implements the sub-technique; T1059 itself has no independent detection beyond its sub-technique. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Decode encoded commands; Check user account activity; Review PowerShell transcription logs; Isolate host if command is malicious",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.suspicious_powershell | CONFIDENCE: medium | RATIONALE: PowerShell process execution with suspicious indicators (encoded command, execution policy bypass, download-and-execute) is consistent with T1059.001, but benign administrative PowerShell usage can also contain encoded commands. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Decode encoded commands; Check user account activity; Review PowerShell transcription logs; Isolate host if command is malicious",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/001/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.001"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: cmd.exe process execution is observable via Sysmon Event ID 1, but no detection rule exists for Windows Command Shell usage. Normal command shell use is common and requires careful threshold tuning. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review command line content for suspicious patterns; Check parent process context; Correlate with file system and network activity",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/003/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.003"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: Linux auth logs capture authentication outcomes but not process execution or command line data. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement process execution monitoring on Linux hosts; Review shell history files",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/004/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.004"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No Python process execution telemetry is available on Linux auth logs. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement process execution monitoring on Linux; Review Python script execution",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/006/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.006"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No JavaScript execution telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement script execution monitoring; Review wscript/cscript usage",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1059/007/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1059.007"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file deletion or log clearing telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file deletion monitoring; Review log clearing events",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1070/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0005",
+      "techniqueID": "T1070"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.c2_beacon | CONFIDENCE: medium | RATIONALE: Periodic outbound connections with non-standard ports and suspicious process context are consistent with C2 beaconing, but legitimate periodic traffic (EDR heartbeats, software updates) can produce identical patterns. T1071 is only mapped when protocol-specific C2 context is present. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Correlate with process execution events on source host; Check destination reputation; Review command-line context; Compare against baseline network behavior",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1071/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1071"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: HTTP/HTTPS connections are observable via Sysmon Event ID 3, but standard port 443 connections are explicitly excluded from T1071 mapping by C2BeaconRule. No web proxy telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check destination reputation for HTTPS connections; Review process context for unusual HTTPS usage; Compare against baseline network behavior",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1071/001/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1071.001"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Successful authentication with valid credentials is observable, but distinguishing legitimate use from compromised credential use requires additional context not available in current telemetry. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for logins at unusual times or from unusual locations; Review successful logins from new source IPs; Correlate with other suspicious activity",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1078/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0004",
+      "techniqueID": "T1078"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Process command lines are observable, but no detection rule exists for system information discovery commands. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review command lines for system enumeration commands; Check for whoami, systeminfo, hostname usage",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1082/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0007",
+      "techniqueID": "T1082"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file system enumeration telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file system monitoring; Review directory enumeration commands",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1083/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0007",
+      "techniqueID": "T1083"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Authentication events reveal usernames but not account enumeration activity. No process command line monitoring on Linux is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review authentication patterns for unusual username enumeration; Check for account listing commands; Correlate with process execution events",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1087/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0007",
+      "techniqueID": "T1087"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No proxy telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement proxy logging; Review for proxy chains",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1090/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1090"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: medium | RATIONALE: Parent-level coverage for T1110.001 (Password Guessing) and T1110.003 (Password Spraying). The FailedLoginBurstRule and PasswordSprayRule implement the sub-techniques; T1110 itself has no independent detection beyond its sub-techniques. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP; Review account lockout policies; Identify targeted accounts",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.failed_login_burst | CONFIDENCE: high | RATIONALE: Multiple failed authentication attempts against one account within a time window is the exact definition of password guessing against live authentication. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP; Force password reset for targeted accounts; Review account lockout thresholds",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/001/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.001"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file content access or hash extraction telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review file access events on credential store locations; Monitor for password cracking tool execution",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/002/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.002"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.password_spray | CONFIDENCE: high | RATIONALE: One source IP attempting authentication against multiple distinct usernames is the exact definition of password spraying. The PasswordSprayRule groups failures by source IP and counts distinct target usernames. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP against targeted accounts; Force password reset for targeted accounts; Review account lockout thresholds",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/003/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.003"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: medium | RATIONALE: Authentication failures against many accounts from one source could indicate credential stuffing, but the current PasswordSprayRule detects spraying (one password vs many users), not stuffing (many known credentials vs one/many users). No dedicated rule exists. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check for successful logins from source IP; Review known breach credential lists; Monitor for authentication anomaly patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1110/004/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1110.004"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No email client or email server telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement email client monitoring; Review email server access logs",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1114/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0009",
+      "techniqueID": "T1114"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No external remote service telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement external access monitoring; Review VPN and remote access logs",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1133/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1133"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No web browser or web proxy telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement web proxy logging; Review browser telemetry for exploit kits",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1189/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0001",
+      "techniqueID": "T1189"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No web server log or application telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement web application firewall logging; Review web server access logs; Monitor for exploit patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1190/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0001",
+      "techniqueID": "T1190"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No software supply chain or file hash verification telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement software integrity monitoring; Review software update sources",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1195/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0001",
+      "techniqueID": "T1195"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: medium | RATIONALE: Parent-level coverage for T1204.002 (Malicious File). The SuspiciousProcessTreeRule implements the sub-technique conditionally (when correlated file activity exists); T1204 itself has no independent detection beyond its sub-technique. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check email attachments and web downloads; Review parent process context; Correlate with file creation events; Isolate host if malicious",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1204/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1204"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No web proxy, browser telemetry, or file download monitoring is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review web proxy logs for malicious URL access; Check email for phishing links; Correlate with process execution on user workstations",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1204/001/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1204.001"
+    },
+    {
+      "color": "#3a7ca5",
+      "comment": "STATUS: Implemented detection | RULE: sentinelforge.detection.suspicious_processtree | CONFIDENCE: medium | RATIONALE: Parent-child process correlation (Office → PowerShell) plus correlated file activity can indicate malicious file execution. The SuspiciousProcessTreeRule maps T1204.002 when correlated file activity (create/download/open) exists on the same host/user within the time window. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Check email attachments and web downloads; Review parent process context; Isolate host if malicious; Check for additional spawned processes",
+      "enabled": true,
+      "links": [
+        "https://attack.mitre.org/techniques/T1204/002/"
+      ],
+      "score": 1,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0002",
+      "techniqueID": "T1204.002"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No vulnerability scan telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement vulnerability scanning monitoring; Review for exploit patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1210/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1210"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file deletion or disk wipe telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file deletion monitoring; Review for destructive malware",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1485/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1485"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: File modification monitoring is not available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file modification monitoring; Review for ransomware indicators; Check for file extension changes",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1486/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1486"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No system recovery inhibition telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement system recovery monitoring; Review backup deletion events",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1490/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1490"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file modification or web server telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file modification monitoring; Review web server content changes",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1491/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1491"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No resource hijacking telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement CPU/monitoring monitoring; Review for cryptocurrency mining",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1496/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1496"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No resource exhaustion or network flood telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement resource monitoring; Review network traffic patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1499/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1499"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No cloud API telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement cloud API monitoring; Review cloud region usage",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1535/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0008",
+      "techniqueID": "T1535"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No cloud storage telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement cloud storage access monitoring; Review cloud storage API calls",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1537/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0009",
+      "techniqueID": "T1537"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No service creation telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement service creation monitoring; Review for new services",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1543/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0003",
+      "techniqueID": "T1543"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No registry monitoring or boot-time process telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement registry monitoring for autostart keys; Review startup folder and scheduled tasks; Monitor service installation",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1547/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0003",
+      "techniqueID": "T1547"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No registry monitoring is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement registry monitoring for Run keys; Review autoruns on endpoints",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1547/001/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0003",
+      "techniqueID": "T1547.001"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file access monitoring is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file access monitoring; Review for credential files in common locations",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1552/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1552"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file access monitoring or credential store telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Monitor file access on password manager databases; Review process execution for credential dumping tools",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1555/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1555"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No process or service modification telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement process modification monitoring; Review authentication service changes",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1556/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1556"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No Kerberos-specific telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement Kerberos authentication monitoring; Review for ticket granting anomalies",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1558/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0006",
+      "techniqueID": "T1558"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file creation monitoring beyond Sysmon Event ID 11 is used by detection rules. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file creation monitoring; Review for archive creation commands",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1560/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0009",
+      "techniqueID": "T1560"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No security tool disablement telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement EDR health monitoring; Review security tool status changes",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1561/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0112",
+      "techniqueID": "T1561"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No security tool impairment telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement security tool health monitoring; Review logging service status",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1562/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0112",
+      "techniqueID": "T1562"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No file modification or database write telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement file modification monitoring; Review database write patterns",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1565/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0040",
+      "techniqueID": "T1565"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No email gateway or web proxy telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement email gateway logging; Review email for phishing indicators",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1566/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0001",
+      "techniqueID": "T1566"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No web proxy or cloud storage telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement web proxy logging; Monitor cloud storage API calls",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1567/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0010",
+      "techniqueID": "T1567"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No packet payload inspection is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement network traffic analysis; Review for unusual protocol encapsulation",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1572/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0011",
+      "techniqueID": "T1572"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No cloud infrastructure telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement cloud infrastructure monitoring; Review domain registration activity",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1583/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0042",
+      "techniqueID": "T1583"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No credential compromise telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement authentication monitoring; Review for credential dumping indicators",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1586/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0042",
+      "techniqueID": "T1586"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No network reconnaissance telemetry is available in the normalized schema. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement network reconnaissance monitoring; Review for port scanning behavior",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1590/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0043",
+      "techniqueID": "T1590"
+    },
+    {
+      "color": "#f2b233",
+      "comment": "STATUS: TELEMETRY_AVAILABLE_NO_DETECTION | CONFIDENCE: low | RATIONALE: Network connection data is available via Sysmon Event ID 3, but no detection rule correlates individual connections into scanning patterns. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Review outbound connection patterns from hosts; Identify hosts connecting to many different ports",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1595/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0043",
+      "techniqueID": "T1595"
+    },
+    {
+      "color": "#cccccc",
+      "comment": "STATUS: UNSUPPORTED_BY_CURRENT_TELEMETRY | CONFIDENCE: none | RATIONALE: No security tool disablement or service modification telemetry is available. | CATALOGUE VERSION: v20.1 | RECOMMENDATIONS: Implement EDR telemetry for tool disablement; Review service and process termination events",
+      "enabled": false,
+      "links": [
+        "https://attack.mitre.org/techniques/T1685/"
+      ],
+      "score": 0,
+      "showLabel": true,
+      "showName": true,
+      "showScore": false,
+      "tactic": "TA0112",
+      "techniqueID": "T1685"
+    }
+  ],
+  "versions": {
+    "attack": "v20.1",
+    "layer": "4.5",
+    "navigator": "4.9.0"
+  }
+}

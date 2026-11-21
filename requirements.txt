@@ -1,0 +1,9 @@
+pytest>=8.0.0
+pytest-cov>=6.0.0
+PyYAML>=6.0
+
+# Streamlit is required for the SOC dashboard but was not pre-installed on
+# this host. Install it explicitly when you reach the dashboard milestone:
+#   pip install streamlit pandas
+# streamlit>=1.30.0
+# pandas>=2.2.0
