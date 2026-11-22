@@ -7,12 +7,12 @@ events; no detection evidence is ever invented.
 
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
-import uuid
+from typing import Any
 
 from sentinelforge.ingestion.normalizer import NormalizedEvent
 
@@ -36,10 +36,10 @@ class Evidence:
     event_id: str
     timestamp: str
     source: str
-    event_type: Optional[str] = None
-    user: Optional[str] = None
-    host: Optional[str] = None
-    source_address: Optional[str] = None
+    event_type: str | None = None
+    user: str | None = None
+    host: str | None = None
+    source_address: str | None = None
     raw: dict = field(default_factory=dict)
 
 
@@ -52,9 +52,7 @@ class DetectionResult:
     severity: Severity
     description: str
     evidence: list[Evidence]
-    triggered_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    triggered_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
     detection_id: str = field(default_factory=lambda: f"det-{uuid.uuid4().hex[:16]}")
 
@@ -91,7 +89,7 @@ class DetectionRule(ABC):
         name: str,
         description: str,
         severity: Severity,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         self.rule_id = rule_id
         self.name = name
@@ -124,7 +122,7 @@ class RuleRegistry:
         """Register a detection rule."""
         self._rules[rule.rule_id] = rule
 
-    def get(self, rule_id: str) -> Optional[DetectionRule]:
+    def get(self, rule_id: str) -> DetectionRule | None:
         """Return a registered rule by id, or None if not registered."""
         return self._rules.get(rule_id)
 

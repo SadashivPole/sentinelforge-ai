@@ -20,12 +20,9 @@ Scenarios:
 
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 import tempfile
-from datetime import datetime, timezone
-from typing import Optional
 
 import pytest
 
@@ -44,12 +41,12 @@ from sentinelforge.storage.repositories import (
     EventRepository,
     RiskAssessmentRepository,
 )
-from sentinelforge.storage.schema import get_schema_version, migrate, SCHEMA_VERSION
-
+from sentinelforge.storage.schema import SCHEMA_VERSION, get_schema_version
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _tmp_db_path() -> str:
     fd, path = tempfile.mkstemp(suffix=".db")
@@ -63,7 +60,7 @@ def _make_event(
     host: str = "host-1",
     source: str = "jsonl",
     event_type: str = "network.connection",
-    raw_extra: Optional[dict] = None,
+    raw_extra: dict | None = None,
 ) -> NormalizedEvent:
     raw = {
         "event_id": event_id,
@@ -109,7 +106,7 @@ def _make_detection(
     host: str = "host-1",
     severity: Severity = Severity.HIGH,
     description: str = "A test detection",
-    detection_id: Optional[str] = None,
+    detection_id: str | None = None,
 ) -> DetectionResult:
     return DetectionResult(
         rule_id=rule_id,
@@ -138,7 +135,7 @@ def _make_assessment(
     assessment_id: str = "assess-1",
     host: str = "host-1",
     risk_score: int = 75,
-    contributing_detection_ids: Optional[list[str]] = None,
+    contributing_detection_ids: list[str] | None = None,
 ) -> RiskAssessment:
     return RiskAssessment(
         assessment_id=assessment_id,
@@ -169,6 +166,7 @@ def _make_assessment(
 # Database creation
 # ---------------------------------------------------------------------------
 
+
 def test_database_creates_tables():
     path = _tmp_db_path()
     try:
@@ -186,8 +184,12 @@ def test_database_creates_tables():
                 ).fetchall()
             }
         expected = {
-            "events", "detections", "evidence", "risk_assessments",
-            "risk_assessment_detections", "schema_metadata",
+            "events",
+            "detections",
+            "evidence",
+            "risk_assessments",
+            "risk_assessment_detections",
+            "schema_metadata",
         }
         assert expected.issubset(tables), f"Missing: {expected - tables}"
     finally:
@@ -209,6 +211,7 @@ def test_schema_versioning():
 # ---------------------------------------------------------------------------
 # Event insertion and retrieval
 # ---------------------------------------------------------------------------
+
 
 def test_event_insertion_and_retrieval():
     path = _tmp_db_path()
@@ -262,8 +265,7 @@ def test_bulk_event_ingestion():
         repo = EventRepository(db)
 
         events = [
-            _make_event(event_id=f"evt-{i}", host=f"host-{i % 3}")
-            for i in range(50)
+            _make_event(event_id=f"evt-{i}", host=f"host-{i % 3}") for i in range(50)
         ]
         ids = repo.insert_events(events)
         assert len(ids) == 50
@@ -275,6 +277,7 @@ def test_bulk_event_ingestion():
 # ---------------------------------------------------------------------------
 # Duplicate handling
 # ---------------------------------------------------------------------------
+
 
 def test_duplicate_event_handling():
     path = _tmp_db_path()
@@ -311,6 +314,7 @@ def test_duplicate_detection_handling():
 # ---------------------------------------------------------------------------
 # Detection persistence and evidence preservation
 # ---------------------------------------------------------------------------
+
 
 def test_detection_persistence():
     path = _tmp_db_path()
@@ -363,6 +367,7 @@ def test_evidence_preservation():
 # Risk assessment persistence
 # ---------------------------------------------------------------------------
 
+
 def test_risk_assessment_persistence():
     path = _tmp_db_path()
     try:
@@ -399,6 +404,7 @@ def test_risk_assessment_persistence():
 # Foreign-key constraints
 # ---------------------------------------------------------------------------
 
+
 def test_foreign_key_constraints():
     path = _tmp_db_path()
     try:
@@ -406,13 +412,12 @@ def test_foreign_key_constraints():
         db.initialize()
 
         # Insert evidence with a non-existent detection_id should fail.
-        with db.transaction() as conn:
-            with pytest.raises(Exception):
-                conn.execute(
-                    "INSERT INTO evidence (evidence_id, detection_id, event_id, raw) "
-                    "VALUES (?, ?, ?, ?)",
-                    ("ev-bad", "nonexistent-detection", "evt-1", "{}"),
-                )
+        with db.transaction() as conn, pytest.raises(Exception):  # noqa: B017 - intentional: any exception indicates FK constraint enforced
+            conn.execute(
+                "INSERT INTO evidence (evidence_id, detection_id, event_id, raw) "
+                "VALUES (?, ?, ?, ?)",
+                ("ev-bad", "nonexistent-detection", "evt-1", "{}"),
+            )
     finally:
         os.unlink(path)
 
@@ -420,6 +425,7 @@ def test_foreign_key_constraints():
 # ---------------------------------------------------------------------------
 # Transaction rollback
 # ---------------------------------------------------------------------------
+
 
 def test_transaction_rollback_on_fk_violation():
     """Genuine foreign-key violation rollback test.
@@ -478,6 +484,7 @@ def test_transaction_rollback_on_fk_violation():
 # Query filtering
 # ---------------------------------------------------------------------------
 
+
 def test_event_query_filtering():
     path = _tmp_db_path()
     try:
@@ -486,9 +493,12 @@ def test_event_query_filtering():
         repo = EventRepository(db)
 
         events = [
-            _make_event(event_id=f"evt-{i}", host=f"host-{i % 2}",
-                        source="json" if i % 2 == 0 else "jsonl",
-                        event_type="authentication" if i < 3 else "network.connection")
+            _make_event(
+                event_id=f"evt-{i}",
+                host=f"host-{i % 2}",
+                source="json" if i % 2 == 0 else "jsonl",
+                event_type="authentication" if i < 3 else "network.connection",
+            )
             for i in range(6)
         ]
         repo.insert_events(events)
@@ -522,10 +532,12 @@ def test_detection_query_filtering():
         db.initialize()
         repo = DetectionRepository(db)
 
-        det_high = _make_detection(rule_id="rule-high", host="host-a",
-                                   severity=Severity.HIGH)
-        det_low = _make_detection(rule_id="rule-low", host="host-b",
-                                  severity=Severity.LOW)
+        det_high = _make_detection(
+            rule_id="rule-high", host="host-a", severity=Severity.HIGH
+        )
+        det_low = _make_detection(
+            rule_id="rule-low", host="host-b", severity=Severity.LOW
+        )
         repo.insert_detection(det_high)
         repo.insert_detection(det_low)
 
@@ -543,6 +555,7 @@ def test_detection_query_filtering():
 # ---------------------------------------------------------------------------
 # Search functionality
 # ---------------------------------------------------------------------------
+
 
 def test_event_search():
     path = _tmp_db_path()
@@ -571,8 +584,9 @@ def test_detection_search():
         db.initialize()
         repo = DetectionRepository(db)
 
-        det = _make_detection(rule_id="rule-searchable",
-                              description="suspicious PowerShell execution")
+        det = _make_detection(
+            rule_id="rule-searchable", description="suspicious PowerShell execution"
+        )
         repo.insert_detection(det)
 
         results = repo.search_detections("PowerShell")
@@ -589,6 +603,7 @@ def test_detection_search():
 # Unicode and special-character handling
 # ---------------------------------------------------------------------------
 
+
 def test_unicode_handling():
     path = _tmp_db_path()
     try:
@@ -596,8 +611,12 @@ def test_unicode_handling():
         db.initialize()
         repo = EventRepository(db)
 
-        raw = {"event_id": "evt-unicode", "user": " администратор ",
-               "host": "서버-01", "data": "émoji 🚀 test"}
+        raw = {
+            "event_id": "evt-unicode",
+            "user": " администратор ",
+            "host": "서버-01",
+            "data": "émoji 🚀 test",
+        }
         event = NormalizedEvent(
             event_id="evt-unicode",
             timestamp="2024-01-01T00:00:00+00:00",
@@ -619,6 +638,7 @@ def test_unicode_handling():
 # ---------------------------------------------------------------------------
 # Analytics
 # ---------------------------------------------------------------------------
+
 
 def test_count_events():
     path = _tmp_db_path()
@@ -693,6 +713,7 @@ def test_get_detection_timeline():
 # Persistence across application restarts
 # ---------------------------------------------------------------------------
 
+
 def test_persistence_across_restarts():
     path = _tmp_db_path()
     try:
@@ -723,6 +744,7 @@ def test_persistence_across_restarts():
 # ---------------------------------------------------------------------------
 # Foreign-key integrity (hardening)
 # ---------------------------------------------------------------------------
+
 
 def test_unknown_detection_id_rejected_by_fk():
     """Risk assessment cannot link to a nonexistent detection."""
@@ -902,6 +924,7 @@ def test_rollback_after_integrity_violation():
 # Schema migration (hardening)
 # ---------------------------------------------------------------------------
 
+
 def test_migration_version_recorded():
     """Schema version is recorded and retrievable after initialization."""
     path = _tmp_db_path()
@@ -925,9 +948,7 @@ def test_migration_creates_external_event_ref_column():
         with db.connection() as conn:
             columns = {
                 row["name"]
-                for row in conn.execute(
-                    "PRAGMA table_info(evidence)"
-                ).fetchall()
+                for row in conn.execute("PRAGMA table_info(evidence)").fetchall()
             }
             assert "external_event_ref" in columns
             # event_id should be nullable (no NOTNULL constraint).
@@ -969,6 +990,7 @@ def test_migration_restores_detection_fk():
 # ---------------------------------------------------------------------------
 # Evidence collision integrity (hardening)
 # ---------------------------------------------------------------------------
+
 
 def test_evidence_collision_different_content_raises():
     """Same evidence ID with different raw content must raise
@@ -1046,6 +1068,7 @@ def test_detection_immutable_content_collision():
 # ---------------------------------------------------------------------------
 # Actual schema migration v1 → v2 (hardening)
 # ---------------------------------------------------------------------------
+
 
 def _create_v1_database(path: str) -> None:
     """Create a populated v1 schema database fixture for migration testing."""
@@ -1175,6 +1198,7 @@ def test_actual_v1_to_v3_migration():
 
         # Verify it's v1 before migration.
         from sentinelforge.storage.schema import get_schema_version
+
         assert get_schema_version(path) == 1
 
         # Migrate to v3 (v1 → v2 → v3).
@@ -1243,6 +1267,7 @@ def test_actual_v1_to_v3_migration():
 # Evidence FK integrity (schema v3)
 # ---------------------------------------------------------------------------
 
+
 def test_evidence_valid_event_reference_accepted():
     """Evidence referencing an existing event is accepted (event_id FK)."""
     path = _tmp_db_path()
@@ -1282,14 +1307,12 @@ def test_evidence_invalid_event_reference_rejected():
 
         # Directly insert evidence with an event_id that does not exist in
         # the events table -> FK violation.
-        with db.connection() as conn:
-            with pytest.raises(Exception):
-                conn.execute(
-                    "INSERT INTO evidence (evidence_id, detection_id, event_id, raw) "
-                    "VALUES (?, ?, ?, ?)",
-                    ("ev-bad-ref", "sentinelforge.detection.test",
-                     "nonexistent-evt", "{}"),
-                )
+        with db.connection() as conn, pytest.raises(Exception):  # noqa: B017 - intentional: any exception indicates FK constraint enforced
+            conn.execute(
+                "INSERT INTO evidence (evidence_id, detection_id, event_id, raw) "
+                "VALUES (?, ?, ?, ?)",
+                ("ev-bad-ref", "sentinelforge.detection.test", "nonexistent-evt", "{}"),
+            )
     finally:
         os.unlink(path)
 
@@ -1349,11 +1372,8 @@ def test_referenced_event_cannot_be_deleted():
         det_repo.insert_detection(_make_detection())
 
         # Attempt to delete the referenced event -> FK RESTRICT violation.
-        with db.connection() as conn:
-            with pytest.raises(Exception):
-                conn.execute(
-                    "DELETE FROM events WHERE event_id = ?", ("evt-1",)
-                )
+        with db.connection() as conn, pytest.raises(Exception):  # noqa: B017 - intentional: any exception indicates FK constraint enforced
+            conn.execute("DELETE FROM events WHERE event_id = ?", ("evt-1",))
     finally:
         os.unlink(path)
 
@@ -1361,6 +1381,7 @@ def test_referenced_event_cannot_be_deleted():
 # ---------------------------------------------------------------------------
 # Event immutability (complete record comparison)
 # ---------------------------------------------------------------------------
+
 
 def test_event_same_id_same_complete_content_idempotent():
     """Same event_id with same complete normalized content is idempotent."""
@@ -1455,4 +1476,3 @@ def test_event_same_id_changed_timestamp_collision():
         assert retrieved.timestamp == "2024-01-01T00:00:00+00:00"
     finally:
         os.unlink(path)
-

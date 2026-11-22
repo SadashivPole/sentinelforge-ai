@@ -22,12 +22,10 @@ Usage:
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sentinelforge.detection.base import RuleRegistry, Severity
+from sentinelforge.detection.base import RuleRegistry
 from sentinelforge.detection.beacon import C2BeaconRule
 from sentinelforge.ingestion.normalizer import (
     AuthenticationInfo,
@@ -36,7 +34,7 @@ from sentinelforge.ingestion.normalizer import (
     ProcessInfo,
 )
 
-BASE = datetime(2024, 3, 15, 8, 0, 0, tzinfo=timezone.utc)
+BASE = datetime(2024, 3, 15, 8, 0, 0, tzinfo=UTC)
 
 
 def make_event(
@@ -76,7 +74,9 @@ def make_event(
 # ---------------------------------------------------------------------------
 
 eval_events: list[NormalizedEvent] = []
-eval_ground_truth: list[dict[str, Any]] = []  # {event_id, is_suspicious, expected_category, interval_seconds}
+eval_ground_truth: list[
+    dict[str, Any]
+] = []  # {event_id, is_suspicious, expected_category, interval_seconds}
 
 
 def add_events(
@@ -459,19 +459,12 @@ def run_independent_evaluation() -> str:
         else 0.0
     )
     overall_f1 = (
-        2 * overall_precision * overall_recall
-        / (overall_precision + overall_recall)
+        2 * overall_precision * overall_recall / (overall_precision + overall_recall)
         if (overall_precision + overall_recall) > 0
         else 0.0
     )
-    fpr = (
-        len(all_fp) / len(all_benign_ids) if len(all_benign_ids) > 0 else 0.0
-    )
-    fnr = (
-        len(all_fn) / len(all_suspicious_ids)
-        if len(all_suspicious_ids) > 0
-        else 0.0
-    )
+    fpr = len(all_fp) / len(all_benign_ids) if len(all_benign_ids) > 0 else 0.0
+    fnr = len(all_fn) / len(all_suspicious_ids) if len(all_suspicious_ids) > 0 else 0.0
 
     lines: list[str] = []
     lines.append("=" * 80)
@@ -492,7 +485,9 @@ def run_independent_evaluation() -> str:
         f"({len(all_tp)}/{len(all_tp) + len(all_fn)})"
     )
     lines.append(f"Overall F1: {overall_f1:.4f}")
-    lines.append(f"False Positive Rate: {fpr:.4f} ({len(all_fp)}/{len(all_benign_ids)})")
+    lines.append(
+        f"False Positive Rate: {fpr:.4f} ({len(all_fp)}/{len(all_benign_ids)})"
+    )
     lines.append(
         f"False Negative Rate: {fnr:.4f} ({len(all_fn)}/{len(all_suspicious_ids)})"
     )
@@ -531,12 +526,8 @@ def run_independent_evaluation() -> str:
         if not range_ids:
             continue
 
-        range_suspicious = {
-            eid for eid in range_ids if gt_lookup[eid]["is_suspicious"]
-        }
-        range_benign = {
-            eid for eid in range_ids if not gt_lookup[eid]["is_suspicious"]
-        }
+        range_suspicious = {eid for eid in range_ids if gt_lookup[eid]["is_suspicious"]}
+        range_benign = {eid for eid in range_ids if not gt_lookup[eid]["is_suspicious"]}
 
         range_detected = detected_ids & range_ids
         range_tp = range_detected & range_suspicious
@@ -554,8 +545,7 @@ def run_independent_evaluation() -> str:
             else 0.0
         )
         range_f1 = (
-            2 * range_precision * range_recall
-            / (range_precision + range_recall)
+            2 * range_precision * range_recall / (range_precision + range_recall)
             if (range_precision + range_recall) > 0
             else 0.0
         )
@@ -581,9 +571,7 @@ def run_independent_evaluation() -> str:
     # Confidence distribution of detections
     lines.append("")
     lines.append("=" * 80)
-    lines.append(
-        "INDEPENDENT EVALUATION — CONFIDENCE DISTRIBUTION OF DETECTIONS"
-    )
+    lines.append("INDEPENDENT EVALUATION — CONFIDENCE DISTRIBUTION OF DETECTIONS")
     lines.append("=" * 80)
 
     pattern_tier_counts: dict[str, int] = {}
@@ -608,12 +596,8 @@ def run_independent_evaluation() -> str:
     lines.append(
         "EDR heartbeats, monitoring telemetry) from low-frequency C2 beaconing."
     )
-    lines.append(
-        "Both produce regular periodic connections. The detector reports all"
-    )
-    lines.append(
-        "regular periodic traffic with interval-adjusted confidence — it does"
-    )
+    lines.append("Both produce regular periodic connections. The detector reports all")
+    lines.append("regular periodic traffic with interval-adjusted confidence — it does")
     lines.append(
         "not claim to distinguish them. Analyst investigation with destination"
     )

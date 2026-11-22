@@ -7,12 +7,13 @@ preserved verbatim for downstream normalization and evidence storage.
 Readers do not silently discard records. Malformed lines in JSONL sources
 raise a :class:`LogParseError` so data loss is never silent.
 """
+
 from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, Optional
 
 
 class LogParseError(ValueError):
@@ -27,7 +28,8 @@ class LogParseError(ValueError):
         self.line_number = line_number
         self.line = line
         super().__init__(
-            message or f"Failed to parse log record at line {line_number}: {line[:120]!r}"
+            message
+            or f"Failed to parse log record at line {line_number}: {line[:120]!r}"
         )
 
 
@@ -45,7 +47,7 @@ def _first_non_empty_line(handle) -> str | None:
 
 
 def _generate_event_id(
-    raw: dict, source_file: Optional[str] = None, position: Optional[int] = None
+    raw: dict, source_file: str | None = None, position: int | None = None
 ) -> str:
     """Generate a deterministic event ID from source identity + content.
 
@@ -84,8 +86,8 @@ def _generate_event_id(
 
 def _get_event_id(
     raw: dict,
-    source_file: Optional[str] = None,
-    position: Optional[int] = None,
+    source_file: str | None = None,
+    position: int | None = None,
     allow_fallback: bool = False,
 ) -> str:
     """Return an event id from the raw record without inventing semantics.
@@ -191,7 +193,7 @@ class JSONReader(LogReader):
         elif isinstance(data, dict):
             yield data
         else:
-            raise ValueError(
+            raise TypeError(
                 f"Unsupported JSON root type in {path}: {type(data).__name__}"
             )
 
@@ -213,9 +215,7 @@ class JSONLReader(LogReader):
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    raise LogParseError(
-                        line_number, line, str(exc)
-                    ) from exc
+                    raise LogParseError(line_number, line, str(exc)) from exc
                 if isinstance(item, dict):
                     yield item
                 else:
@@ -261,9 +261,7 @@ class SysmonReader(LogReader):
                 try:
                     item = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    raise LogParseError(
-                        line_number, line, str(exc)
-                    ) from exc
+                    raise LogParseError(line_number, line, str(exc)) from exc
                 if isinstance(item, dict):
                     records.append(item)
                 else:
@@ -295,16 +293,14 @@ class SysmonReader(LogReader):
                 name = item.get("Name") or item.get("@Name")
                 if name is None:
                     continue
-                fields[str(name)] = (
-                    item.get("#text", item.get("text", ""))
-                    if isinstance(item.get("#text"), str) or item.get("#text") is None
-                    else str(item.get("#text", ""))
-                )
+                fields[str(name)] = str(item.get("#text", item.get("text", "")) or "")
 
             yield {
                 "Event": {
                     "System": system,
-                    "EventData": {"Data": [{"Name": k, "#text": v} for k, v in fields.items()]},
+                    "EventData": {
+                        "Data": [{"Name": k, "#text": v} for k, v in fields.items()]
+                    },
                 }
             }
 

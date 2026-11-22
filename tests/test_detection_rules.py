@@ -17,8 +17,6 @@ Scenarios:
 
 from __future__ import annotations
 
-from typing import Optional
-
 from sentinelforge.detection.base import Severity
 from sentinelforge.detection.powershell import SuspiciousPowerShellRule
 from sentinelforge.detection.processtree import SuspiciousProcessTreeRule
@@ -31,9 +29,9 @@ from sentinelforge.ingestion.normalizer import (
 def _make_process_event(
     event_id: str,
     process_name: str,
-    command_line: Optional[str] = None,
-    ppid: Optional[int] = None,
-    pid: Optional[int] = None,
+    command_line: str | None = None,
+    ppid: int | None = None,
+    pid: int | None = None,
     host: str = "host-1",
     user: str = "user-1",
     timestamp: str = "2024-01-01T00:00:00Z",
@@ -81,9 +79,10 @@ def _ps_command(command_line: str, event_id: str = "evt-ps", **kwargs):
 
 # ---------------------------------------------------------------- PowerShell
 
+
 def test_encoded_powershell_triggers():
     event = _ps_command(
-        'powershell.exe -EncodedCommand U2V0LUV4ZWN1dGlvblBvbGljeSBFeGVjdXRpb24=',
+        "powershell.exe -EncodedCommand U2V0LUV4ZWN1dGlvblBvbGljeSBFeGVjdXRpb24=",
         event_id="evt-enc",
     )
     results = SuspiciousPowerShellRule().evaluate([event])
@@ -95,16 +94,19 @@ def test_encoded_powershell_triggers():
 
 def test_hidden_powershell_triggers():
     event = _ps_command(
-        'powershell.exe -Hidden -ExecutionPolicy Bypass', event_id="evt-hidden"
+        "powershell.exe -Hidden -ExecutionPolicy Bypass", event_id="evt-hidden"
     )
     results = SuspiciousPowerShellRule().evaluate([event])
     assert len(results) == 1
-    assert results[0].metadata["indicators"] == ["execution_policy_bypass", "hidden_execution"]
+    assert results[0].metadata["indicators"] == [
+        "execution_policy_bypass",
+        "hidden_execution",
+    ]
 
 
 def test_execution_policy_bypass_triggers():
     event = _ps_command(
-        'powershell.exe -ExecutionPolicy Bypass -File script.ps1',
+        "powershell.exe -ExecutionPolicy Bypass -File script.ps1",
         event_id="evt-ep",
     )
     results = SuspiciousPowerShellRule().evaluate([event])
@@ -136,7 +138,7 @@ def test_multiple_indicators_raise_severity():
 
 def test_normal_administrative_powershell_no_alert():
     event = _ps_command(
-        'powershell.exe -File C:\\Scripts\\Backup.ps1', event_id="evt-normal"
+        "powershell.exe -File C:\\Scripts\\Backup.ps1", event_id="evt-normal"
     )
     results = SuspiciousPowerShellRule().evaluate([event])
     assert results == []
@@ -152,12 +154,13 @@ def test_benign_powershell_script_no_alert():
 
 # ----------------------------------------------------------- process tree
 
+
 def test_word_spawns_powershell_triggers():
     parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100)
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -Enc ABC',
+        command_line="powershell.exe -Enc ABC",
         ppid=100,
         pid=200,
     )
@@ -187,9 +190,7 @@ def test_normal_process_relationship_no_alert():
 
 def test_missing_parent_process_handled_safely():
     # Child references a ppid that no event reports.
-    child = _make_process_event(
-        "evt-child", "powershell.exe", ppid=9999, pid=200
-    )
+    child = _make_process_event("evt-child", "powershell.exe", ppid=9999, pid=200)
     results = SuspiciousProcessTreeRule().evaluate([child])
     assert results == []  # parent not in dataset -> cannot confirm relationship
 
@@ -215,19 +216,21 @@ def test_case_insensitive_process_matching():
 
 # ----------------------------------------------------------- benign PowerShell
 
+
 def test_benign_admin_execution_policy_triggers_with_fp_note():
     """Administrative script using -ExecutionPolicy Bypass still flags as a
     suspicious indicator (could be legitimate admin activity; needs investigation)."""
     event = _ps_command(
-        'powershell.exe -ExecutionPolicy Bypass -File C:\\Scripts\\Admin\\Backup.ps1',
+        "powershell.exe -ExecutionPolicy Bypass -File C:\\Scripts\\Admin\\Backup.ps1",
         event_id="evt-benign-ep",
     )
     results = SuspiciousPowerShellRule().evaluate([event])
     assert len(results) == 1
     assert "execution_policy_bypass" in results[0].metadata["indicators"]
-    assert "false_positive_note" in results[0].metadata or results[0].metadata.get(
-        "command_line"
-    ) is not None
+    assert (
+        "false_positive_note" in results[0].metadata
+        or results[0].metadata.get("command_line") is not None
+    )
     # Evidence cites the original raw log.
     assert results[0].evidence[0].raw == event.raw
 
@@ -236,7 +239,7 @@ def test_benign_encoded_command_administrative_triggers_with_fp_note():
     """Encoded command in an administrative context still flags; the indicator
     is suspicious regardless of apparent intent, requiring analyst review."""
     event = _ps_command(
-        'powershell.exe -EncodedCommand U2V0LUV4ZWN1dGlvblBvbGljeSBFeGVjdXRpb24=',
+        "powershell.exe -EncodedCommand U2V0LUV4ZWN1dGlvblBvbGljeSBFeGVjdXRpb24=",
         event_id="evt-benign-enc",
     )
     results = SuspiciousPowerShellRule().evaluate([event])
@@ -247,47 +250,55 @@ def test_benign_encoded_command_administrative_triggers_with_fp_note():
 
 # ----------------------------------------------------------- MITRE regression
 
+
 def test_benign_powershell_flags_only_no_t1204():
     """Word spawning PowerShell with a flags-only command line and no file
     activity event type must NOT assign T1204.002 (Malicious File)."""
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -ExecutionPolicy Bypass -NoProfile',
+        command_line="powershell.exe -ExecutionPolicy Bypass -NoProfile",
         ppid=100,
         pid=200,
         event_type="process.create",
     )
     results = SuspiciousProcessTreeRule().evaluate([parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 def test_file_activity_without_process_execution_no_t1204():
     """File activity event type without a file operand in the command line
     must NOT assign T1204.002."""
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="file.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="file.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -ExecutionPolicy Bypass',
+        command_line="powershell.exe -ExecutionPolicy Bypass",
         ppid=100,
         pid=200,
         event_type="file.create",
     )
     results = SuspiciousProcessTreeRule().evaluate([parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 # ---------------------------------------------------------------------------
 # MITRE event correlation regression tests
 # ---------------------------------------------------------------------------
+
 
 def _make_file_activity_event(
     event_id: str,
@@ -347,15 +358,19 @@ def test_file_event_correlated_with_process_execution_t1204():
         parent_app="WINWORD.EXE",
     )
     # Process execution event: Word spawning PowerShell executing the script.
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create",
-                                 host="host-1",
-                                 user="user-1")
+    parent = _make_process_event(
+        "evt-parent",
+        "WINWORD.EXE",
+        pid=100,
+        event_type="process.create",
+        host="host-1",
+        user="user-1",
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -ExecutionPolicy Bypass -File '
-                     'C:\\Users\\user-1\\Downloads\\payload.ps1',
+        command_line="powershell.exe -ExecutionPolicy Bypass -File "
+        "C:\\Users\\user-1\\Downloads\\payload.ps1",
         ppid=100,
         pid=200,
         event_type="process.create",
@@ -379,12 +394,13 @@ def test_unrelated_file_event_no_t1204():
         host="host-1",
         user="user-1",
     )
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -File C:\\temp\\payload.ps1',
+        command_line="powershell.exe -File C:\\temp\\payload.ps1",
         ppid=100,
         pid=200,
         event_type="process.create",
@@ -394,8 +410,10 @@ def test_unrelated_file_event_no_t1204():
     )
     results = SuspiciousProcessTreeRule().evaluate([file_event, parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 def test_wrong_host_no_t1204():
@@ -407,12 +425,13 @@ def test_wrong_host_no_t1204():
         host="host-other",  # different host
         user="user-1",
     )
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -File C:\\temp\\payload.ps1',
+        command_line="powershell.exe -File C:\\temp\\payload.ps1",
         ppid=100,
         pid=200,
         event_type="process.create",
@@ -422,8 +441,10 @@ def test_wrong_host_no_t1204():
     )
     results = SuspiciousProcessTreeRule().evaluate([file_event, parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 def test_wrong_user_no_t1204():
@@ -435,12 +456,13 @@ def test_wrong_user_no_t1204():
         host="host-1",
         user="user-other",  # different user
     )
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -File C:\\temp\\payload.ps1',
+        command_line="powershell.exe -File C:\\temp\\payload.ps1",
         ppid=100,
         pid=200,
         event_type="process.create",
@@ -450,8 +472,10 @@ def test_wrong_user_no_t1204():
     )
     results = SuspiciousProcessTreeRule().evaluate([file_event, parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 def test_event_outside_correlation_window_no_t1204():
@@ -463,12 +487,13 @@ def test_event_outside_correlation_window_no_t1204():
         host="host-1",
         user="user-1",
     )
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -File C:\\temp\\payload.doc',
+        command_line="powershell.exe -File C:\\temp\\payload.doc",
         ppid=100,
         pid=200,
         event_type="process.create",
@@ -478,24 +503,28 @@ def test_event_outside_correlation_window_no_t1204():
     )
     results = SuspiciousProcessTreeRule().evaluate([file_event, parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )
 
 
 def test_no_file_activity_no_t1204():
     """Process execution without any file activity event does not produce T1204.002."""
-    parent = _make_process_event("evt-parent", "WINWORD.EXE", pid=100,
-                                 event_type="process.create")
+    parent = _make_process_event(
+        "evt-parent", "WINWORD.EXE", pid=100, event_type="process.create"
+    )
     child = _make_process_event(
         "evt-child",
         "powershell.exe",
-        command_line='powershell.exe -ExecutionPolicy Bypass -NoProfile',
+        command_line="powershell.exe -ExecutionPolicy Bypass -NoProfile",
         ppid=100,
         pid=200,
         event_type="process.create",
     )
     results = SuspiciousProcessTreeRule().evaluate([parent, child])
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1204"
-
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1204"
+    )

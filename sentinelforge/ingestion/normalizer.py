@@ -8,40 +8,41 @@ invented: only data present in the raw log (or a generated event id) is used.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Iterator, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.ingestion.reader import _get_event_id
 
 
 @dataclass(frozen=True)
 class ProcessInfo:
-    pid: Optional[int] = None
-    ppid: Optional[int] = None
-    name: Optional[str] = None
-    path: Optional[str] = None
-    command_line: Optional[str] = None
-    user: Optional[str] = None
-    hash_sha256: Optional[str] = None
+    pid: int | None = None
+    ppid: int | None = None
+    name: str | None = None
+    path: str | None = None
+    command_line: str | None = None
+    user: str | None = None
+    hash_sha256: str | None = None
 
 
 @dataclass(frozen=True)
 class NetworkInfo:
-    direction: Optional[str] = None  # inbound | outbound | unknown
-    local_address: Optional[str] = None
-    remote_address: Optional[str] = None
-    local_port: Optional[int] = None
-    remote_port: Optional[int] = None
-    protocol: Optional[str] = None  # tcp | udp | ...
+    direction: str | None = None  # inbound | outbound | unknown
+    local_address: str | None = None
+    remote_address: str | None = None
+    local_port: int | None = None
+    remote_port: int | None = None
+    protocol: str | None = None  # tcp | udp | ...
 
 
 @dataclass(frozen=True)
 class AuthenticationInfo:
-    outcome: Optional[str] = None  # success | failure | ...
-    method: Optional[str] = None
-    username: Optional[str] = None
-    source_address: Optional[str] = None
+    outcome: str | None = None  # success | failure | ...
+    method: str | None = None
+    username: str | None = None
+    source_address: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,26 +52,24 @@ class NormalizedEvent:
     event_id: str
     source: str  # json | jsonl | sysmon
     raw: dict  # original payload, preserved verbatim
-    timestamp: Optional[str] = None  # ISO-8601 UTC (absent when not parseable)
-    event_type: Optional[str] = None
-    user: Optional[str] = None
-    host: Optional[str] = None
-    process: Optional[ProcessInfo] = None
-    network: Optional[NetworkInfo] = None
-    authentication: Optional[AuthenticationInfo] = None
-    ingested_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str | None = None  # ISO-8601 UTC (absent when not parseable)
+    event_type: str | None = None
+    user: str | None = None
+    host: str | None = None
+    process: ProcessInfo | None = None
+    network: NetworkInfo | None = None
+    authentication: AuthenticationInfo | None = None
+    ingested_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
-def _to_iso(value: Any) -> Optional[str]:
+def _to_iso(value: Any) -> str | None:
     """Best-effort ISO-8601 conversion of a timestamp present in the log.
 
     Returns None when no parseable timestamp exists; we never invent one.
@@ -79,7 +78,7 @@ def _to_iso(value: Any) -> Optional[str]:
         return None
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(float(value), tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
     text = str(value)
@@ -92,21 +91,21 @@ def _to_iso(value: Any) -> Optional[str]:
         try:
             dt = datetime.strptime(text, fmt)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt.isoformat()
         except ValueError:
             continue
     return None
 
 
-def _first(d: dict, *keys: str) -> Optional[str]:
+def _first(d: dict, *keys: str) -> str | None:
     for key in keys:
         if key in d and d[key] is not None:
             return str(d[key])
     return None
 
 
-def _int(value: Any) -> Optional[int]:
+def _int(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -116,7 +115,9 @@ def _int(value: Any) -> Optional[int]:
 def _extract_sysmon_fields(raw: dict) -> dict[str, str]:
     event = raw.get("Event", {}) if isinstance(raw, dict) else {}
     data_items = (
-        (event.get("EventData", {}) or {}).get("Data", []) if isinstance(event, dict) else []
+        (event.get("EventData", {}) or {}).get("Data", [])
+        if isinstance(event, dict)
+        else []
     )
     fields: dict[str, str] = {}
     for item in data_items:
@@ -125,15 +126,15 @@ def _extract_sysmon_fields(raw: dict) -> dict[str, str]:
         name = item.get("Name") or item.get("@Name")
         if name is None:
             continue
-        fields[str(name)] = item.get("#text", item.get("text", ""))
+        fields[str(name)] = item.get("#text", item.get("text", "")) or ""
     return fields
 
 
 def normalize(
     raw: dict,
     source: str = "json",
-    source_file: Optional[str] = None,
-    position: Optional[int] = None,
+    source_file: str | None = None,
+    position: int | None = None,
     allow_fallback: bool = True,
 ) -> NormalizedEvent:
     """Normalize one raw event into :class:`NormalizedEvent`.
@@ -156,7 +157,7 @@ def normalize(
     enforce source identity for persistent ingestion.
     """
     if not isinstance(raw, dict):
-        raise ValueError("raw event must be a dict")
+        raise TypeError("raw event must be a dict")
 
     event_id = _get_event_id(
         raw, source_file=source_file, position=position, allow_fallback=allow_fallback
@@ -177,7 +178,9 @@ def normalize(
             "process.create" if fields.get("Image") else None
         )
         user = _first(fields, "User", "UserName", "SubjectUserName")
-        host = _first(system, "Computer", "Host") or _first(fields, "Computer", "HostName")
+        host = _first(system, "Computer", "Host") or _first(
+            fields, "Computer", "HostName"
+        )
         process = ProcessInfo(
             pid=_int(_first(fields, "ProcessId", "PID")),
             ppid=_int(_first(fields, "ParentProcessId", "PPID")),
@@ -205,7 +208,9 @@ def normalize(
                 ppid=_int(proc_raw.get("ppid") or proc_raw.get("PPID")),
                 name=_first(proc_raw, "name", "process_name", "Image"),
                 path=_first(proc_raw, "path", "executable", "Image"),
-                command_line=_first(proc_raw, "command_line", "commandLine", "CommandLine"),
+                command_line=_first(
+                    proc_raw, "command_line", "commandLine", "CommandLine"
+                ),
                 user=_first(proc_raw, "user", "username"),
                 hash_sha256=_first(proc_raw, "hash_sha256", "sha256", "Hash"),
             )
@@ -218,7 +223,9 @@ def normalize(
                 local_address=_first(net_raw, "local_address", "localAddress"),
                 remote_address=_first(net_raw, "remote_address", "remoteAddress"),
                 local_port=_int(net_raw.get("local_port") or net_raw.get("localPort")),
-                remote_port=_int(net_raw.get("remote_port") or net_raw.get("remotePort")),
+                remote_port=_int(
+                    net_raw.get("remote_port") or net_raw.get("remotePort")
+                ),
                 protocol=_first(net_raw, "protocol"),
             )
 
@@ -229,7 +236,9 @@ def normalize(
                 outcome=_first(auth_raw, "outcome", "status", "result"),
                 method=_first(auth_raw, "method", "auth_method"),
                 username=_first(auth_raw, "username", "user"),
-                source_address=_first(auth_raw, "source_address", "src_address", "source_ip"),
+                source_address=_first(
+                    auth_raw, "source_address", "src_address", "source_ip"
+                ),
             )
 
     return NormalizedEvent(
@@ -249,7 +258,7 @@ def normalize(
 def normalize_stream(
     raw_events: Iterator[dict],
     source: str = "json",
-    source_file: Optional[str] = None,
+    source_file: str | None = None,
     start_position: int = 1,
 ) -> Iterator[NormalizedEvent]:
     """Normalize an iterator of raw events, preserving order.

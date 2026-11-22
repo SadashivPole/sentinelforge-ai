@@ -8,9 +8,9 @@ from pathlib import Path
 from sentinelforge.attack.catalogue import ATTACKCatalogue
 from sentinelforge.attack.coverage import CoverageReporter
 from sentinelforge.attack.navigator import (
+    compute_sha256,
     generate_primary_layer,
     generate_secondary_layer,
-    compute_sha256,
 )
 
 
@@ -23,6 +23,7 @@ def _load_reporter() -> CoverageReporter:
 
 
 # ----------------------------------------------------------- navigator format tests
+
 
 def test_primary_layer_is_valid_json() -> None:
     catalogue = _load_catalogue()
@@ -113,6 +114,7 @@ def test_secondary_layer_parent_rollups_disabled() -> None:
 
 # ----------------------------------------------------------- determinism tests
 
+
 def test_primary_layer_deterministic() -> None:
     catalogue = _load_catalogue()
     reporter = _load_reporter()
@@ -134,6 +136,7 @@ def test_secondary_layer_deterministic() -> None:
 
 
 # ----------------------------------------------------------- navigator format tests
+
 
 def test_primary_layer_has_correct_versions() -> None:
     catalogue = _load_catalogue()
@@ -174,11 +177,13 @@ def test_generated_files_exist() -> None:
 
 # ----------------------------------------------------------- navigator v4.5 format tests
 
+
 def test_primary_layer_has_select_visible_techniques() -> None:
     catalogue = _load_catalogue()
     reporter = _load_reporter()
     layer = generate_primary_layer(catalogue, reporter, "/tmp/primary_test.json")
     assert layer["selectVisibleTechniques"] is True
+
 
 def test_primary_layer_has_expanded_subtechniques() -> None:
     """expandedSubtechniques must be inside layout as a string, not at top level as a boolean."""
@@ -194,11 +199,13 @@ def test_primary_layer_has_expanded_subtechniques() -> None:
     )
     assert val == "none", f"expandedSubtechniques must be 'none', got {val!r}"
 
+
 def test_secondary_layer_has_select_visible_techniques() -> None:
     catalogue = _load_catalogue()
     reporter = _load_reporter()
     layer = generate_secondary_layer(catalogue, reporter, "/tmp/secondary_test.json")
     assert layer["selectVisibleTechniques"] is True
+
 
 def test_secondary_layer_has_expanded_subtechniques() -> None:
     """expandedSubtechniques must be inside layout as a string, not at top level as a boolean."""
@@ -213,6 +220,7 @@ def test_secondary_layer_has_expanded_subtechniques() -> None:
         f"expandedSubtechniques must be a string, got {type(val).__name__}"
     )
     assert val == "none", f"expandedSubtechniques must be 'none', got {val!r}"
+
 
 def test_primary_layer_navigator_min_version() -> None:
     catalogue = _load_catalogue()
@@ -243,6 +251,7 @@ def test_secondary_layer_layer_version_45() -> None:
 
 
 # ----------------------------------------------------------- navigator v4.5 schema tests
+
 
 def test_primary_layer_expanded_subtechniques_in_layout() -> None:
     """expandedSubtechniques must be inside layout, not at top level."""
@@ -290,7 +299,9 @@ def test_primary_layer_expanded_subtechniques_is_string() -> None:
     reporter = _load_reporter()
     layer = generate_primary_layer(catalogue, reporter, "/tmp/primary_test.json")
     val = layer["layout"]["expandedSubtechniques"]
-    assert isinstance(val, str), f"expandedSubtechniques must be a string, got {type(val).__name__}"
+    assert isinstance(val, str), (
+        f"expandedSubtechniques must be a string, got {type(val).__name__}"
+    )
     assert val in ("none", "all", "annotated"), (
         f"expandedSubtechniques must be one of 'none', 'all', 'annotated', got {val!r}"
     )
@@ -302,7 +313,9 @@ def test_secondary_layer_expanded_subtechniques_is_string() -> None:
     reporter = _load_reporter()
     layer = generate_secondary_layer(catalogue, reporter, "/tmp/secondary_test.json")
     val = layer["layout"]["expandedSubtechniques"]
-    assert isinstance(val, str), f"expandedSubtechniques must be a string, got {type(val).__name__}"
+    assert isinstance(val, str), (
+        f"expandedSubtechniques must be a string, got {type(val).__name__}"
+    )
     assert val in ("none", "all", "annotated"), (
         f"expandedSubtechniques must be one of 'none', 'all', 'annotated', got {val!r}"
     )

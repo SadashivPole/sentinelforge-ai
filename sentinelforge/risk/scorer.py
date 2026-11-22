@@ -14,11 +14,9 @@ explicitly provided; it is never invented.
 from __future__ import annotations
 
 import hashlib
-import uuid
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
-from sentinelforge.config import settings
 from sentinelforge.detection.base import DetectionResult, Severity
 from sentinelforge.risk.correlator import CorrelationCluster, DetectionCorrelator
 
@@ -81,9 +79,7 @@ class ScoringWeights:
             + self.asset_criticality
         )
         if abs(total - 1.0) > 1e-6:
-            raise ValueError(
-                f"Scoring weights must sum to 1.0, got {total:.6f}"
-            )
+            raise ValueError(f"Scoring weights must sum to 1.0, got {total:.6f}")
 
 
 @dataclass
@@ -91,7 +87,7 @@ class RiskAssessment:
     """A single explainable risk assessment for a host."""
 
     assessment_id: str
-    affected_host: Optional[str]
+    affected_host: str | None
     risk_score: int  # 0-100
     risk_classification: str
     contributing_detection_ids: list[str]
@@ -151,8 +147,7 @@ def _evidence_quality_score(evidence_list: list[Any]) -> tuple[float, str]:
         if getattr(ev, "timestamp", None):
             pts += 25.0
         trio = any(
-            getattr(ev, field, None)
-            for field in ("source_address", "user", "host")
+            getattr(ev, field, None) for field in ("source_address", "user", "host")
         )
         if trio:
             pts += 25.0
@@ -206,7 +201,7 @@ def _severity_score(severities: list[Severity]) -> float:
     return float(max(SEVERITY_SCORES.get(s, 20) for s in severities))
 
 
-def _assessment_id(host: Optional[str], detection_ids: list[str]) -> str:
+def _assessment_id(host: str | None, detection_ids: list[str]) -> str:
     """Deterministic assessment id from host + detection ids."""
     payload = f"{(host or 'unknown')}|{'|'.join(sorted(detection_ids))}"
     return f"assess-{hashlib.sha256(payload.encode()).hexdigest()[:16]}"
@@ -221,15 +216,13 @@ class RiskScorer:
 
     def __init__(
         self,
-        weights: Optional[ScoringWeights] = None,
+        weights: ScoringWeights | None = None,
         correlation_window_seconds: int = 3600,
-        asset_criticality: Optional[dict[str, float]] = None,
+        asset_criticality: dict[str, float] | None = None,
     ) -> None:
         self.weights = weights or ScoringWeights()
         self.weights.validate()
-        self.correlator = DetectionCorrelator(
-            window_seconds=correlation_window_seconds
-        )
+        self.correlator = DetectionCorrelator(window_seconds=correlation_window_seconds)
         # Asset criticality: host -> score (0-100). Only applied when
         # explicitly provided; never invented.
         self.asset_criticality = asset_criticality or {}
@@ -289,12 +282,10 @@ class RiskScorer:
         correlation_weighted = correlation_raw * self.weights.correlation
 
         # --- Factor 5: Asset criticality (optional) ---
-        asset_provided = host is not None and host in self.asset_criticality
-        if asset_provided:
+        asset_raw = 0.0
+        if host is not None and host in self.asset_criticality:
             asset_raw = self.asset_criticality[host]
             asset_raw = max(0.0, min(100.0, asset_raw))
-        else:
-            asset_raw = 0.0
         asset_weighted = asset_raw * self.weights.asset_criticality
 
         # --- Final score (weighted sum, clamped 0-100) ---
@@ -305,7 +296,7 @@ class RiskScorer:
             + correlation_weighted
             + asset_weighted
         )
-        risk_score = max(0, min(100, int(round(raw_total))))
+        risk_score = max(0, min(100, round(raw_total)))
 
         # --- Build factors list ---
         factors: list[ScoringFactor] = [
@@ -353,7 +344,7 @@ class RiskScorer:
                 weighted_score=asset_weighted,
                 description=(
                     "Explicitly provided asset criticality"
-                    if asset_provided
+                    if host is not None and host in self.asset_criticality
                     else "Not provided (not factored)"
                 ),
             ),
@@ -370,11 +361,13 @@ class RiskScorer:
 
         # --- Explanation ---
         parts = [
-            f"Risk score {risk_score} ({_classify(risk_score)}) for host "
-            f"{host or '<unknown>'} based on {len(cluster_results)} detection(s)",
+            (
+                f"Risk score {risk_score} ({_classify(risk_score)}) for host "
+                f"{host or '<unknown>'} based on {len(cluster_results)} detection(s)"
+            ),
             f"across {cluster.distinct_rule_count} distinct detection type(s).",
         ]
-        if asset_provided:
+        if host is not None and host in self.asset_criticality:
             parts.append(
                 f"Asset criticality explicitly provided ({asset_raw:.0f}/100)."
             )
@@ -411,5 +404,6 @@ class RiskScorer:
             recommended_investigation_priorities=priorities,
             evidence_confidence=evidence_confidence,
             detection_severity=highest_severity,
-            asset_criticality_provided=asset_provided,
+            asset_criticality_provided=host is not None
+            and host in self.asset_criticality,
         )

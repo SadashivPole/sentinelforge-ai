@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
-from typing import Optional
 
 from sentinelforge.config import settings
-from sentinelforge.storage.schema import migrate, get_schema_version
+from sentinelforge.storage.schema import get_schema_version, migrate
 
 
 class Database:
@@ -22,7 +21,7 @@ class Database:
     ``SENTINELFORGE_DB_PATH``, default ``data/sentinelforge.db``).
     """
 
-    def __init__(self, db_path: Optional[str] = None) -> None:
+    def __init__(self, db_path: str | None = None) -> None:
         self.db_path = db_path or settings.db_path
 
     def connect(self) -> sqlite3.Connection:
@@ -69,7 +68,7 @@ class Database:
         finally:
             conn.close()
 
-    def schema_version(self) -> Optional[int]:
+    def schema_version(self) -> int | None:
         """Return the current schema version, or None if not initialized."""
         return get_schema_version(self.db_path)
 

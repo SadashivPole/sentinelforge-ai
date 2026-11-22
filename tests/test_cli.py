@@ -14,8 +14,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 SENTINELFORGE_CMD = [sys.executable, "-m", "sentinelforge.cli.main"]
 
 # Try the installed console script first, fall back to -m
@@ -34,7 +32,7 @@ except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpi
 def _run_cli(*args: str, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run the CLI with the given arguments."""
     cmd = ["sentinelforge"] if USE_CONSOLE_SCRIPT else SENTINELFORGE_CMD
-    return subprocess.run(
+    return subprocess.run(  # noqa: PLW1510 - intentional: check return code manually
         cmd + list(args),
         capture_output=True,
         text=True,
@@ -150,9 +148,7 @@ def test_invalid_json_ingestion() -> None:
     input_file = workdir / "bad.json"
     input_file.write_text("{not valid json")
 
-    result = _run_cli(
-        "--db-path", str(db_path), "ingest", str(input_file)
-    )
+    result = _run_cli("--db-path", str(db_path), "ingest", str(input_file))
     assert result.returncode != 0
 
 
@@ -198,9 +194,7 @@ def test_custom_database_path() -> None:
         )
     )
 
-    result = _run_cli(
-        "--db-path", str(custom_db), "ingest", str(input_file)
-    )
+    result = _run_cli("--db-path", str(custom_db), "ingest", str(input_file))
     assert result.returncode == 0
     assert custom_db.exists()
 
@@ -241,9 +235,7 @@ def test_ingest_then_detect() -> None:
     input_file.write_text("\n".join(lines) + "\n")
 
     # Ingest
-    result = _run_cli(
-        "--db-path", str(db_path), "ingest", str(input_file)
-    )
+    result = _run_cli("--db-path", str(db_path), "ingest", str(input_file))
     assert result.returncode == 0
     assert "Events stored: 6" in result.stdout
 
@@ -443,12 +435,16 @@ def _set_max_events_env(value: int) -> dict:
     return env
 
 
-def _run_cli_with_env(*args: str, env: dict, timeout: int = 60) -> subprocess.CompletedProcess:
+def _run_cli_with_env(
+    *args: str, env: dict, timeout: int = 60
+) -> subprocess.CompletedProcess:
     """Run the CLI with a custom environment."""
-    cmd = ["sentinelforge"] if USE_CONSOLE_SCRIPT else [
-        sys.executable, "-m", "sentinelforge.cli.main"
-    ]
-    return subprocess.run(
+    cmd = (
+        ["sentinelforge"]
+        if USE_CONSOLE_SCRIPT
+        else [sys.executable, "-m", "sentinelforge.cli.main"]
+    )
+    return subprocess.run(  # noqa: PLW1510 - intentional: check return code manually
         cmd + list(args),
         capture_output=True,
         text=True,
@@ -512,7 +508,9 @@ def test_safety_guard_no_silent_partial_processing():
 # ---------------------------------------------------------------------------
 
 
-def _ingest_events_from_two_sources(workdir: Path, db_path: Path, per_source: int = 10) -> None:
+def _ingest_events_from_two_sources(
+    workdir: Path, db_path: Path, per_source: int = 10
+) -> None:
     """Ingest failed-login events from two distinct sources into ``db_path``."""
     input_file = workdir / "two_source.jsonl"
     lines = []
@@ -647,9 +645,7 @@ def test_cli_ingest_sysmon_jsonl_with_dot_json_extension():
                 {
                     "Event": {
                         "System": {
-                            "TimeCreated": {
-                                "SystemTime": f"2024-01-15T08:{i:02d}:00Z"
-                            },
+                            "TimeCreated": {"SystemTime": f"2024-01-15T08:{i:02d}:00Z"},
                             "Computer": f"HOST-{i:02d}",
                         },
                         "EventData": {
@@ -821,16 +817,18 @@ def test_evaluation_alert_and_event_metrics_independent():
         rule_name="Failed Login Burst",
         severity=Severity.HIGH,
         description="Burst detected",
-        evidence=[Evidence(
-            event_id="evt-suspicious-1",
-            timestamp="2024-01-01T00:00:00Z",
-            source="json",
-            event_type="auth.login.failed",
-            user="admin",
-            host="HOST-1",
-            source_address="198.51.100.77",
-            raw={},
-        )],
+        evidence=[
+            Evidence(
+                event_id="evt-suspicious-1",
+                timestamp="2024-01-01T00:00:00Z",
+                source="json",
+                event_type="auth.login.failed",
+                user="admin",
+                host="HOST-1",
+                source_address="198.51.100.77",
+                raw={},
+            )
+        ],
     )
 
     # Detection 2: false positive on evt-benign-1 (alert on benign evidence)
@@ -839,16 +837,18 @@ def test_evaluation_alert_and_event_metrics_independent():
         rule_name="Password Spray",
         severity=Severity.HIGH,
         description="Spray detected",
-        evidence=[Evidence(
-            event_id="evt-benign-1",
-            timestamp="2024-01-01T00:00:00Z",
-            source="json",
-            event_type="auth.login.failed",
-            user="admin",
-            host="HOST-1",
-            source_address="10.0.0.1",
-            raw={},
-        )],
+        evidence=[
+            Evidence(
+                event_id="evt-benign-1",
+                timestamp="2024-01-01T00:00:00Z",
+                source="json",
+                event_type="auth.login.failed",
+                user="admin",
+                host="HOST-1",
+                source_address="10.0.0.1",
+                raw={},
+            )
+        ],
     )
 
     # Detection 3: attribution error on evt-suspicious-2 (wrong category)
@@ -857,16 +857,18 @@ def test_evaluation_alert_and_event_metrics_independent():
         rule_name="C2 Beacon",
         severity=Severity.HIGH,
         description="Beacon detected",
-        evidence=[Evidence(
-            event_id="evt-suspicious-2",
-            timestamp="2024-01-01T00:00:00Z",
-            source="json",
-            event_type="network.connection",
-            user="admin",
-            host="HOST-1",
-            source_address="203.0.113.50",
-            raw={},
-        )],
+        evidence=[
+            Evidence(
+                event_id="evt-suspicious-2",
+                timestamp="2024-01-01T00:00:00Z",
+                source="json",
+                event_type="network.connection",
+                user="admin",
+                host="HOST-1",
+                source_address="203.0.113.50",
+                raw={},
+            )
+        ],
     )
 
     results = evaluate_detections(
@@ -918,16 +920,18 @@ def test_evaluation_unassessed_alerts_tracked():
         rule_name="Failed Login Burst",
         severity=Severity.HIGH,
         description="Burst on unlabeled",
-        evidence=[Evidence(
-            event_id="evt-unlabeled",
-            timestamp="2024-01-01T00:00:00Z",
-            source="json",
-            event_type="auth.login.failed",
-            user="admin",
-            host="HOST-1",
-            source_address="198.51.100.77",
-            raw={},
-        )],
+        evidence=[
+            Evidence(
+                event_id="evt-unlabeled",
+                timestamp="2024-01-01T00:00:00Z",
+                source="json",
+                event_type="auth.login.failed",
+                user="admin",
+                host="HOST-1",
+                source_address="198.51.100.77",
+                raw={},
+            )
+        ],
     )
 
     results = evaluate_detections(
@@ -979,6 +983,7 @@ def test_evaluation_cli_output_reports_separate_metrics():
 # evaluate_independent.py being present in the current working directory.
 # ---------------------------------------------------------------------------
 
+
 def test_evaluate_builtin_from_source_checkout() -> None:
     """`evaluate --output` from a source checkout should produce correct metrics."""
     workdir = _make_tmpdir()
@@ -1025,21 +1030,25 @@ def test_database_backed_evaluation_still_works() -> None:
     input_file = workdir / "events.jsonl"
     lines = []
     for i in range(6):
-        lines.append(json.dumps({
-            "event_id": f"gt-{i:02d}",
-            "timestamp": f"2024-01-01T00:00:{i:02d}Z",
-            "event_type": "auth.login.failed",
-            "source": "linux_auth",
-            "user": "admin",
-            "host": "SRV-01",
-            "authentication": {
-                "outcome": "failure",
-                "method": "ssh",
-                "username": "admin",
-                "source_address": "198.51.100.77",
-            },
-            "raw": {"event_id": f"gt-{i:02d}"},
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "event_id": f"gt-{i:02d}",
+                    "timestamp": f"2024-01-01T00:00:{i:02d}Z",
+                    "event_type": "auth.login.failed",
+                    "source": "linux_auth",
+                    "user": "admin",
+                    "host": "SRV-01",
+                    "authentication": {
+                        "outcome": "failure",
+                        "method": "ssh",
+                        "username": "admin",
+                        "source_address": "198.51.100.77",
+                    },
+                    "raw": {"event_id": f"gt-{i:02d}"},
+                }
+            )
+        )
     input_file.write_text("\n".join(lines) + "\n")
 
     result = _run_cli("--db-path", str(db_path), "ingest", str(input_file))
@@ -1051,17 +1060,18 @@ def test_database_backed_evaluation_still_works() -> None:
     # Ground truth matching the 6 ingested events
     gt = {
         "entries": [
-            {"event_id": f"gt-{i:02d}", "classification": "suspicious",
-             "expected_detection_categories": ["failed_login_burst"]}
+            {
+                "event_id": f"gt-{i:02d}",
+                "classification": "suspicious",
+                "expected_detection_categories": ["failed_login_burst"],
+            }
             for i in range(6)
         ]
     }
     gt_file = workdir / "ground_truth.json"
     gt_file.write_text(json.dumps(gt))
 
-    result = _run_cli(
-        "--db-path", str(db_path), "evaluate", "--input", str(gt_file)
-    )
+    result = _run_cli("--db-path", str(db_path), "evaluate", "--input", str(gt_file))
     assert result.returncode == 0
     assert "Precision:" in result.stdout
     assert "Recall:" in result.stdout

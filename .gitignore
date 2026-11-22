@@ -20,3 +20,5 @@ LINKEDIN_*.md
 kb/
 # Data directory database files (binary, regenerated per run)
 data/generated/*.db
+# Exception: test fixture database required by test_datasets.py
+!data/generated/sentinelforge_eval.db

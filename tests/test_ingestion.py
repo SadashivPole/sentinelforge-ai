@@ -9,10 +9,15 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from pathlib import Path
 
 from sentinelforge.ingestion.normalizer import normalize, normalize_stream
-from sentinelforge.ingestion.reader import JSONLReader, JSONReader, SysmonReader, reader_for, LogParseError
+from sentinelforge.ingestion.reader import (
+    JSONLReader,
+    JSONReader,
+    LogParseError,
+    SysmonReader,
+    reader_for,
+)
 
 
 def _write_tmp(content: str, suffix: str) -> str:
@@ -31,9 +36,7 @@ def test_json_reader_single_event():
 
 
 def test_json_reader_event_list():
-    path = _write_tmp(
-        json.dumps([{"event_id": "a"}, {"event_id": "b"}]), ".json"
-    )
+    path = _write_tmp(json.dumps([{"event_id": "a"}, {"event_id": "b"}]), ".json")
     events = list(JSONReader().read(path))
     assert [e["event_id"] for e in events] == ["a", "b"]
 
@@ -53,13 +56,17 @@ def test_jsonl_reader_raises_on_malformed_line():
 def test_jsonl_reader_imports_logparseerror():
     """LogParseError is importable from reader module."""
     from sentinelforge.ingestion.reader import LogParseError
+
     assert issubclass(LogParseError, ValueError)
 
 
 def test_sysmon_reader_extracts_fields():
     raw = {
         "Event": {
-            "System": {"TimeCreated": {"#text": "2024-01-01T00:00:00Z"}, "Computer": "HOST-1"},
+            "System": {
+                "TimeCreated": {"#text": "2024-01-01T00:00:00Z"},
+                "Computer": "HOST-1",
+            },
             "EventData": {
                 "Data": [
                     {"Name": "Image", "#text": "C:\\Windows\\System32\\powershell.exe"},
@@ -189,12 +196,14 @@ def test_jsonl_reader_skips_non_dict_lines():
 def test_sysmon_reader_skips_non_dict_records():
     """Non-dict records in Sysmon input are recorded as skipped."""
     path = _write_tmp(
-        json.dumps([
-            {"Event": {"System": {}, "EventData": {"Data": []}}},
-            "not a dict",
-            42,
-            {"Event": {"System": {}, "EventData": {"Data": []}}},
-        ]),
+        json.dumps(
+            [
+                {"Event": {"System": {}, "EventData": {"Data": []}}},
+                "not a dict",
+                42,
+                {"Event": {"System": {}, "EventData": {"Data": []}}},
+            ]
+        ),
         ".json",
     )
     reader = SysmonReader()
@@ -291,7 +300,10 @@ def test_sysmon_normalization_maps_process_fields():
             },
             "EventData": {
                 "Data": [
-                    {"Name": "Image", "#text": "C:\\\\Windows\\\\System32\\\\powershell.exe"},
+                    {
+                        "Name": "Image",
+                        "#text": "C:\\\\Windows\\\\System32\\\\powershell.exe",
+                    },
                     {"Name": "ProcessId", "#text": "4242"},
                     {"Name": "ParentProcessId", "#text": "1337"},
                     {"Name": "CommandLine", "#text": "powershell -enc AAAA"},
@@ -327,7 +339,7 @@ def test_sysmon_unknown_fields_preserved_in_raw():
     }
     path = _write_tmp(json.dumps(raw), ".json")
     events = list(SysmonReader().read(path))
-    event = normalize(events[0], source="sysmon")
+    normalize(events[0], source="sysmon")
     raw_event = events[0]
     data_map = {d["Name"]: d["#text"] for d in raw_event["Event"]["EventData"]["Data"]}
     assert data_map.get("CustomField") == "custom-value"
@@ -356,38 +368,52 @@ def test_normalize_stream_distinct_positions_distinct_ids():
 def test_normalize_stream_distinct_files_distinct_ids():
     """normalize_stream assigns distinct IDs to identical records from different files."""
     raw = {"user": "bob", "outcome": "failure"}
-    e1 = list(
-        normalize_stream(
-            iter([raw]),
-            source="jsonl",
-            source_file="/logs/file_a.jsonl",
-            start_position=1,
+    e1 = next(
+        iter(
+            normalize_stream(
+                iter([raw]),
+                source="jsonl",
+                source_file="/logs/file_a.jsonl",
+                start_position=1,
+            )
         )
-    )[0]
-    e2 = list(
-        normalize_stream(
-            iter([raw]),
-            source="jsonl",
-            source_file="/logs/file_b.jsonl",
-            start_position=1,
+    )
+    e2 = next(
+        iter(
+            normalize_stream(
+                iter([raw]),
+                source="jsonl",
+                source_file="/logs/file_b.jsonl",
+                start_position=1,
+            )
         )
-    )[0]
+    )
     assert e1.event_id != e2.event_id
 
 
 def test_normalize_stream_stable_on_reingest():
     """normalize_stream produces stable IDs when re-ingesting the same source."""
     raw = {"user": "carol", "outcome": "failure"}
-    e1 = list(
-        normalize_stream(
-            iter([raw]), source="json", source_file="/logs/single.json", start_position=1
+    e1 = next(
+        iter(
+            normalize_stream(
+                iter([raw]),
+                source="json",
+                source_file="/logs/single.json",
+                start_position=1,
+            )
         )
-    )[0]
-    e2 = list(
-        normalize_stream(
-            iter([raw]), source="json", source_file="/logs/single.json", start_position=1
+    )
+    e2 = next(
+        iter(
+            normalize_stream(
+                iter([raw]),
+                source="json",
+                source_file="/logs/single.json",
+                start_position=1,
+            )
         )
-    )[0]
+    )
     assert e1.event_id == e2.event_id
 
 
@@ -416,9 +442,7 @@ def test_normalize_stream_with_source_provided_ids_works_without_source_file():
     raw_a = {"event_id": "src-id-a", "user": "alice"}
     raw_b = {"event_id": "src-id-b", "user": "bob"}
     events = list(
-        normalize_stream(
-            iter([raw_a, raw_b]), source="json", source_file=None
-        )
+        normalize_stream(iter([raw_a, raw_b]), source="json", source_file=None)
     )
     assert len(events) == 2
     assert events[0].event_id == "src-id-a"
@@ -442,7 +466,9 @@ def test_normalize_stream_mixed_source_and_missing_ids_fails():
                 source_file=None,
             )
         )
-        assert False, "Expected ValueError for stream with missing source_file and missing source ID"
+        assert False, (
+            "Expected ValueError for stream with missing source_file and missing source ID"
+        )
     except ValueError as exc:
         assert "source_file" in str(exc)
 
@@ -456,22 +482,26 @@ def test_normalize_stream_changed_content_at_same_position_distinct_ids():
     """
     raw_a = {"user": "dave", "action": "login"}
     raw_b = {"user": "dave", "action": "logout"}
-    e1 = list(
-        normalize_stream(
-            iter([raw_a]),
-            source="json",
-            source_file="/logs/x.json",
-            start_position=1,
+    e1 = next(
+        iter(
+            normalize_stream(
+                iter([raw_a]),
+                source="json",
+                source_file="/logs/x.json",
+                start_position=1,
+            )
         )
-    )[0]
-    e2 = list(
-        normalize_stream(
-            iter([raw_b]),
-            source="json",
-            source_file="/logs/x.json",
-            start_position=1,
+    )
+    e2 = next(
+        iter(
+            normalize_stream(
+                iter([raw_b]),
+                source="json",
+                source_file="/logs/x.json",
+                start_position=1,
+            )
         )
-    )[0]
+    )
     assert e1.event_id != e2.event_id
 
 

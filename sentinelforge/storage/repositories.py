@@ -8,16 +8,15 @@ transactions where writes are involved.
 from __future__ import annotations
 
 import json
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.detection.base import DetectionResult, Evidence, Severity
 from sentinelforge.ingestion.normalizer import (
+    AuthenticationInfo,
+    NetworkInfo,
     NormalizedEvent,
     ProcessInfo,
-    NetworkInfo,
-    AuthenticationInfo,
 )
 from sentinelforge.risk.scorer import RiskAssessment, ScoringFactor
 from sentinelforge.storage.database import Database
@@ -34,8 +33,9 @@ class DuplicateIdCollisionError(ValueError):
 # Serialization helpers
 # ---------------------------------------------------------------------------
 
+
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _content_hash(obj: Any) -> str:
@@ -149,11 +149,19 @@ def _event_to_row(event: NormalizedEvent) -> dict[str, Any]:
 
 def _row_to_event(row) -> NormalizedEvent:
     """Reconstruct a NormalizedEvent from a database row."""
-    process: Optional[ProcessInfo] = None
-    if any(row[key] is not None for key in (
-        "process_pid", "process_ppid", "process_name", "process_path",
-        "process_command_line", "process_user", "process_hash_sha256",
-    )):
+    process: ProcessInfo | None = None
+    if any(
+        row[key] is not None
+        for key in (
+            "process_pid",
+            "process_ppid",
+            "process_name",
+            "process_path",
+            "process_command_line",
+            "process_user",
+            "process_hash_sha256",
+        )
+    ):
         process = ProcessInfo(
             pid=row["process_pid"],
             ppid=row["process_ppid"],
@@ -164,11 +172,18 @@ def _row_to_event(row) -> NormalizedEvent:
             hash_sha256=row["process_hash_sha256"],
         )
 
-    network: Optional[NetworkInfo] = None
-    if any(row[key] is not None for key in (
-        "network_direction", "network_local_address", "network_remote_address",
-        "network_local_port", "network_remote_port", "network_protocol",
-    )):
+    network: NetworkInfo | None = None
+    if any(
+        row[key] is not None
+        for key in (
+            "network_direction",
+            "network_local_address",
+            "network_remote_address",
+            "network_local_port",
+            "network_remote_port",
+            "network_protocol",
+        )
+    ):
         network = NetworkInfo(
             direction=row["network_direction"],
             local_address=row["network_local_address"],
@@ -178,10 +193,16 @@ def _row_to_event(row) -> NormalizedEvent:
             protocol=row["network_protocol"],
         )
 
-    authentication: Optional[AuthenticationInfo] = None
-    if any(row[key] is not None for key in (
-        "auth_outcome", "auth_method", "auth_username", "auth_source_address",
-    )):
+    authentication: AuthenticationInfo | None = None
+    if any(
+        row[key] is not None
+        for key in (
+            "auth_outcome",
+            "auth_method",
+            "auth_username",
+            "auth_source_address",
+        )
+    ):
         authentication = AuthenticationInfo(
             outcome=row["auth_outcome"],
             method=row["auth_method"],
@@ -221,7 +242,7 @@ def _detection_to_row(result: DetectionResult) -> dict[str, Any]:
 def _row_to_detection(row) -> DetectionResult:
     """Reconstruct a DetectionResult from a database row."""
     metadata = json.loads(row["metadata"]) if row["metadata"] else {}
-    evidence_rows = []  # populated separately by the caller via join
+    evidence_rows: list = []  # populated separately by the caller via join
     return DetectionResult(
         detection_id=row["detection_id"],
         rule_id=row["rule_id"],
@@ -246,14 +267,17 @@ def _evidence_to_row(
     for unpersisted events).
     """
     evidence_id = f"{detection_id}-{evidence.event_id}"
-    event_id_col: Optional[str] = None
-    external_event_ref: Optional[str] = None
+    event_id_col: str | None = None
+    external_event_ref: str | None = None
 
     if conn is not None:
-        event_exists = conn.execute(
-            "SELECT 1 FROM events WHERE event_id = ?",
-            (evidence.event_id,),
-        ).fetchone() is not None
+        event_exists = (
+            conn.execute(
+                "SELECT 1 FROM events WHERE event_id = ?",
+                (evidence.event_id,),
+            ).fetchone()
+            is not None
+        )
     else:
         event_exists = False
 
@@ -390,9 +414,7 @@ def _row_to_assessment(row) -> RiskAssessment:
         affected_host=row["affected_host"],
         risk_score=row["risk_score"],
         risk_classification=row["risk_classification"],
-        contributing_detection_ids=json.loads(
-            row["contributing_detection_ids_json"]
-        ),
+        contributing_detection_ids=json.loads(row["contributing_detection_ids_json"]),
         scoring_factors=factors,
         score_breakdown=json.loads(row["score_breakdown_json"]),
         supporting_evidence_count=row["supporting_evidence_count"],
@@ -409,6 +431,7 @@ def _row_to_assessment(row) -> RiskAssessment:
 # ---------------------------------------------------------------------------
 # Event repository
 # ---------------------------------------------------------------------------
+
 
 class EventRepository:
     """Repository for normalized events."""
@@ -594,7 +617,7 @@ class EventRepository:
                 ids.append(event.event_id)
         return ids
 
-    def get_event(self, event_id: str) -> Optional[NormalizedEvent]:
+    def get_event(self, event_id: str) -> NormalizedEvent | None:
         """Retrieve a single event by id."""
         with self.db.connection() as conn:
             row = conn.execute(
@@ -604,11 +627,11 @@ class EventRepository:
 
     def get_events(
         self,
-        limit: Optional[int] = 100,
+        limit: int | None = 100,
         offset: int = 0,
-        host: Optional[str] = None,
-        source: Optional[str] = None,
-        event_type: Optional[str] = None,
+        host: str | None = None,
+        source: str | None = None,
+        event_type: str | None = None,
     ) -> list[NormalizedEvent]:
         """Retrieve events with optional filtering and pagination.
 
@@ -668,6 +691,7 @@ class EventRepository:
 # ---------------------------------------------------------------------------
 # Detection repository
 # ---------------------------------------------------------------------------
+
 
 class DetectionRepository:
     """Repository for detection results and their evidence."""
@@ -824,7 +848,7 @@ class DetectionRepository:
                 ids.append(result.detection_id)
         return ids
 
-    def get_detection(self, detection_id: str) -> Optional[DetectionResult]:
+    def get_detection(self, detection_id: str) -> DetectionResult | None:
         """Retrieve a single detection with its evidence."""
         with self.db.connection() as conn:
             row = conn.execute(
@@ -843,11 +867,11 @@ class DetectionRepository:
 
     def get_detections(
         self,
-        limit: Optional[int] = 100,
+        limit: int | None = 100,
         offset: int = 0,
-        host: Optional[str] = None,
-        severity: Optional[str] = None,
-        rule_id: Optional[str] = None,
+        host: str | None = None,
+        severity: str | None = None,
+        rule_id: str | None = None,
     ) -> list[DetectionResult]:
         """Retrieve detections with optional filtering.
 
@@ -918,8 +942,7 @@ class DetectionRepository:
         """Return detection counts grouped by severity."""
         with self.db.connection() as conn:
             rows = conn.execute(
-                "SELECT severity, COUNT(*) AS c FROM detections "
-                "GROUP BY severity"
+                "SELECT severity, COUNT(*) AS c FROM detections GROUP BY severity"
             ).fetchall()
             return {row["severity"]: int(row["c"]) for row in rows}
 
@@ -936,7 +959,7 @@ class DetectionRepository:
 
     def get_detection_timeline(
         self,
-        host: Optional[str] = None,
+        host: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Return detections over time for timeline visualization."""
@@ -961,6 +984,7 @@ class DetectionRepository:
 # ---------------------------------------------------------------------------
 # Risk assessment repository
 # ---------------------------------------------------------------------------
+
 
 class RiskAssessmentRepository:
     """Repository for risk assessments."""
@@ -1058,7 +1082,7 @@ class RiskAssessmentRepository:
                 )
         return assessment.assessment_id
 
-    def get_risk_assessment(self, assessment_id: str) -> Optional[RiskAssessment]:
+    def get_risk_assessment(self, assessment_id: str) -> RiskAssessment | None:
         """Retrieve a single risk assessment by id."""
         with self.db.connection() as conn:
             row = conn.execute(
@@ -1071,8 +1095,8 @@ class RiskAssessmentRepository:
         self,
         limit: int = 100,
         offset: int = 0,
-        host: Optional[str] = None,
-        min_score: Optional[int] = None,
+        host: str | None = None,
+        min_score: int | None = None,
     ) -> list[RiskAssessment]:
         """Retrieve risk assessments with optional filtering."""
         where = "WHERE 1=1"

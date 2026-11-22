@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
-def _env(name: str, default: str) -> str:
-    return os.environ.get(name, default)
+def _env(name: str, default: str | None = None) -> str:
+    return os.environ.get(name, default) or ""
 
 
 def _env_int(name: str, default: int) -> int:
@@ -42,9 +41,7 @@ def _env_int_required(name: str, default: int) -> int:
     try:
         return int(stripped)
     except (TypeError, ValueError):
-        raise ValueError(
-            f"{name} must be a positive integer, got {raw!r}"
-        ) from None
+        raise ValueError(f"{name} must be a positive integer, got {raw!r}") from None
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -69,7 +66,9 @@ class Settings:
     db_path: str = _env("SENTINELFORGE_DB_PATH", "data/sentinelforge.db")
 
     # Ingestion
-    max_events_per_ingest: int = _env_int("SENTINELFORGE_MAX_EVENTS_PER_INGEST", 100_000)
+    max_events_per_ingest: int = _env_int(
+        "SENTINELFORGE_MAX_EVENTS_PER_INGEST", 100_000
+    )
 
     # Detection thresholds
     failed_login_threshold: int = _env_int("SENTINELFORGE_FAILED_LOGIN_THRESHOLD", 5)
@@ -91,10 +90,10 @@ class Settings:
 
     # AI provider (optional, off by default)
     ai_provider: str = _env("SENTINELFORGE_AI_PROVIDER", "mock")
-    ai_model: Optional[str] = _env("SENTINELFORGE_AI_MODEL", None)
-    ai_base_url: Optional[str] = _env("SENTINELFORGE_AI_BASE_URL", None)
+    ai_model: str | None = _env("SENTINELFORGE_AI_MODEL", None)
+    ai_base_url: str | None = _env("SENTINELFORGE_AI_BASE_URL", None)
     # API keys must never be hard-coded; read only when a real provider is used.
-    ai_api_key_env: Optional[str] = _env("SENTINELFORGE_AI_API_KEY_ENV", None)
+    ai_api_key_env: str | None = _env("SENTINELFORGE_AI_API_KEY_ENV", None)
 
     def ai_enabled(self) -> bool:
         return self.ai_provider != "mock"

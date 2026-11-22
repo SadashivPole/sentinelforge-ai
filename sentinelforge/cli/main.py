@@ -11,26 +11,23 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 from sentinelforge.config import settings
+from sentinelforge.datasets.evaluation import evaluate_detections
 from sentinelforge.detection.base import RuleRegistry
 from sentinelforge.detection.beacon import C2BeaconRule
 from sentinelforge.detection.failed_logins import FailedLoginBurstRule
 from sentinelforge.detection.password_spray import PasswordSprayRule
 from sentinelforge.detection.powershell import SuspiciousPowerShellRule
 from sentinelforge.detection.processtree import SuspiciousProcessTreeRule
-from sentinelforge.datasets.evaluation import evaluate_detections
 from sentinelforge.ingestion.normalizer import normalize
 from sentinelforge.ingestion.reader import LogParseError, reader_for
-from sentinelforge.risk.correlator import DetectionCorrelator
-from sentinelforge.risk.scorer import RiskScorer
 from sentinelforge.storage.database import Database
 from sentinelforge.storage.repositories import (
     DetectionRepository,
     DuplicateIdCollisionError,
     EventRepository,
-    RiskAssessmentRepository,
 )
 
 EXIT_OK = 0
@@ -75,6 +72,7 @@ def _source_from_reader(reader: Any) -> str:
 # ingest command
 # ---------------------------------------------------------------------------
 
+
 def cmd_ingest(args: argparse.Namespace) -> int:
     """Ingest log files into the SQLite database.
 
@@ -86,7 +84,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     try:
         db.initialize()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
         print(f"ERROR: Failed to initialize database: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
@@ -153,7 +151,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         except OSError as exc:
             errors.append(f"Read error in {input_path}: {exc}")
 
-    print(f"Ingestion complete.")
+    print("Ingestion complete.")
     print(f"  Files processed: {len(input_paths)}")
     print(f"  Events normalized: {total_normalized}")
     print(f"  Events stored: {total_stored}")
@@ -173,6 +171,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 # detect command
 # ---------------------------------------------------------------------------
 
+
 def cmd_detect(args: argparse.Namespace) -> int:
     """Run detection rules on stored events and optionally write results."""
     db = Database(args.db_path)
@@ -180,9 +179,11 @@ def cmd_detect(args: argparse.Namespace) -> int:
     try:
         version = db.schema_version()
         if version is None:
-            print("ERROR: Database not initialized. Run 'ingest' first.", file=sys.stderr)
+            print(
+                "ERROR: Database not initialized. Run 'ingest' first.", file=sys.stderr
+            )
             return EXIT_ERROR
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
         print(f"ERROR: Cannot read database schema: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
@@ -227,7 +228,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
             pass
 
     # Print summary.
-    print(f"Detection complete.")
+    print("Detection complete.")
     print(f"  Events evaluated: {total_events}")
     print(f"  Detection alerts: {len(results)}")
     print(f"  Alerts stored: {total_stored}")
@@ -283,6 +284,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
 # evaluate command
 # ---------------------------------------------------------------------------
 
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
     """Run detection quality evaluation.
 
@@ -296,7 +298,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return _evaluate_builtin(output_path=args.output)
 
 
-def _evaluate_builtin(output_path: Optional[str] = None) -> int:
+def _evaluate_builtin(output_path: str | None = None) -> int:
     """Run the built-in independent evaluation (packaged evaluator)."""
     import contextlib
     import io
@@ -334,7 +336,6 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
     """
     db = Database(args.db_path)
     detection_repo = DetectionRepository(db)
-    event_repo = EventRepository(db)
 
     # Load ground truth.
     gt_path = Path(args.input)
@@ -346,7 +347,10 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
         with open(gt_path, "r", encoding="utf-8") as fh:
             ground_truth = json.load(fh)
     except json.JSONDecodeError as exc:
-        print(f"ERROR: Invalid JSON in ground truth file {gt_path}: {exc}", file=sys.stderr)
+        print(
+            f"ERROR: Invalid JSON in ground truth file {gt_path}: {exc}",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
 
     # Load ALL stored detections (no arbitrary limit).
@@ -378,7 +382,7 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
         event_ground_truth=ground_truth,
     )
 
-    print(f"Evaluation complete.")
+    print("Evaluation complete.")
     print(f"  Dataset: {results.dataset_id}")
     print(f"  Total ground truth events: {results.total_events}")
     print(f"    Suspicious: {results.suspicious_events}")
@@ -407,10 +411,14 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
     print("  F1 scores:")
     fa = results.f1_alert
     fe = results.f1_event
-    print(f"    Alert-level:  valid={fa.valid}, precision={fa.precision}, "
-          f"recall={fa.recall}, f1={fa.f1_score} ({fa.formula})")
-    print(f"    Event-level:  valid={fe.valid}, precision={fe.precision}, "
-          f"recall={fe.recall}, f1={fe.f1_score} ({fe.formula})")
+    print(
+        f"    Alert-level:  valid={fa.valid}, precision={fa.precision}, "
+        f"recall={fa.recall}, f1={fa.f1_score} ({fa.formula})"
+    )
+    print(
+        f"    Event-level:  valid={fe.valid}, precision={fe.precision}, "
+        f"recall={fe.recall}, f1={fe.f1_score} ({fe.formula})"
+    )
 
     if args.output:
         output_path = Path(args.output)
@@ -424,6 +432,7 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -439,7 +448,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ingest
-    p_ingest = subparsers.add_parser("ingest", help="Ingest log files into the database")
+    p_ingest = subparsers.add_parser(
+        "ingest", help="Ingest log files into the database"
+    )
     p_ingest.add_argument(
         "input",
         nargs="+",
@@ -458,9 +469,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_detect.set_defaults(func=cmd_detect)
 
     # evaluate
-    p_eval = subparsers.add_parser(
-        "evaluate", help="Evaluate detection quality"
-    )
+    p_eval = subparsers.add_parser("evaluate", help="Evaluate detection quality")
     p_eval.add_argument(
         "--input",
         help="Ground truth JSON file for database-backed evaluation",
@@ -474,7 +483,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 

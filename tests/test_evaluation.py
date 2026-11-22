@@ -37,6 +37,7 @@ def make_detection_result(
 ):
     """Create a minimal DetectionResult-like object for testing."""
     from sentinelforge.detection.base import DetectionResult, Evidence, Severity
+
     evidence = [
         Evidence(
             event_id=eid,
@@ -72,21 +73,38 @@ def evaluate_with_gt(
     """Helper to build ground truth and evaluate."""
     entries = []
     for e in suspicious_events:
-        entries.append(make_gt_entry(
-            e["event_id"], "suspicious", e.get("scenario_id"),
-            e.get("expected_detection_category", ""),
-            e.get("expected_severity_range", ""), e.get("explanation", ""),
-        ))
+        entries.append(
+            make_gt_entry(
+                e["event_id"],
+                "suspicious",
+                e.get("scenario_id"),
+                e.get("expected_detection_category", ""),
+                e.get("expected_severity_range", ""),
+                e.get("explanation", ""),
+            )
+        )
     for e in benign_events:
-        entries.append(make_gt_entry(
-            e["event_id"], "benign", e.get("scenario_id"),
-            e.get("expected_detection_category", ""),
-            e.get("expected_severity_range", ""), e.get("explanation", ""),
-        ))
-    for e in (unlabeled_events or []):
-        entries.append(make_gt_entry(
-            e["event_id"], "unlabeled", None, "", "", "Not part of any scenario.",
-        ))
+        entries.append(
+            make_gt_entry(
+                e["event_id"],
+                "benign",
+                e.get("scenario_id"),
+                e.get("expected_detection_category", ""),
+                e.get("expected_severity_range", ""),
+                e.get("explanation", ""),
+            )
+        )
+    for e in unlabeled_events or []:
+        entries.append(
+            make_gt_entry(
+                e["event_id"],
+                "unlabeled",
+                None,
+                "",
+                "",
+                "Not part of any scenario.",
+            )
+        )
     return evaluate_detections(
         "test-ds",
         detection_results,
@@ -98,15 +116,18 @@ def evaluate_with_gt(
 # Alert-level tests
 # ---------------------------------------------------------------------------
 
+
 def test_alert_level_true_positive():
     """Detection on suspicious event with matching category = alert-level TP."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.failed_login_burst",
         rule_name="Failed Login Burst",
@@ -123,13 +144,15 @@ def test_alert_level_true_positive():
 
 def test_alert_level_false_positive():
     """Detection on benign event = alert-level FP."""
-    gt_benign = [{
-        "event_id": "evt-benign-1",
-        "scenario_id": "scenario-st-005",
-        "expected_detection_category": "none",
-        "expected_severity_range": "info",
-        "explanation": "EDR heartbeat",
-    }]
+    gt_benign = [
+        {
+            "event_id": "evt-benign-1",
+            "scenario_id": "scenario-st-005",
+            "expected_detection_category": "none",
+            "expected_severity_range": "info",
+            "explanation": "EDR heartbeat",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.c2_beacon",
         rule_name="C2 Beacon",
@@ -145,13 +168,15 @@ def test_alert_level_false_positive():
 
 def test_alert_level_unassessed_excluded():
     """Alert on unlabeled evidence only = unassessed, not FP."""
-    gt_unlabeled = [{
-        "event_id": "evt-unlabeled-1",
-        "scenario_id": None,
-        "expected_detection_category": "",
-        "expected_severity_range": "",
-        "explanation": "Not in any scenario.",
-    }]
+    gt_unlabeled = [
+        {
+            "event_id": "evt-unlabeled-1",
+            "scenario_id": None,
+            "expected_detection_category": "",
+            "expected_severity_range": "",
+            "explanation": "Not in any scenario.",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.c2_beacon",
         rule_name="C2 Beacon",
@@ -173,13 +198,15 @@ def test_alert_level_category_mismatch_is_attribution_error():
     (correct detection) but attributed it to the wrong technique (wrong label).
     This is NOT an ordinary false positive — something bad did happen.
     """
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     # C2 beacon detection on a brute-force event — category mismatch
     det = make_detection_result(
         rule_id="sentinelforge.detection.c2_beacon",
@@ -199,15 +226,18 @@ def test_alert_level_category_mismatch_is_attribution_error():
 # Event-level tests
 # ---------------------------------------------------------------------------
 
+
 def test_event_level_true_positive():
     """Suspicious event with at least one matching detection = event-level TP."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.failed_login_burst",
         rule_name="Failed Login Burst",
@@ -224,13 +254,15 @@ def test_event_level_true_positive():
 
 def test_event_level_false_negative():
     """Suspicious event with no detection = event-level FN."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     result = evaluate_with_gt([], gt_suspicious, [])
     assert result.event_level.total_suspicious_events == 1
     assert result.event_level.detected_suspicious_events == 0
@@ -240,13 +272,15 @@ def test_event_level_false_negative():
 
 def test_event_level_unlabeled_excluded():
     """Unlabeled events don't affect event-level recall."""
-    gt_unlabeled = [{
-        "event_id": "evt-unlabeled-1",
-        "scenario_id": None,
-        "expected_detection_category": "",
-        "expected_severity_range": "",
-        "explanation": "Not in any scenario.",
-    }]
+    gt_unlabeled = [
+        {
+            "event_id": "evt-unlabeled-1",
+            "scenario_id": None,
+            "expected_detection_category": "",
+            "expected_severity_range": "",
+            "explanation": "Not in any scenario.",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.c2_beacon",
         rule_name="C2 Beacon",
@@ -262,6 +296,7 @@ def test_event_level_unlabeled_excluded():
 # ---------------------------------------------------------------------------
 # F1 tests
 # ---------------------------------------------------------------------------
+
 
 def test_f1_alert_not_valid():
     """Alert-level F1 is not valid (no alert-level recall)."""
@@ -281,15 +316,18 @@ def test_f1_event_not_valid():
 # Per-rule metrics tests
 # ---------------------------------------------------------------------------
 
+
 def test_rule_alert_metrics_structure():
     """Rule alert metrics contain all required fields."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.failed_login_burst",
         rule_name="Failed Login Burst",
@@ -309,13 +347,15 @@ def test_rule_alert_metrics_structure():
 
 def test_rule_event_metrics_structure():
     """Rule event metrics contain all required fields."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.failed_login_burst",
         rule_name="Failed Login Burst",
@@ -349,6 +389,7 @@ def test_no_detections_zero_metrics():
 # Mathematical verification: exact numerators and denominators
 # ---------------------------------------------------------------------------
 
+
 def test_alert_level_precision_exact_numerator_denominator():
     """Alert-level precision = TP / assessed with exact counts.
 
@@ -359,17 +400,36 @@ def test_alert_level_precision_exact_numerator_denominator():
     """
     # 3 suspicious events, all matched by detections with correct category
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
-        make_gt_entry("evt-susp-2", "suspicious", "scenario-st-002",
-                      "failed_login_burst", "high", "8 failed logins"),
-        make_gt_entry("evt-susp-3", "suspicious", "scenario-st-004",
-                      "c2_beacon", "medium", "Periodic connections"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
+        make_gt_entry(
+            "evt-susp-2",
+            "suspicious",
+            "scenario-st-002",
+            "failed_login_burst",
+            "high",
+            "8 failed logins",
+        ),
+        make_gt_entry(
+            "evt-susp-3",
+            "suspicious",
+            "scenario-st-004",
+            "c2_beacon",
+            "medium",
+            "Periodic connections",
+        ),
     ]
     # 1 benign event that triggers a detection (true FP)
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
     # 5 unlabeled events that trigger detections (unassessed)
     gt_unlabeled = [
@@ -379,33 +439,45 @@ def test_alert_level_precision_exact_numerator_denominator():
 
     # 3 TP alerts: each matches a suspicious event with correct category
     tp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-susp-1"], "T1204.002"),
-        make_detection_result("sentinelforge.detection.failed_login_burst",
-                              "Failed Login Burst",
-                              ["evt-susp-2"], "T1110"),
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              ["evt-susp-3"], "T1071"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-susp-1"],
+            "T1204.002",
+        ),
+        make_detection_result(
+            "sentinelforge.detection.failed_login_burst",
+            "Failed Login Burst",
+            ["evt-susp-2"],
+            "T1110",
+        ),
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-susp-3"], "T1071"
+        ),
     ]
     # 1 FP alert: detection on benign event
     fp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-benign-1"], "T1204.002"),  # benign event
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-benign-1"],
+            "T1204.002",
+        ),  # benign event
     ]
     # 1 attribution error: category mismatch on suspicious event
     attribution_error_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              ["evt-susp-1"], "T1071"),  # wrong category
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-susp-1"], "T1071"
+        ),  # wrong category
     ]
     # 5 unassessed alerts: all on unlabeled events
     unassessed_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              [f"evt-unlabeled-{i}"], "T1071")
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon",
+            "C2 Beacon",
+            [f"evt-unlabeled-{i}"],
+            "T1071",
+        )
         for i in range(5)
     ]
 
@@ -426,12 +498,29 @@ def test_alert_level_precision_exact_numerator_denominator():
 
     # Per-rule metrics
     rule_map = {m.rule_id: m for m in result.rule_alert_metrics}
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].true_positive_alerts == 1
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].false_positive_alerts == 1  # alert on benign evt-benign-1
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].attribution_error_alerts == 0
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].assessed_alerts == 2
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].precision == 0.5  # 1 / 2
-    assert rule_map["sentinelforge.detection.failed_login_burst"].true_positive_alerts == 1
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].true_positive_alerts
+        == 1
+    )
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].false_positive_alerts
+        == 1
+    )  # alert on benign evt-benign-1
+    assert (
+        rule_map[
+            "sentinelforge.detection.suspicious_processtree"
+        ].attribution_error_alerts
+        == 0
+    )
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].assessed_alerts == 2
+    )
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].precision == 0.5
+    )  # 1 / 2
+    assert (
+        rule_map["sentinelforge.detection.failed_login_burst"].true_positive_alerts == 1
+    )
     assert rule_map["sentinelforge.detection.failed_login_burst"].assessed_alerts == 1
     assert rule_map["sentinelforge.detection.failed_login_burst"].precision == 1.0
     assert rule_map["sentinelforge.detection.c2_beacon"].true_positive_alerts == 1
@@ -451,24 +540,53 @@ def test_event_level_recall_exact_numerator_denominator():
     Multiple detections of the same event are deduplicated (count once).
     """
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
-        make_gt_entry("evt-susp-2", "suspicious", "scenario-st-002",
-                      "failed_login_burst", "high", "8 failed logins"),
-        make_gt_entry("evt-susp-3", "suspicious", "scenario-st-003",
-                      "password_spray", "high", "Password spraying"),
-        make_gt_entry("evt-susp-4", "suspicious", "scenario-st-004",
-                      "c2_beacon", "medium", "Periodic connections"),
-        make_gt_entry("evt-susp-5", "suspicious", "scenario-st-007",
-                      "failed_login_burst", "high", "Multi-host brute force"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
+        make_gt_entry(
+            "evt-susp-2",
+            "suspicious",
+            "scenario-st-002",
+            "failed_login_burst",
+            "high",
+            "8 failed logins",
+        ),
+        make_gt_entry(
+            "evt-susp-3",
+            "suspicious",
+            "scenario-st-003",
+            "password_spray",
+            "high",
+            "Password spraying",
+        ),
+        make_gt_entry(
+            "evt-susp-4",
+            "suspicious",
+            "scenario-st-004",
+            "c2_beacon",
+            "medium",
+            "Periodic connections",
+        ),
+        make_gt_entry(
+            "evt-susp-5",
+            "suspicious",
+            "scenario-st-007",
+            "failed_login_burst",
+            "high",
+            "Multi-host brute force",
+        ),
     ]
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
-    gt_unlabeled = [
-        make_gt_entry("evt-unlabeled-1", "unlabeled", None, "", "", "")
-    ]
+    gt_unlabeled = [make_gt_entry("evt-unlabeled-1", "unlabeled", None, "", "", "")]
 
     # 3 events detected:
     # evt-susp-1 detected by processtree rule
@@ -476,25 +594,38 @@ def test_event_level_recall_exact_numerator_denominator():
     # evt-susp-3 detected by password_spray rule
     # evt-susp-4 NOT detected (no matching alert)
     # evt-susp-5 NOT detected (no matching alert)
-    det1 = make_detection_result("sentinelforge.detection.suspicious_processtree",
-                                 "Suspicious Process Tree",
-                                 ["evt-susp-1"], "T1204.002")
-    det2 = make_detection_result("sentinelforge.detection.failed_login_burst",
-                                 "Failed Login Burst",
-                                 ["evt-susp-2"], "T1110")
-    det3 = make_detection_result("sentinelforge.detection.failed_login_burst",
-                                 "Failed Login Burst",
-                                 ["evt-susp-2"], "T1110")  # duplicate detection
-    det4 = make_detection_result("sentinelforge.detection.password_spray",
-                                 "Password Spray",
-                                 ["evt-susp-3"], "T1110.003")
+    det1 = make_detection_result(
+        "sentinelforge.detection.suspicious_processtree",
+        "Suspicious Process Tree",
+        ["evt-susp-1"],
+        "T1204.002",
+    )
+    det2 = make_detection_result(
+        "sentinelforge.detection.failed_login_burst",
+        "Failed Login Burst",
+        ["evt-susp-2"],
+        "T1110",
+    )
+    det3 = make_detection_result(
+        "sentinelforge.detection.failed_login_burst",
+        "Failed Login Burst",
+        ["evt-susp-2"],
+        "T1110",
+    )  # duplicate detection
+    det4 = make_detection_result(
+        "sentinelforge.detection.password_spray",
+        "Password Spray",
+        ["evt-susp-3"],
+        "T1110.003",
+    )
     # FP on benign event
-    det5 = make_detection_result("sentinelforge.detection.c2_beacon",
-                                 "C2 Beacon",
-                                 ["evt-benign-1"], "T1071")
+    det5 = make_detection_result(
+        "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-benign-1"], "T1071"
+    )
 
-    result = evaluate_with_gt([det1, det2, det3, det4, det5],
-                              gt_suspicious, gt_benign, gt_unlabeled)
+    result = evaluate_with_gt(
+        [det1, det2, det3, det4, det5], gt_suspicious, gt_benign, gt_unlabeled
+    )
 
     # Event-level: recall = 3 / 5 = 0.6
     assert result.event_level.total_suspicious_events == 5
@@ -506,8 +637,12 @@ def test_event_level_recall_exact_numerator_denominator():
 
     # Per-rule event metrics
     rule_map = {m.rule_id: m for m in result.rule_event_metrics}
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].expected_events == 1
-    assert rule_map["sentinelforge.detection.suspicious_processtree"].detected_events == 1
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].expected_events == 1
+    )
+    assert (
+        rule_map["sentinelforge.detection.suspicious_processtree"].detected_events == 1
+    )
     assert rule_map["sentinelforge.detection.failed_login_burst"].expected_events == 2
     assert rule_map["sentinelforge.detection.failed_login_burst"].detected_events == 1
     assert rule_map["sentinelforge.detection.password_spray"].expected_events == 1
@@ -522,25 +657,34 @@ def test_alert_on_mixed_evidence_classification():
     If mixed but no suspicious match -> FP.
     """
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
     ]
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
 
     # Mixed evidence: one suspicious (matching) + one benign -> TP
-    det_mixed_tp = make_detection_result("sentinelforge.detection.suspicious_processtree",
-                                         "Suspicious Process Tree",
-                                         ["evt-susp-1", "evt-benign-1"], "T1204.002")
+    det_mixed_tp = make_detection_result(
+        "sentinelforge.detection.suspicious_processtree",
+        "Suspicious Process Tree",
+        ["evt-susp-1", "evt-benign-1"],
+        "T1204.002",
+    )
     # All benign evidence -> FP
-    det_benign_only = make_detection_result("sentinelforge.detection.c2_beacon",
-                                            "C2 Beacon",
-                                            ["evt-benign-1"], "T1071")
+    det_benign_only = make_detection_result(
+        "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-benign-1"], "T1071"
+    )
 
-    result = evaluate_with_gt([det_mixed_tp, det_benign_only],
-                              gt_suspicious, gt_benign)
+    result = evaluate_with_gt([det_mixed_tp, det_benign_only], gt_suspicious, gt_benign)
 
     assert result.alert_level.true_positive_alerts == 1
     assert result.alert_level.false_positive_alerts == 1
@@ -550,17 +694,29 @@ def test_alert_on_mixed_evidence_classification():
 def test_multiple_detections_same_event_deduplicated():
     """Multiple detections of the same event count once at event level."""
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
     ]
 
     # Two detections on the same event with matching category
-    det1 = make_detection_result("sentinelforge.detection.suspicious_processtree",
-                                 "Suspicious Process Tree",
-                                 ["evt-susp-1"], "T1204.002")
-    det2 = make_detection_result("sentinelforge.detection.suspicious_processtree",
-                                 "Suspicious Process Tree (2nd)",
-                                 ["evt-susp-1"], "T1204.002")
+    det1 = make_detection_result(
+        "sentinelforge.detection.suspicious_processtree",
+        "Suspicious Process Tree",
+        ["evt-susp-1"],
+        "T1204.002",
+    )
+    det2 = make_detection_result(
+        "sentinelforge.detection.suspicious_processtree",
+        "Suspicious Process Tree (2nd)",
+        ["evt-susp-1"],
+        "T1204.002",
+    )
 
     result = evaluate_with_gt([det1, det2], gt_suspicious, [])
 
@@ -579,6 +735,7 @@ def test_multiple_detections_same_event_deduplicated():
 # Metric terminology: three separate precision/coverage measures (M8.3.2)
 # ---------------------------------------------------------------------------
 
+
 def test_category_correct_precision_only_counts_category_correct_tp():
     """Category-correct precision = category-correct TP / assessed.
 
@@ -590,14 +747,27 @@ def test_category_correct_precision_only_counts_category_correct_tp():
     Assessed = 2 + 1 + 1 = 4. Category-correct precision = 2 / 4 = 0.5.
     """
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
-        make_gt_entry("evt-susp-2", "suspicious", "scenario-st-002",
-                      "failed_login_burst", "high", "8 failed logins"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
+        make_gt_entry(
+            "evt-susp-2",
+            "suspicious",
+            "scenario-st-002",
+            "failed_login_burst",
+            "high",
+            "8 failed logins",
+        ),
     ]
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
     gt_unlabeled = [
         make_gt_entry(f"evt-unlabeled-{i}", "unlabeled", None, "", "", "")
@@ -606,30 +776,42 @@ def test_category_correct_precision_only_counts_category_correct_tp():
 
     # 2 category-correct TP alerts
     tp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-susp-1"], "T1204.002"),
-        make_detection_result("sentinelforge.detection.failed_login_burst",
-                              "Failed Login Burst",
-                              ["evt-susp-2"], "T1110"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-susp-1"],
+            "T1204.002",
+        ),
+        make_detection_result(
+            "sentinelforge.detection.failed_login_burst",
+            "Failed Login Burst",
+            ["evt-susp-2"],
+            "T1110",
+        ),
     ]
     # 1 FP alert: detection on benign event
     fp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-benign-1"], "T1204.002"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-benign-1"],
+            "T1204.002",
+        ),
     ]
     # 1 attribution error: category mismatch on suspicious event
     attribution_error_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              ["evt-susp-1"], "T1071"),  # wrong category
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-susp-1"], "T1071"
+        ),  # wrong category
     ]
     # 5 unassessed alerts: all on unlabeled events
     unassessed_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              [f"evt-unlabeled-{i}"], "T1071")
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon",
+            "C2 Beacon",
+            [f"evt-unlabeled-{i}"],
+            "T1071",
+        )
         for i in range(5)
     ]
 
@@ -661,14 +843,27 @@ def test_suspicious_activity_precision_counts_attribution_errors_as_detected():
     errors are tracked separately from true positives.
     """
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
-        make_gt_entry("evt-susp-2", "suspicious", "scenario-st-002",
-                      "failed_login_burst", "high", "8 failed logins"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
+        make_gt_entry(
+            "evt-susp-2",
+            "suspicious",
+            "scenario-st-002",
+            "failed_login_burst",
+            "high",
+            "8 failed logins",
+        ),
     ]
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
     gt_unlabeled = [
         make_gt_entry(f"evt-unlabeled-{i}", "unlabeled", None, "", "", "")
@@ -676,27 +871,39 @@ def test_suspicious_activity_precision_counts_attribution_errors_as_detected():
     ]
 
     tp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-susp-1"], "T1204.002"),
-        make_detection_result("sentinelforge.detection.failed_login_burst",
-                              "Failed Login Burst",
-                              ["evt-susp-2"], "T1110"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-susp-1"],
+            "T1204.002",
+        ),
+        make_detection_result(
+            "sentinelforge.detection.failed_login_burst",
+            "Failed Login Burst",
+            ["evt-susp-2"],
+            "T1110",
+        ),
     ]
     fp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-benign-1"], "T1204.002"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-benign-1"],
+            "T1204.002",
+        ),
     ]
     attribution_error_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              ["evt-susp-1"], "T1071"),
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-susp-1"], "T1071"
+        ),
     ]
     unassessed_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              [f"evt-unlabeled-{i}"], "T1071")
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon",
+            "C2 Beacon",
+            [f"evt-unlabeled-{i}"],
+            "T1071",
+        )
         for i in range(5)
     ]
 
@@ -709,10 +916,9 @@ def test_suspicious_activity_precision_counts_attribution_errors_as_detected():
     assert result.alert_level.false_positive_alerts == 1
     assert result.alert_level.assessed_alerts == 4  # 2 + 1 + 1
     suspicious_activity_precision = (
-        (result.alert_level.true_positive_alerts +
-         result.alert_level.attribution_error_alerts) /
-        result.alert_level.assessed_alerts
-    )
+        result.alert_level.true_positive_alerts
+        + result.alert_level.attribution_error_alerts
+    ) / result.alert_level.assessed_alerts
     assert suspicious_activity_precision == 0.75  # 3 / 4
 
 
@@ -724,12 +930,19 @@ def test_assessment_coverage_exact_numerator_denominator():
     Total = 9. Coverage = 4 / 9 = 0.4444.
     """
     gt_suspicious = [
-        make_gt_entry("evt-susp-1", "suspicious", "scenario-st-001",
-                      "suspicious_processtree", "high", "Word->PowerShell"),
+        make_gt_entry(
+            "evt-susp-1",
+            "suspicious",
+            "scenario-st-001",
+            "suspicious_processtree",
+            "high",
+            "Word->PowerShell",
+        ),
     ]
     gt_benign = [
-        make_gt_entry("evt-benign-1", "benign", "scenario-st-005",
-                      "none", "info", "EDR heartbeat"),
+        make_gt_entry(
+            "evt-benign-1", "benign", "scenario-st-005", "none", "info", "EDR heartbeat"
+        ),
     ]
     gt_unlabeled = [
         make_gt_entry(f"evt-unlabeled-{i}", "unlabeled", None, "", "", "")
@@ -737,24 +950,33 @@ def test_assessment_coverage_exact_numerator_denominator():
     ]
 
     tp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-susp-1"], "T1204.002"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-susp-1"],
+            "T1204.002",
+        ),
     ]
     fp_alerts = [
-        make_detection_result("sentinelforge.detection.suspicious_processtree",
-                              "Suspicious Process Tree",
-                              ["evt-benign-1"], "T1204.002"),
+        make_detection_result(
+            "sentinelforge.detection.suspicious_processtree",
+            "Suspicious Process Tree",
+            ["evt-benign-1"],
+            "T1204.002",
+        ),
     ]
     attribution_error_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              ["evt-susp-1"], "T1071"),
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-susp-1"], "T1071"
+        ),
     ]
     unassessed_alerts = [
-        make_detection_result("sentinelforge.detection.c2_beacon",
-                              "C2 Beacon",
-                              [f"evt-unlabeled-{i}"], "T1071")
+        make_detection_result(
+            "sentinelforge.detection.c2_beacon",
+            "C2 Beacon",
+            [f"evt-unlabeled-{i}"],
+            "T1071",
+        )
         for i in range(5)
     ]
 
