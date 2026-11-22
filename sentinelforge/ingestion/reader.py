@@ -10,7 +10,6 @@ raise a :class:`LogParseError` so data loss is never silent.
 from __future__ import annotations
 
 import json
-import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterator, Optional
@@ -45,23 +44,89 @@ def _first_non_empty_line(handle) -> str | None:
     return None
 
 
-def _generate_event_id(raw: dict) -> str:
-    """Deterministic fallback id when a raw event carries none."""
-    return str(uuid.uuid4())
+def _generate_event_id(
+    raw: dict, source_file: Optional[str] = None, position: Optional[int] = None
+) -> str:
+    """Generate a deterministic event ID from source identity + content.
+
+    When ``source_file`` and ``position`` are provided, the ID is derived
+    from (source_file, position, canonical content). This ensures:
+
+    - Two identical records at different positions get distinct IDs.
+    - Identical records in different source files get distinct IDs.
+    - Re-ingesting the same source file produces stable IDs.
+
+    When ``source_file`` is missing (single-event utility calls without
+    ingestion context), a content-only hash is used for backward
+    compatibility. In that fallback mode, distinct but identical records
+    may receive the same ID — this is safe only for single-event,
+    non-persistent use. Persistent batch/stream ingestion must supply
+    source_file via normalize_stream() or cmd_ingest().
+
+    The identifier depends on the source file path; moving or renaming a
+    source file changes generated IDs. Do not claim universal idempotency
+    across relocated files.
+    """
+    import hashlib
+    import json
+
+    identity_parts: list[str] = []
+    if source_file is not None:
+        identity_parts.append(f"source:{source_file}")
+    if position is not None:
+        identity_parts.append(f"position:{position}")
+    identity_parts.append(
+        f"content:{json.dumps(raw, sort_keys=True, ensure_ascii=False)}"
+    )
+
+    return hashlib.sha256("|".join(identity_parts).encode("utf-8")).hexdigest()
 
 
-def _get_event_id(raw: dict) -> str:
+def _get_event_id(
+    raw: dict,
+    source_file: Optional[str] = None,
+    position: Optional[int] = None,
+    allow_fallback: bool = False,
+) -> str:
     """Return an event id from the raw record without inventing semantics.
 
-    Only ids already present in the raw log are used; otherwise a fresh
-    uuid4 is generated. We never derive an id from log content because that
-    would fabricate identifying information.
+    Only ids already present in the raw log are used; otherwise a
+    deterministic id is derived from source file, record position, and
+    canonical content.
+
+    Identity policy:
+      A. Source-supplied event_id is preserved verbatim.
+      B. For generated ids: source_file + position + content hash.
+      C. Same source record + same content = idempotent re-ingestion.
+      D. Different source record + identical content = distinct IDs (both
+         preserved; no false deduplication).
+      E. Same generated id with different content = collision, detected
+         by the storage layer's content-hash comparison.
+
+    Parameters:
+        allow_fallback: When True and no source-supplied ID exists and
+            source_file is None, fall back to a content-only hash. This
+            is safe only for single-event, non-persistent use. When
+            False (stream/batch ingestion), a ValueError is raised
+            instead.
+
+    Raises:
+        ValueError: If no source-supplied ID exists, source_file is None,
+            and allow_fallback is False.
     """
-    for key in ("event_id", "id", "EventID", "EventID", "record_id", "uuid"):
+    for key in ("event_id", "id", "EventID", "record_id", "uuid"):
         value = raw.get(key)
         if value is not None:
             return str(value)
-    return _generate_event_id(raw)
+    if source_file is None and not allow_fallback:
+        raise ValueError(
+            "Cannot generate event ID without source_file: record lacks a "
+            "source-supplied event ID and no source identity was provided. "
+            "Persistent batch/stream ingestion requires source_file so that "
+            "identical records receive distinct IDs. Provide source_file or "
+            "ensure records carry an event_id field."
+        )
+    return _generate_event_id(raw, source_file=source_file, position=position)
 
 
 def _sniff_sysmon_or_jsonl(first_line: str) -> type:
@@ -86,7 +151,14 @@ def _sniff_sysmon_or_jsonl(first_line: str) -> type:
 
 
 class LogReader(ABC):
-    """Abstract log reader. Subclasses yield raw event dicts."""
+    """Abstract reader. Subclasses yield raw event dicts."""
+
+    def __init__(self) -> None:
+        self.skipped_records: list[tuple[int, str, str]] = []
+        """Records that could not be parsed as event objects.
+
+        Each entry is (line_number, raw_content, reason).
+        """
 
     @abstractmethod
     def read(self, path: str | Path) -> Iterator[dict]:
@@ -97,6 +169,8 @@ class JSONReader(LogReader):
     """Read a single JSON document.
 
     Accepts either a single event object or a list of event objects.
+    Non-dict items in a JSON array are recorded as skipped records rather
+    than silently dropped.
     """
 
     def read(self, path: str | Path) -> Iterator[dict]:
@@ -107,9 +181,13 @@ class JSONReader(LogReader):
         except json.JSONDecodeError as exc:
             raise LogParseError(1, content, str(exc)) from exc
         if isinstance(data, list):
-            for item in data:
+            for i, item in enumerate(data):
                 if isinstance(item, dict):
                     yield item
+                else:
+                    self.skipped_records.append(
+                        (i + 1, json.dumps(item)[:200], "not a JSON object")
+                    )
         elif isinstance(data, dict):
             yield data
         else:
@@ -122,7 +200,8 @@ class JSONLReader(LogReader):
     """Read JSON Lines: one JSON object per line.
 
     Blank lines are skipped. Malformed lines raise :class:`LogParseError`
-    so data loss is never silent.
+    so data loss is never silent. Non-dict JSON objects are recorded as
+    skipped records rather than silently dropped.
     """
 
     def read(self, path: str | Path) -> Iterator[dict]:
@@ -139,6 +218,10 @@ class JSONLReader(LogReader):
                     ) from exc
                 if isinstance(item, dict):
                     yield item
+                else:
+                    self.skipped_records.append(
+                        (line_number, line[:200], "not a JSON object")
+                    )
 
 
 class SysmonReader(LogReader):
@@ -156,7 +239,8 @@ class SysmonReader(LogReader):
     The reader only extracts fields that exist; absent fields stay absent.
 
     Supports both single JSON documents and JSONL files (one Sysmon record
-    per line). Malformed JSONL lines raise :class:`LogParseError`.
+    per line). Malformed JSONL lines raise :class:`LogParseError`. Non-dict
+    records are recorded as skipped rather than silently dropped.
     """
 
     def read(self, path: str | Path) -> Iterator[dict]:
@@ -182,12 +266,22 @@ class SysmonReader(LogReader):
                     ) from exc
                 if isinstance(item, dict):
                     records.append(item)
+                else:
+                    self.skipped_records.append(
+                        (line_number, line[:200], "not a JSON object")
+                    )
 
         for record in records:
             if not isinstance(record, dict):
+                self.skipped_records.append(
+                    (0, json.dumps(record)[:200], "not a JSON object")
+                )
                 continue
             event = record.get("Event", record)
             if not isinstance(event, dict):
+                self.skipped_records.append(
+                    (0, json.dumps(record)[:200], "not a Sysmon event object")
+                )
                 continue
 
             system = event.get("System", {}) or {}

@@ -361,3 +361,76 @@ def test_password_spray_rule_detects_all_expected_events_e2e():
         print(f"  Missing: {len(missing_ids)}")
         print(f"  Unexpected: {len(unexpected_ids)} (attribution errors)")
         print(f"  Duplicate evidence references: {len(duplicate_references)}")
+
+
+# ---------------------------------------------------------------------------
+# Missing source address handling (M9.1 finding: events with missing
+# source_address must NOT be grouped together, preventing unrelated events
+# from different hosts being combined into one spray alert.)
+# ---------------------------------------------------------------------------
+
+def test_password_spray_missing_source_address_skipped():
+    """Events with missing source_address are NOT grouped into spray detection.
+
+    Without a source IP, events from different hosts could be incorrectly
+    combined into a single spray alert. Missing source_address events are
+    excluded from grouping entirely.
+    """
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    events = []
+
+    # 3 events with missing source_address against 3 different usernames
+    for i, username in enumerate(["alice", "bob", "charlie"]):
+        ts = base.replace(minute=8, second=i * 10).isoformat()
+        events.append(_make_auth_event(
+            event_id=f"evt-spray-missing-{i}",
+            timestamp=ts,
+            outcome="failure",
+            username=username,
+            source_address=None,  # missing source address
+        ))
+
+    results = PasswordSprayRule().evaluate(events)
+    assert results == [], (
+        f"Expected no alert for events with missing source_address, "
+        f"got {len(results)} alert(s)"
+    )
+
+
+def test_password_spray_mixed_source_and_missing_source():
+    """Events with source_address are grouped; events without are skipped.
+
+    3 events with source_address against 3 usernames -> alert.
+    3 events with missing source_address against 3 usernames -> ignored.
+    """
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    events = []
+
+    # 3 events with source_address (should trigger alert)
+    for i, username in enumerate(["alice", "bob", "charlie"]):
+        ts = base.replace(minute=8, second=i * 10).isoformat()
+        events.append(_make_auth_event(
+            event_id=f"evt-spray-mixed-{i}",
+            timestamp=ts,
+            outcome="failure",
+            username=username,
+            source_address="192.0.2.100",
+        ))
+
+    # 3 events with missing source_address (should be skipped)
+    for i, username in enumerate(["dave", "eve", "frank"]):
+        ts = base.replace(minute=9, second=i * 10).isoformat()
+        events.append(_make_auth_event(
+            event_id=f"evt-spray-mixed-missing-{i}",
+            timestamp=ts,
+            outcome="failure",
+            username=username,
+            source_address=None,
+        ))
+
+    results = PasswordSprayRule().evaluate(events)
+    assert len(results) == 1
+    assert results[0].metadata["distinct_username_count"] == 3
+    assert results[0].metadata["source_address"] == "192.0.2.100"
+    # Evidence should only include the 3 events with source_address
+    assert len(results[0].evidence) == 3

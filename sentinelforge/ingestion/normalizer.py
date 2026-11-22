@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from sentinelforge.ingestion.reader import _get_event_id
 
@@ -129,16 +129,38 @@ def _extract_sysmon_fields(raw: dict) -> dict[str, str]:
     return fields
 
 
-def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
+def normalize(
+    raw: dict,
+    source: str = "json",
+    source_file: Optional[str] = None,
+    position: Optional[int] = None,
+    allow_fallback: bool = True,
+) -> NormalizedEvent:
     """Normalize one raw event into :class:`NormalizedEvent`.
 
     ``source`` must be one of ``json``, ``jsonl`` or ``sysmon``. The original
     ``raw`` dict is stored verbatim under ``NormalizedEvent.raw``.
+
+    ``source_file`` and ``position`` are used when generating an event id
+    for records that lack a source-supplied id. Together with the canonical
+    content they ensure that identical records at different positions or in
+    different files receive distinct ids (no false deduplication). When
+    omitted (single-event utility calls), a content-only hash is used —
+    this is safe only for non-persistent, single-event use; distinct but
+    identical records may receive the same ID. Persistent batch/stream
+    ingestion must supply source_file via normalize_stream() or cmd_ingest().
+
+    ``allow_fallback`` controls whether a content-only hash is used when
+    no source-supplied ID exists and source_file is None. Single-event
+    utility calls default to True; normalize_stream() passes False to
+    enforce source identity for persistent ingestion.
     """
     if not isinstance(raw, dict):
         raise ValueError("raw event must be a dict")
 
-    event_id = _get_event_id(raw)
+    event_id = _get_event_id(
+        raw, source_file=source_file, position=position, allow_fallback=allow_fallback
+    )
 
     if source == "sysmon":
         fields = _extract_sysmon_fields(raw)
@@ -224,7 +246,32 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
     )
 
 
-def normalize_stream(raw_events: Iterator[dict], source: str = "json") -> Iterator[NormalizedEvent]:
-    """Normalize an iterator of raw events, preserving order."""
+def normalize_stream(
+    raw_events: Iterator[dict],
+    source: str = "json",
+    source_file: Optional[str] = None,
+    start_position: int = 1,
+) -> Iterator[NormalizedEvent]:
+    """Normalize an iterator of raw events, preserving order.
+
+    ``source_file`` and ``start_position`` are passed through to
+    :func:`normalize` for every record that lacks a source-supplied event
+    ID. Records that carry their own ``event_id`` are preserved verbatim
+    and do not require source_file. Records without a source-supplied ID
+    require source_file to be set, otherwise a ValueError is raised
+    (content-only hashes are not safe for batch ingestion).
+
+    ``start_position`` sets the initial record position; combined with
+    ``source_file`` it ensures stable, collision-free IDs across
+    re-ingestion of the same source file.
+    """
+    position = start_position
     for raw in raw_events:
-        yield normalize(raw, source=source)
+        yield normalize(
+            raw,
+            source=source,
+            source_file=source_file,
+            position=position,
+            allow_fallback=False,
+        )
+        position += 1

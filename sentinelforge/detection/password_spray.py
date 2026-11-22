@@ -137,13 +137,18 @@ class PasswordSprayRule(DetectionRule):
         # Sort by timestamp.
         failures.sort(key=lambda item: item[1])
 
-        # Group by source_address only (not username) — spraying targets many
-        # usernames from one source.
+        # Group by source address only. Events with no source address
+        # cannot be reliably attributed to a single source and are
+        # excluded from spray detection — otherwise unrelated events
+        # from different hosts could be incorrectly combined into one
+        # alert.
         groups: dict[Optional[str], list[tuple[NormalizedEvent, datetime]]] = {}
         for event, ts in failures:
             auth = event.authentication
-            key = auth.source_address
-            groups.setdefault(key, []).append((event, ts))
+            source_address = auth.source_address
+            if source_address is None:
+                continue  # missing source address — cannot group by source
+            groups.setdefault(source_address, []).append((event, ts))
 
         for source_address, group_events in groups.items():
             # Count distinct usernames targeted from this source.

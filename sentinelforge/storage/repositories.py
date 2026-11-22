@@ -604,13 +604,18 @@ class EventRepository:
 
     def get_events(
         self,
-        limit: int = 100,
+        limit: Optional[int] = 100,
         offset: int = 0,
         host: Optional[str] = None,
         source: Optional[str] = None,
         event_type: Optional[str] = None,
     ) -> list[NormalizedEvent]:
-        """Retrieve events with optional filtering and pagination."""
+        """Retrieve events with optional filtering and pagination.
+
+        If ``limit`` is None, all matching events are returned (no LIMIT
+        clause). Otherwise, at most ``limit`` events are returned starting
+        at ``offset``.
+        """
         where = "WHERE 1=1"
         params: list[Any] = []
         if host:
@@ -624,11 +629,17 @@ class EventRepository:
             params.append(event_type)
 
         with self.db.connection() as conn:
-            rows = conn.execute(
-                f"SELECT * FROM events {where} ORDER BY timestamp DESC "
-                "LIMIT ? OFFSET ?",
-                params + [limit, offset],
-            ).fetchall()
+            if limit is not None:
+                rows = conn.execute(
+                    f"SELECT * FROM events {where} ORDER BY timestamp DESC "
+                    "LIMIT ? OFFSET ?",
+                    params + [limit, offset],
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT * FROM events {where} ORDER BY timestamp DESC",
+                    params,
+                ).fetchall()
             return [_row_to_event(row) for row in rows]
 
     def search_events(self, query: str, limit: int = 100) -> list[NormalizedEvent]:
@@ -663,6 +674,12 @@ class DetectionRepository:
 
     def __init__(self, db: Database) -> None:
         self.db = db
+
+    def count_detections(self) -> int:
+        """Return the total number of stored detections."""
+        with self.db.connection() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM detections").fetchone()
+            return int(row["c"]) if row else 0
 
     def insert_detection(self, result: DetectionResult) -> str:
         """Insert a single detection result with its evidence.
@@ -826,13 +843,17 @@ class DetectionRepository:
 
     def get_detections(
         self,
-        limit: int = 100,
+        limit: Optional[int] = 100,
         offset: int = 0,
         host: Optional[str] = None,
         severity: Optional[str] = None,
         rule_id: Optional[str] = None,
     ) -> list[DetectionResult]:
-        """Retrieve detections with optional filtering."""
+        """Retrieve detections with optional filtering.
+
+        If ``limit`` is None, all matching detections are returned without
+        a LIMIT clause.
+        """
         where = "WHERE 1=1"
         params: list[Any] = []
         if host:
@@ -846,11 +867,17 @@ class DetectionRepository:
             params.append(rule_id)
 
         with self.db.connection() as conn:
-            rows = conn.execute(
-                f"SELECT * FROM detections {where} ORDER BY triggered_at DESC "
-                "LIMIT ? OFFSET ?",
-                params + [limit, offset],
-            ).fetchall()
+            if limit is not None:
+                rows = conn.execute(
+                    f"SELECT * FROM detections {where} ORDER BY triggered_at DESC "
+                    "LIMIT ? OFFSET ?",
+                    params + [limit, offset],
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"SELECT * FROM detections {where} ORDER BY triggered_at DESC",
+                    params,
+                ).fetchall()
             results: list[DetectionResult] = []
             for row in rows:
                 result = _row_to_detection(row)
