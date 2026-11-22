@@ -9,34 +9,32 @@ from __future__ import annotations
 import json
 import os
 import re
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-from typing import Any
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, ClassVar
+from urllib.parse import parse_qs, urlparse
 
 from sentinelforge.dashboard.queries import (
     connect,
-    count_events,
-    count_detections,
     count_alerts,
-    list_detection_rules,
-    list_alerts,
-    list_events,
-    get_event_detail,
+    count_detections,
+    count_events,
     get_attacks_coverage,
+    get_event_detail,
     get_system_diagnostics,
+    list_alerts,
+    list_detection_rules,
+    list_events,
 )
 from sentinelforge.dashboard.views import (
-    render_overview,
     render_alerts,
-    render_events,
-    render_rules,
     render_attacks,
-    render_event_detail,
     render_diagnostics,
-    render_not_found,
     render_error,
-    render_static_css,
-    render_static_js,
+    render_event_detail,
+    render_events,
+    render_not_found,
+    render_overview,
+    render_rules,
 )
 
 DEFAULT_HOST = "127.0.0.1"
@@ -63,7 +61,7 @@ def _str_param(params: dict[str, list[str]], name: str) -> str | None:
 class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the local dashboard."""
 
-    ROUTES: list[tuple[re.Pattern[str], str]] = [
+    ROUTES: ClassVar[list[tuple[re.Pattern[str], str]]] = [
         (re.compile(r"^/$"), "overview"),
         (re.compile(r"^/overview$"), "overview"),
         (re.compile(r"^/alerts$"), "alerts"),
@@ -78,7 +76,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     db_path: str = ""
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: Any) -> None:
         return
 
     def _send_html(self, content: str, status: int = 200) -> None:
@@ -145,7 +143,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 elif handler_name == "static_css":
                     self._serve_static(captures.get("capture", ""), "text/css")
                 elif handler_name == "static_js":
-                    self._serve_static(captures.get("capture", ""), "application/javascript")
+                    self._serve_static(
+                        captures.get("capture", ""), "application/javascript"
+                    )
             finally:
                 conn.close()
         except Exception as exc:  # noqa: BLE001
@@ -157,9 +157,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_html(render_not_found(), 404)
             return
 
-        static_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "static"
-        )
+        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
         file_path = os.path.join(static_dir, safe_name)
 
         try:
@@ -190,7 +188,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         alerts = list_alerts(conn, rule=rule, search=search, limit=limit, offset=offset)
         rules = list_detection_rules(conn)
         self._send_html(
-            render_alerts(alerts, rules, rule=rule, search=search, limit=limit, offset=offset)
+            render_alerts(
+                alerts, rules, rule=rule, search=search, limit=limit, offset=offset
+            )
         )
 
     def _handle_events(self, conn, params: dict[str, list[str]]) -> None:
@@ -200,13 +200,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         limit = _int_param(params, "limit", 50)
         offset = _int_param(params, "offset", 0)
         events = list_events(
-            conn, event_type=event_type, search=search, rule=rule,
-            limit=limit, offset=offset,
+            conn,
+            event_type=event_type,
+            search=search,
+            rule=rule,
+            limit=limit,
+            offset=offset,
         )
         self._send_html(
             render_events(
-                events, event_type=event_type, search=search,
-                rule=rule, limit=limit, offset=offset,
+                events,
+                event_type=event_type,
+                search=search,
+                rule=rule,
+                limit=limit,
+                offset=offset,
             )
         )
 
@@ -275,7 +283,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.host not in ("127.0.0.1", "localhost"):
-        print(f"Warning: binding to {args.host} exposes the dashboard beyond localhost.")
+        print(
+            f"Warning: binding to {args.host} exposes the dashboard beyond localhost."
+        )
         print("For safety, use 127.0.0.1 (default).")
 
     run(host=args.host, port=args.port, db_path=args.db_path)

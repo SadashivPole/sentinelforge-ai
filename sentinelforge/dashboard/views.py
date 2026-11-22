@@ -15,9 +15,7 @@ _NAV_LINKS = [
 
 
 def _nav() -> str:
-    links = "".join(
-        f'<a href="{url}">{name}</a>' for name, url in _NAV_LINKS
-    )
+    links = "".join(f'<a href="{url}">{name}</a>' for name, url in _NAV_LINKS)
     return f'<nav class="dashboard-nav">{links}</nav>'
 
 
@@ -68,15 +66,15 @@ def render_overview(data: dict[str, Any]) -> str:
     <div class="dashboard-grid">
       <div class="dashboard-card">
         <h3>Total Events</h3>
-        <div class="dashboard-metric">{data.get('total_events', 0):,}</div>
+        <div class="dashboard-metric">{data.get("total_events", 0):,}</div>
       </div>
       <div class="dashboard-card">
         <h3>Total Detections</h3>
-        <div class="dashboard-metric">{data.get('total_detections', 0):,}</div>
+        <div class="dashboard-metric">{data.get("total_detections", 0):,}</div>
       </div>
       <div class="dashboard-card">
         <h3>Total Alerts</h3>
-        <div class="dashboard-metric">{data.get('total_alerts', 0):,}</div>
+        <div class="dashboard-metric">{data.get("total_alerts", 0):,}</div>
       </div>
     </div>
     <div class="dashboard-callout">
@@ -98,13 +96,15 @@ def render_alerts(alerts, rules, *, rule=None, search=None, limit=50, offset=0) 
     headers = ["Rule", "Events", "Hosts", "First Seen", "Last Seen"]
     rows = []
     for a in alerts:
-        rows.append([
-            a.get("rule_id", "—"),
-            str(a.get("event_count", 0)),
-            str(a.get("host_count", 0)),
-            a.get("first_seen", "—"),
-            a.get("last_seen", "—"),
-        ])
+        rows.append(
+            [
+                a.get("rule_id", "—"),
+                str(a.get("event_count", 0)),
+                str(a.get("host_count", 0)),
+                a.get("first_seen", "—"),
+                a.get("last_seen", "—"),
+            ]
+        )
 
     body = f"""
     <h1>Alert Explorer</h1>
@@ -115,7 +115,9 @@ def render_alerts(alerts, rules, *, rule=None, search=None, limit=50, offset=0) 
     return _page("Alerts", _nav() + body)
 
 
-def render_events(events, *, event_type=None, search=None, rule=None, limit=50, offset=0) -> str:
+def render_events(
+    events, *, event_type=None, search=None, rule=None, limit=50, offset=0
+) -> str:
     filter_chips = ""
     if event_type:
         filter_chips += f'<span class="dashboard-chip">Type: {event_type}</span> '
@@ -130,15 +132,17 @@ def render_events(events, *, event_type=None, search=None, rule=None, limit=50, 
         raw = e.get("raw_log", "")
         if len(raw) > 80:
             raw = raw[:77] + "..."
-        rows.append([
-            e.get("timestamp", "—"),
-            e.get("event_type", "—"),
-            e.get("source_address", "—"),
-            e.get("target_address", "—"),
-            e.get("user", "—"),
-            e.get("detection_rule", "—"),
-            raw,
-        ])
+        rows.append(
+            [
+                e.get("timestamp", "—"),
+                e.get("event_type", "—"),
+                e.get("source_address", "—"),
+                e.get("target_address", "—"),
+                e.get("user", "—"),
+                e.get("detection_rule", "—"),
+                raw,
+            ]
+        )
 
     body = f"""
     <h1>Event Explorer</h1>
@@ -153,12 +157,14 @@ def render_rules(rules) -> str:
     headers = ["Rule", "Detections", "Hosts", "Last Seen"]
     rows = []
     for r in rules:
-        rows.append([
-            r.get("rule_id", "—"),
-            str(r.get("detection_count", 0)),
-            str(r.get("host_count", 0)),
-            r.get("last_seen", "—"),
-        ])
+        rows.append(
+            [
+                r.get("rule_id", "—"),
+                str(r.get("detection_count", 0)),
+                str(r.get("host_count", 0)),
+                r.get("last_seen", "—"),
+            ]
+        )
 
     body = f"""
     <h1>Detection Rule Inventory</h1>
@@ -172,11 +178,13 @@ def render_attacks(coverage) -> str:
     headers = ["Rule (Detection)", "Detections", "Hosts"]
     rows = []
     for c in coverage:
-        rows.append([
-            c.get("rule_id", "—"),
-            str(c.get("detection_count", 0)),
-            str(c.get("host_count", 0)),
-        ])
+        rows.append(
+            [
+                c.get("rule_id", "—"),
+                str(c.get("detection_count", 0)),
+                str(c.get("host_count", 0)),
+            ]
+        )
 
     body = f"""
     <h1>ATT&CK Coverage</h1>
@@ -190,29 +198,31 @@ def render_event_detail(detail) -> str:
     detections = detail.get("detections", [])
     det_rows = []
     for d in detections:
-        det_rows.append([
-            d.get("rule_id", "—"),
-            d.get("detection_timestamp", "—"),
-            str(d.get("confidence", "—")),
-            str(d.get("risk_score", "—")),
-        ])
+        det_rows.append(
+            [
+                d.get("rule_id", "—"),
+                d.get("detection_timestamp", "—"),
+                str(d.get("confidence", "—")),
+                str(d.get("risk_score", "—")),
+            ]
+        )
 
     body = f"""
     <h1>Event Detail</h1>
     <table class="dashboard-table">
-      <tr><th>Event ID</th><td>{detail.get('event_id', '—')}</td></tr>
-      <tr><th>Timestamp</th><td>{detail.get('timestamp', '—')}</td></tr>
-      <tr><th>Type</th><td>{detail.get('event_type', '—')}</td></tr>
-      <tr><th>Source</th><td>{detail.get('source_address', '—')}</td></tr>
-      <tr><th>Target</th><td>{detail.get('target_address', '—')}</td></tr>
-      <tr><th>User</th><td>{detail.get('user', '—')}</td></tr>
-      <tr><th>Source File</th><td>{detail.get('source_file', '—')}</td></tr>
-      <tr><th>Position</th><td>{detail.get('position', '—')}</td></tr>
+      <tr><th>Event ID</th><td>{detail.get("event_id", "—")}</td></tr>
+      <tr><th>Timestamp</th><td>{detail.get("timestamp", "—")}</td></tr>
+      <tr><th>Type</th><td>{detail.get("event_type", "—")}</td></tr>
+      <tr><th>Source</th><td>{detail.get("source_address", "—")}</td></tr>
+      <tr><th>Target</th><td>{detail.get("target_address", "—")}</td></tr>
+      <tr><th>User</th><td>{detail.get("user", "—")}</td></tr>
+      <tr><th>Source File</th><td>{detail.get("source_file", "—")}</td></tr>
+      <tr><th>Position</th><td>{detail.get("position", "—")}</td></tr>
     </table>
     <h3>Raw Log</h3>
-    <pre class="dashboard-rawlog">{detail.get('raw_log', '')}</pre>
+    <pre class="dashboard-rawlog">{detail.get("raw_log", "")}</pre>
     <h3>Detections ({len(detections)})</h3>
-    {_table(['Rule', 'Detected At', 'Confidence', 'Risk Score'], det_rows) if det_rows else '<p>No detections associated with this event.</p>'}
+    {_table(["Rule", "Detected At", "Confidence", "Risk Score"], det_rows) if det_rows else "<p>No detections associated with this event.</p>"}
     """
     return _page("Event Detail", _nav() + body)
 
@@ -221,10 +231,10 @@ def render_diagnostics(diag) -> str:
     body = f"""
     <h1>System Diagnostics</h1>
     <table class="dashboard-table">
-      <tr><th>Total Events</th><td>{diag.get('total_events', 0):,}</td></tr>
-      <tr><th>Total Detections</th><td>{diag.get('total_detections', 0):,}</td></tr>
-      <tr><th>Database File</th><td>{diag.get('database_file', 'unknown')}</td></tr>
-      <tr><th>Tables</th><td>{', '.join(diag.get('tables', [])) or 'none'}</td></tr>
+      <tr><th>Total Events</th><td>{diag.get("total_events", 0):,}</td></tr>
+      <tr><th>Total Detections</th><td>{diag.get("total_detections", 0):,}</td></tr>
+      <tr><th>Database File</th><td>{diag.get("database_file", "unknown")}</td></tr>
+      <tr><th>Tables</th><td>{", ".join(diag.get("tables", [])) or "none"}</td></tr>
     </table>
     """
     return _page("Diagnostics", _nav() + body)

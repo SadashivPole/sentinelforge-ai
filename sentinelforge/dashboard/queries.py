@@ -111,7 +111,9 @@ def list_events(
         conditions.append("e.event_type = ?")
         params.append(event_type)
     if search:
-        conditions.append("(e.raw_log LIKE ? OR e.source_address LIKE ? OR e.target_address LIKE ?)")
+        conditions.append(
+            "(e.raw_log LIKE ? OR e.source_address LIKE ? OR e.target_address LIKE ?)"
+        )
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
     join = ""
