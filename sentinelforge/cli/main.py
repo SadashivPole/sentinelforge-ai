@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from sentinelforge.config import settings
+from sentinelforge.dashboard.server import main as dashboard_main
 from sentinelforge.datasets.evaluation import evaluate_detections
 from sentinelforge.detection.base import RuleRegistry
 from sentinelforge.detection.beacon import C2BeaconRule
@@ -430,6 +431,19 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# dashboard command
+# ---------------------------------------------------------------------------
+
+
+def cmd_dashboard(args):
+    from sentinelforge.dashboard.server import run, DEFAULT_HOST, DEFAULT_PORT
+    db_path = getattr(args, "db_path", None) or settings.db_path
+    run(host=args.host, port=args.port, db_path=db_path)
+    return 0
+
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -479,6 +493,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write evaluation report to a JSON file",
     )
     p_eval.set_defaults(func=cmd_evaluate)
+
+    # dashboard
+    p_dash = subparsers.add_parser(
+        "dashboard", help="Run the local SOC dashboard (localhost only)"
+    )
+    p_dash.add_argument("--host", default="127.0.0.1", help="Host (default: 127.0.0.1)")
+    p_dash.add_argument("--port", type=int, default=8080, help="Port (default: 8080)")
+    p_dash.add_argument("--db-path", default=None, help="SQLite DB path (default: from settings)")
+    p_dash.set_defaults(func=cmd_dashboard)
 
     return parser
 
