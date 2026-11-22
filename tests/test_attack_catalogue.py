@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 from sentinelforge.attack.catalogue import (
-    ATTACKCatalogue,
-    TechniqueEntry,
     TACTIC_ID_RE,
     TECHNIQUE_ID_RE,
     VALID_CONFIDENCE_LEVELS,
     VALID_STATUSES,
+    ATTACKCatalogue,
+    TechniqueEntry,
 )
 
 
 def _load_catalogue() -> ATTACKCatalogue:
-    return ATTACKCatalogue.from_json(
-        "sentinelforge/attack/catalogue.json"
-    )
+    return ATTACKCatalogue.from_json("sentinelforge/attack/catalogue.json")
 
 
 def test_catalogue_loads() -> None:
@@ -97,9 +95,21 @@ def test_mapping_rationale_present() -> None:
 def test_all_15_tactics_represented() -> None:
     catalogue = _load_catalogue()
     expected_tactics = {
-        "TA0043", "TA0042", "TA0001", "TA0002", "TA0003",
-        "TA0004", "TA0005", "TA0112", "TA0006", "TA0007",
-        "TA0008", "TA0009", "TA0011", "TA0010", "TA0040",
+        "TA0043",
+        "TA0042",
+        "TA0001",
+        "TA0002",
+        "TA0003",
+        "TA0004",
+        "TA0005",
+        "TA0112",
+        "TA0006",
+        "TA0007",
+        "TA0008",
+        "TA0009",
+        "TA0011",
+        "TA0010",
+        "TA0040",
     }
     present = set()
     for entry in catalogue.all():
@@ -166,12 +176,8 @@ def test_count_by_tactic() -> None:
 
 def test_technique_vs_subtechnique_counts() -> None:
     catalogue = _load_catalogue()
-    techniques = [
-        e for e in catalogue.all() if e.subtechnique_parent_id is None
-    ]
-    subtechniques = [
-        e for e in catalogue.all() if e.subtechnique_parent_id is not None
-    ]
+    techniques = [e for e in catalogue.all() if e.subtechnique_parent_id is None]
+    subtechniques = [e for e in catalogue.all() if e.subtechnique_parent_id is not None]
     assert len(techniques) + len(subtechniques) == catalogue.count()
     assert len(techniques) > 0
     assert len(subtechniques) > 0

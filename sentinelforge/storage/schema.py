@@ -7,8 +7,6 @@ tracked in the ``schema_metadata`` table.
 
 from __future__ import annotations
 
-from typing import Optional
-
 # Current schema version. Increment on every breaking schema change.
 SCHEMA_VERSION = 3
 
@@ -192,7 +190,9 @@ def _migrate_v1_to_v2(cur) -> None:
         """
     )
     cur.execute("DROP TABLE risk_assessment_detections")
-    cur.execute("ALTER TABLE risk_assessment_detections_new RENAME TO risk_assessment_detections")
+    cur.execute(
+        "ALTER TABLE risk_assessment_detections_new RENAME TO risk_assessment_detections"
+    )
 
     # Populate contributing_detection_ids_json from the junction table data
     # so that risk assessment relationships survive migration.
@@ -322,7 +322,7 @@ def migrate(db_path: str, target_version: int = SCHEMA_VERSION) -> int:
         conn.close()
 
 
-def get_schema_version(db_path: str) -> Optional[int]:
+def get_schema_version(db_path: str) -> int | None:
     """Return the current schema version, or None if not initialized."""
     import sqlite3
 

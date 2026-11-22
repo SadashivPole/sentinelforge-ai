@@ -10,8 +10,8 @@ remediation is performed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.config import settings
 from sentinelforge.detection.base import (
@@ -23,7 +23,7 @@ from sentinelforge.detection.base import (
 from sentinelforge.ingestion.normalizer import NormalizedEvent
 
 
-def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+def _parse_timestamp(value: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string into an aware UTC datetime.
 
     Returns None when the value is missing or unparseable. We never invent a
@@ -42,7 +42,7 @@ def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -50,7 +50,7 @@ def _evidence_from_event(event: NormalizedEvent) -> Evidence:
     auth = event.authentication
     return Evidence(
         event_id=event.event_id,
-        timestamp=event.timestamp,
+        timestamp=event.timestamp or "",
         source=event.source,
         event_type=event.event_type,
         user=event.user,
@@ -134,12 +134,15 @@ class FailedLoginBurstRule(DetectionRule):
         failures.sort(key=lambda item: item[1])
 
         # Group by (source_address, username, host) — whatever is available.
-        groups: dict[tuple[Optional[str], Optional[str], Optional[str]], list[tuple[NormalizedEvent, datetime]]] = {}
+        groups: dict[
+            tuple[str | None, str | None, str | None],
+            list[tuple[NormalizedEvent, datetime]],
+        ] = {}
         for event, ts in failures:
             auth = event.authentication
             key = (
-                auth.source_address,
-                auth.username,
+                auth.source_address if auth else None,
+                auth.username if auth else None,
                 event.host,
             )
             groups.setdefault(key, []).append((event, ts))
@@ -194,7 +197,7 @@ class FailedLoginBurstRule(DetectionRule):
         events: list[tuple[NormalizedEvent, datetime]],
         threshold: int,
         window_seconds: int,
-    ) -> Optional[list[tuple[NormalizedEvent, datetime]]]:
+    ) -> list[tuple[NormalizedEvent, datetime]] | None:
         """Find the densest window of ``threshold``+ events within ``window_seconds``.
 
         ``events`` must be sorted by timestamp. Returns the event slice for the
@@ -206,13 +209,15 @@ class FailedLoginBurstRule(DetectionRule):
         if n < threshold:
             return None
 
-        best_slice: Optional[list[tuple[NormalizedEvent, datetime]]] = None
+        best_slice: list[tuple[NormalizedEvent, datetime]] | None = None
         best_count = 0
         j = 0
         for i in range(n):
-            if j < i:
-                j = i
-            while j < n and (events[j][1] - events[i][1]).total_seconds() <= window_seconds:
+            j = max(j, i)
+            while (
+                j < n
+                and (events[j][1] - events[i][1]).total_seconds() <= window_seconds
+            ):
                 j += 1
             count = j - i
             if count >= threshold and count > best_count:

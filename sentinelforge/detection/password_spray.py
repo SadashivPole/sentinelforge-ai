@@ -14,10 +14,9 @@ remediation is performed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from sentinelforge.config import settings
 from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
@@ -27,7 +26,7 @@ from sentinelforge.detection.base import (
 from sentinelforge.ingestion.normalizer import NormalizedEvent
 
 
-def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+def _parse_timestamp(value: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string into an aware UTC datetime."""
     if not value:
         return None
@@ -41,7 +40,7 @@ def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -49,7 +48,7 @@ def _evidence_from_event(event: NormalizedEvent) -> Evidence:
     auth = event.authentication
     return Evidence(
         event_id=event.event_id,
-        timestamp=event.timestamp,
+        timestamp=event.timestamp or "",
         source=event.source,
         event_type=event.event_type,
         user=event.user,
@@ -137,13 +136,18 @@ class PasswordSprayRule(DetectionRule):
         # Sort by timestamp.
         failures.sort(key=lambda item: item[1])
 
-        # Group by source_address only (not username) — spraying targets many
-        # usernames from one source.
-        groups: dict[Optional[str], list[tuple[NormalizedEvent, datetime]]] = {}
+        # Group by source address only. Events with no source address
+        # cannot be reliably attributed to a single source and are
+        # excluded from spray detection — otherwise unrelated events
+        # from different hosts could be incorrectly combined into one
+        # alert.
+        groups: dict[str | None, list[tuple[NormalizedEvent, datetime]]] = {}
         for event, ts in failures:
             auth = event.authentication
-            key = auth.source_address
-            groups.setdefault(key, []).append((event, ts))
+            source_address = auth.source_address if auth else None
+            if source_address is None:
+                continue  # missing source address — cannot group by source
+            groups.setdefault(source_address, []).append((event, ts))
 
         for source_address, group_events in groups.items():
             # Count distinct usernames targeted from this source.
@@ -162,8 +166,10 @@ class PasswordSprayRule(DetectionRule):
             # Sliding window: find a window containing username_threshold+
             # distinct users and attempt_threshold+ total attempts.
             window = self._find_spray_window(
-                group_events, self.window_seconds,
-                self.username_threshold, self.attempt_threshold,
+                group_events,
+                self.window_seconds,
+                self.username_threshold,
+                self.attempt_threshold,
             )
             if window is None:
                 continue
@@ -212,7 +218,7 @@ class PasswordSprayRule(DetectionRule):
         window_seconds: int,
         username_threshold: int,
         attempt_threshold: int,
-    ) -> Optional[list[tuple[NormalizedEvent, datetime]]]:
+    ) -> list[tuple[NormalizedEvent, datetime]] | None:
         """Find a time window containing enough distinct users and attempts.
 
         Uses a sliding two-pointer window. Returns the event slice for the
@@ -222,14 +228,16 @@ class PasswordSprayRule(DetectionRule):
         if n < attempt_threshold:
             return None
 
-        best_slice: Optional[list[tuple[NormalizedEvent, datetime]]] = None
+        best_slice: list[tuple[NormalizedEvent, datetime]] | None = None
         best_user_count = 0
 
         j = 0
         for i in range(n):
-            if j < i:
-                j = i
-            while j < n and (events[j][1] - events[i][1]).total_seconds() <= window_seconds:
+            j = max(j, i)
+            while (
+                j < n
+                and (events[j][1] - events[i][1]).total_seconds() <= window_seconds
+            ):
                 j += 1
 
             window_events = events[i:j]

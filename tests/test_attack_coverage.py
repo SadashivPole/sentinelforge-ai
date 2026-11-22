@@ -16,6 +16,7 @@ def _load_reporter() -> CoverageReporter:
 
 # ----------------------------------------------------------- catalogue tests
 
+
 def test_catalogue_has_69_entries() -> None:
     catalogue = _load_catalogue()
     assert catalogue.count() == 69
@@ -48,9 +49,21 @@ def test_parent_subtechnique_relationships() -> None:
 def test_all_15_tactics_represented() -> None:
     catalogue = _load_catalogue()
     expected = {
-        "TA0043", "TA0042", "TA0001", "TA0002", "TA0003",
-        "TA0004", "TA0005", "TA0112", "TA0006", "TA0007",
-        "TA0008", "TA0009", "TA0011", "TA0010", "TA0040",
+        "TA0043",
+        "TA0042",
+        "TA0001",
+        "TA0002",
+        "TA0003",
+        "TA0004",
+        "TA0005",
+        "TA0112",
+        "TA0006",
+        "TA0007",
+        "TA0008",
+        "TA0009",
+        "TA0011",
+        "TA0010",
+        "TA0040",
     }
     present = set()
     for entry in catalogue.all():
@@ -67,6 +80,7 @@ def test_parent_technique_entries() -> None:
 
 
 # ----------------------------------------------------------- coverage tests
+
 
 def test_direct_mapping_count_is_five() -> None:
     reporter = _load_reporter()
@@ -129,6 +143,7 @@ def test_unsupported_never_counted_as_implemented() -> None:
 
 # ----------------------------------------------------------- tactic tests
 
+
 def test_tactic_coverage_has_15_entries() -> None:
     reporter = _load_reporter()
     tactics = reporter.compute_tactic_coverage()
@@ -164,6 +179,7 @@ def test_tactic_coverage_structure() -> None:
 
 
 # ----------------------------------------------------------- telemetry tests
+
 
 def test_telemetry_coverage_has_log_sources() -> None:
     reporter = _load_reporter()

@@ -16,11 +16,9 @@ from typing import Any
 
 from .catalogue import ATTACKCatalogue
 from .coverage import (
-    DIRECT_MAPPINGS,
     ENTERPRISE_TACTICS,
-    TELEMETRY_INVENTORY,
-    CoverageReporter,
     CoverageMetrics,
+    CoverageReporter,
     TacticCoverage,
 )
 
@@ -52,15 +50,12 @@ def generate_coverage_json(
         "direct_detection_coverage": {
             "direct_mapping_count": metrics.direct_mapping_count,
             "unique_detection_rule_count": metrics.unique_detection_rule_count,
-            "covered_tactics": sorted(
-                {m["tactic_id"] for m in mapping_table}
-            ),
+            "covered_tactics": sorted({m["tactic_id"] for m in mapping_table}),
             "uncovered_tactics": sorted(
                 {
                     t["id"]
                     for t in ENTERPRISE_TACTICS
-                    if t["id"]
-                    not in {m["tactic_id"] for m in mapping_table}
+                    if t["id"] not in {m["tactic_id"] for m in mapping_table}
                 }
             ),
         },
@@ -162,12 +157,20 @@ def generate_markdown_report(
     lines.append(f"| Sub-technique entries | {metrics.subtechnique_entries} |")
     lines.append(f"| Unique ATT&CK IDs | {metrics.unique_attack_ids} |")
     lines.append(f"| Implemented and tested | {metrics.implemented_and_tested} |")
-    lines.append(f"| Telemetry available, no detection | {metrics.telemetry_available_no_detection} |")
-    lines.append(f"| Planned, requires telemetry | {metrics.planned_requires_telemetry} |")
-    lines.append(f"| Unsupported by current telemetry | {metrics.unsupported_by_current_telemetry} |")
+    lines.append(
+        f"| Telemetry available, no detection | {metrics.telemetry_available_no_detection} |"
+    )
+    lines.append(
+        f"| Planned, requires telemetry | {metrics.planned_requires_telemetry} |"
+    )
+    lines.append(
+        f"| Unsupported by current telemetry | {metrics.unsupported_by_current_telemetry} |"
+    )
     lines.append(f"| Direct detection mappings | {metrics.direct_mapping_count} |")
     lines.append(f"| Unique detection rules | {metrics.unique_detection_rule_count} |")
-    lines.append(f"| Coverage percentage (of catalogue) | {metrics.coverage_percentage}% |")
+    lines.append(
+        f"| Coverage percentage (of catalogue) | {metrics.coverage_percentage}% |"
+    )
     lines.append("")
     lines.append(
         f"The coverage percentage ({metrics.coverage_percentage}%) is the "
@@ -188,9 +191,7 @@ def generate_markdown_report(
     lines.append(
         "| Tactic ID | Tactic Name | Catalogue Entries | Implemented Direct Mappings | Telemetry Available, No Detection | Unsupported | Detection Rules |"
     )
-    lines.append(
-        "|---|---|---|---|---|---|---|"
-    )
+    lines.append("|---|---|---|---|---|---|---|")
     for tc in tactic_coverage:
         lines.append(
             f"| {tc.tactic_id} | {tc.tactic_name} | {tc.catalogue_entries} | "
@@ -258,19 +259,25 @@ def generate_markdown_report(
     lines.append("")
     lines.append("| Category | Fields |")
     lines.append("|---|---|")
-    lines.append(f"| Process | {', '.join(telemetry_coverage['normalized_data_model']['process'])} |")
-    lines.append(f"| Network | {', '.join(telemetry_coverage['normalized_data_model']['network'])} |")
-    lines.append(f"| Authentication | {', '.join(telemetry_coverage['normalized_data_model']['authentication'])} |")
-    lines.append(f"| Event | {', '.join(telemetry_coverage['normalized_data_model']['event'])} |")
+    lines.append(
+        f"| Process | {', '.join(telemetry_coverage['normalized_data_model']['process'])} |"
+    )
+    lines.append(
+        f"| Network | {', '.join(telemetry_coverage['normalized_data_model']['network'])} |"
+    )
+    lines.append(
+        f"| Authentication | {', '.join(telemetry_coverage['normalized_data_model']['authentication'])} |"
+    )
+    lines.append(
+        f"| Event | {', '.join(telemetry_coverage['normalized_data_model']['event'])} |"
+    )
     lines.append("")
 
     lines.append("### Log Source Coverage Matrix")
     lines.append("")
-    lines.append(
-        "| Log Source | Normalized Fields | Supported Detections | Gaps |"
-    )
+    lines.append("| Log Source | Normalized Fields | Supported Detections | Gaps |")
     lines.append("|---|---|---|---|")
-    for source_id, source in telemetry_coverage["log_sources"].items():
+    for source in telemetry_coverage["log_sources"].values():
         fields = ", ".join(source["normalized_fields"])
         detections = ", ".join(source["supported_detections"]) or "—"
         gaps = ", ".join(source["gaps"]) or "—"
@@ -299,8 +306,7 @@ def generate_markdown_report(
         )
     lines.append("")
     lines.append(
-        "The following techniques lack required telemetry entirely and are "
-        "unsupported:"
+        "The following techniques lack required telemetry entirely and are unsupported:"
     )
     lines.append("")
     unsupported = catalogue.by_status("UNSUPPORTED_BY_CURRENT_TELEMETRY")
@@ -347,8 +353,7 @@ def generate_markdown_report(
         "the full matrix."
     )
     lines.append(
-        "- Only five direct detection mappings are implemented across five "
-        "rules."
+        "- Only five direct detection mappings are implemented across five rules."
     )
     lines.append(
         "- Synthetic test results do not demonstrate real-world detection "
@@ -365,20 +370,15 @@ def generate_markdown_report(
         "confirmation of Command and Control."
     )
     lines.append(
-        "- ATT&CK mappings do not establish compromise or adversary "
-        "attribution."
+        "- ATT&CK mappings do not establish compromise or adversary attribution."
     )
-    lines.append(
-        "- No full enterprise ATT&CK coverage is claimed."
-    )
+    lines.append("- No full enterprise ATT&CK coverage is claimed.")
     lines.append("")
 
     # 5.9 Future development
     lines.append("## 5.9 Future Development")
     lines.append("")
-    lines.append(
-        "The following are recommendations, not implemented capabilities:"
-    )
+    lines.append("The following are recommendations, not implemented capabilities:")
     lines.append("")
     lines.append(
         "- **File content hash verification**: Enables higher confidence for "
@@ -392,9 +392,7 @@ def generate_markdown_report(
         "- **Outbound data volume monitoring**: Enables T1041 (Exfiltration "
         "Over C2 Channel)."
     )
-    lines.append(
-        "- **Registry monitoring**: Enables T1547.001 (Registry Run Keys)."
-    )
+    lines.append("- **Registry monitoring**: Enables T1547.001 (Registry Run Keys).")
     lines.append(
         "- **Web proxy logs**: Enables T1071.001 (Web Protocols) with web "
         "traffic context."

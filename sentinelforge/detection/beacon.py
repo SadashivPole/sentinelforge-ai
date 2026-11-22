@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.config import settings
 from sentinelforge.detection.base import (
@@ -29,7 +29,7 @@ from sentinelforge.detection.base import (
 from sentinelforge.ingestion.normalizer import NetworkInfo, NormalizedEvent
 
 
-def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+def _parse_timestamp(value: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string into an aware UTC datetime.
 
     Returns None when the value is missing or unparseable. We never invent a
@@ -47,7 +47,7 @@ def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -162,7 +162,7 @@ _SUSPICIOUS_PROCESSES = {
 }
 
 
-def _is_ip_address(value: Optional[str]) -> bool:
+def _is_ip_address(value: str | None) -> bool:
     """Return True when ``value`` looks like an IPv4 or IPv6 address."""
     if not value:
         return False
@@ -170,14 +170,10 @@ def _is_ip_address(value: Optional[str]) -> bool:
     parts = text.split(".")
     if len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
         return True
-    if ":" in text:
-        return True
-    return False
+    return ":" in text
 
 
-def _has_suspicious_app_context(
-    net: NetworkInfo, process_name: Optional[str]
-) -> bool:
+def _has_suspicious_app_context(net: NetworkInfo, process_name: str | None) -> bool:
     """Return True when there is additional suspicious application-layer
     context beyond protocol name and port deviation.
 
@@ -206,9 +202,7 @@ def _has_suspicious_app_context(
     return suspicious_process and raw_ip
 
 
-def _has_c2_context_evidence(
-    net: NetworkInfo, process_name: Optional[str] = None
-) -> bool:
+def _has_c2_context_evidence(net: NetworkInfo, process_name: str | None = None) -> bool:
     """Return True when there is protocol-specific C2 evidence beyond an
     application-layer protocol name.
 
@@ -288,7 +282,7 @@ class C2BeaconRule(DetectionRule):
         # Group by (source host, destination IP, destination port). This keeps
         # unrelated hosts and destinations in separate buckets.
         groups: dict[
-            tuple[Optional[str], Optional[str], Optional[int]],
+            tuple[str | None, str | None, int | None],
             list[tuple[NormalizedEvent, datetime, Any]],
         ] = {}
         for event, ts, net in connections:
@@ -443,7 +437,7 @@ class C2BeaconRule(DetectionRule):
 
 def _group_process_name(
     group: list[tuple[NormalizedEvent, datetime, Any]],
-) -> Optional[str]:
+) -> str | None:
     """Return the most common process name in a connection group, if any."""
     from collections import Counter
 

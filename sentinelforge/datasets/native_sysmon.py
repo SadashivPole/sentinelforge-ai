@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -27,17 +27,29 @@ HOSTS = ["WKSTN-01", "WKSTN-02", "WKSTN-03", "SRV-01", "SRV-02", "DC-01", "LAPTO
 USERS = ["jdoe", "asmith", "rjohnson", "mwilliams", "sadmin", "jdev", "opsuser"]
 
 PROCESS_NAMES = [
-    "svchost.exe", "explorer.exe", "WINWORD.EXE", "EXCEL.EXE",
-    "powershell.exe", "pwsh.exe", "wscript.exe", "mshta.exe",
-    "cmd.exe", "notepad.exe", "chrome.exe", "firefox.exe",
-    "EDRAgent.exe", "spoolsv.exe", "lsass.exe", "services.exe",
+    "svchost.exe",
+    "explorer.exe",
+    "WINWORD.EXE",
+    "EXCEL.EXE",
+    "powershell.exe",
+    "pwsh.exe",
+    "wscript.exe",
+    "mshta.exe",
+    "cmd.exe",
+    "notepad.exe",
+    "chrome.exe",
+    "firefox.exe",
+    "EDRAgent.exe",
+    "spoolsv.exe",
+    "lsass.exe",
+    "services.exe",
 ]
 
-DEFAULT_START_TIME = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+DEFAULT_START_TIME = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
 
 
 def _iso(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _random_ip(rng: random.Random) -> str:
@@ -126,8 +138,7 @@ def _process_create_event(
     cmd_line = f"{proc} -legit-args"
     if suspicious and proc in ("powershell.exe", "pwsh.exe"):
         cmd_line = (
-            f"{proc} -ExecutionPolicy Bypass -File "
-            f"C:\\\\Users\\\\{user}\\\\script.ps1"
+            f"{proc} -ExecutionPolicy Bypass -File C:\\\\Users\\\\{user}\\\\script.ps1"
         )
 
     data_items = [
@@ -189,7 +200,9 @@ def _file_create_event(
     if suspicious:
         filename = f"C:\\\\Users\\\\{user}\\\\Downloads\\\\payload.ps1"
     else:
-        filename = f"C:\\\\Users\\\\{user}\\\\Documents\\\\file_{rng.randint(1,9999)}.txt"
+        filename = (
+            f"C:\\\\Users\\\\{user}\\\\Documents\\\\file_{rng.randint(1, 9999)}.txt"
+        )
 
     data_items = [
         _data_item("RuleName", "FileCreateRule"),
@@ -212,10 +225,9 @@ def _dns_query_event(
     """Generate Sysmon Event ID 22: DNS Query."""
     user = _random_user(rng)
     pid = rng.randint(1000, 99999)
-    proc = "dns.exe"
 
     if suspicious:
-        query = f"suspicious-{rng.randint(1000,9999)}.example.com"
+        query = f"suspicious-{rng.randint(1000, 9999)}.example.com"
     else:
         query = f"www.{_random_domain(rng)}"
 
@@ -256,10 +268,8 @@ def generate_native_sysmon_events(
     ]
 
     for i in range(count):
-        event_id, generator = event_types[i % len(event_types)]
-        ts = _iso(
-            start + timedelta(seconds=rng.randint(0, 7 * 24 * 3600))
-        )
+        _event_id, generator = event_types[i % len(event_types)]
+        ts = _iso(start + timedelta(seconds=rng.randint(0, 7 * 24 * 3600)))
         computer = _random_host(rng)
         suspicious = rng.random() < 0.3
         events.append(generator(rng, ts, computer, suspicious=suspicious))
@@ -275,5 +285,4 @@ def write_native_sysmon_jsonl(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as fh:
-        for ev in events:
-            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+        fh.writelines(json.dumps(ev, ensure_ascii=False) + "\n" for ev in events)

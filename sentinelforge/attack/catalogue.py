@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +39,7 @@ class TechniqueEntry:
     last_reviewed: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "TechniqueEntry":
+    def from_dict(cls, data: dict[str, Any]) -> TechniqueEntry:
         return cls(
             technique_id=data["technique_id"],
             technique_name=data["technique_name"],
@@ -54,15 +54,11 @@ class TechniqueEntry:
             required_telemetry=data.get("required_telemetry", []),
             available_telemetry=data.get("available_telemetry", []),
             evidence_fields=data.get("evidence_fields", []),
-            associated_detection_rule_ids=data.get(
-                "associated_detection_rule_ids", []
-            ),
+            associated_detection_rule_ids=data.get("associated_detection_rule_ids", []),
             detection_status=data.get("detection_status", ""),
             mapping_confidence=data.get("mapping_confidence", ""),
             mapping_rationale=data.get("mapping_rationale", ""),
-            investigation_recommendations=data.get(
-                "investigation_recommendations", []
-            ),
+            investigation_recommendations=data.get("investigation_recommendations", []),
             validation_status=data.get("validation_status", ""),
             last_reviewed=data.get("last_reviewed", ""),
         )
@@ -133,7 +129,7 @@ class ATTACKCatalogue:
                 self._by_rule.setdefault(rule_id, []).append(entry)
 
     @classmethod
-    def from_json(cls, path: str | Path) -> "ATTACKCatalogue":
+    def from_json(cls, path: str | Path) -> ATTACKCatalogue:
         """Load a catalogue from a JSON manifest file."""
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -200,9 +196,7 @@ class ATTACKCatalogue:
 
             # Valid ID format
             if not TECHNIQUE_ID_RE.match(entry.technique_id):
-                errors.append(
-                    f"Invalid technique_id format: {entry.technique_id}"
-                )
+                errors.append(f"Invalid technique_id format: {entry.technique_id}")
 
             # Valid tactic IDs
             for tactic_id in entry.tactic_ids:
@@ -213,12 +207,14 @@ class ATTACKCatalogue:
                     )
 
             # Sub-technique parent references
-            if entry.subtechnique_parent_id is not None:
-                if entry.subtechnique_parent_id not in ids:
-                    errors.append(
-                        f"Sub-technique {entry.technique_id} references "
-                        f"nonexistent parent {entry.subtechnique_parent_id}"
-                    )
+            if (
+                entry.subtechnique_parent_id is not None
+                and entry.subtechnique_parent_id not in ids
+            ):
+                errors.append(
+                    f"Sub-technique {entry.technique_id} references "
+                    f"nonexistent parent {entry.subtechnique_parent_id}"
+                )
 
             # Valid status
             if entry.detection_status not in VALID_STATUSES:
@@ -245,13 +241,15 @@ class ATTACKCatalogue:
                 )
 
             # Mapped entries need rationale
-            if entry.detection_status in (
-                "IMPLEMENTED_AND_TESTED",
-                "IMPLEMENTED_NEEDS_VALIDATION",
-                "TELEMETRY_AVAILABLE_NO_DETECTION",
-            ) and not entry.mapping_rationale.strip():
-                errors.append(
-                    f"Entry {entry.technique_id} has empty mapping_rationale"
+            if (
+                entry.detection_status
+                in (
+                    "IMPLEMENTED_AND_TESTED",
+                    "IMPLEMENTED_NEEDS_VALIDATION",
+                    "TELEMETRY_AVAILABLE_NO_DETECTION",
                 )
+                and not entry.mapping_rationale.strip()
+            ):
+                errors.append(f"Entry {entry.technique_id} has empty mapping_rationale")
 
         return errors

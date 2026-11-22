@@ -18,8 +18,6 @@ from typing import Any
 
 from .catalogue import ATTACKCatalogue, TechniqueEntry
 from .coverage import (
-    DIRECT_MAPPINGS,
-    ENTERPRISE_TACTICS,
     CoverageReporter,
 )
 
@@ -53,8 +51,7 @@ def _technique_comment(entry: TechniqueEntry, is_implemented: bool) -> str:
     parts.append(f"CATALOGUE VERSION: {entry.attack_version}")
     if entry.investigation_recommendations:
         parts.append(
-            "RECOMMENDATIONS: "
-            + "; ".join(entry.investigation_recommendations)
+            "RECOMMENDATIONS: " + "; ".join(entry.investigation_recommendations)
         )
     return " | ".join(parts)
 
@@ -154,9 +151,7 @@ def generate_secondary_layer(
     All 69 entries are included, but only the 5 implemented ones are enabled.
     All other entries are disabled with their catalogue status in comments.
     """
-    implemented_ids = {
-        e.technique_id for e in catalogue.implemented_and_tested()
-    }
+    implemented_ids = {e.technique_id for e in catalogue.implemented_and_tested()}
 
     techniques: list[dict[str, Any]] = []
     for entry in sorted(catalogue.all(), key=lambda e: e.technique_id):

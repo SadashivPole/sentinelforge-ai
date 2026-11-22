@@ -15,10 +15,8 @@ Covers:
 
 from __future__ import annotations
 
-from typing import Optional
-
-from sentinelforge.detection.failed_logins import FailedLoginBurstRule
 from sentinelforge.detection.base import Severity
+from sentinelforge.detection.failed_logins import FailedLoginBurstRule
 from sentinelforge.ingestion.normalizer import normalize
 
 
@@ -26,7 +24,7 @@ def _make_auth_event(
     event_id: str,
     timestamp: str,
     username: str = "admin",
-    source_address: Optional[str] = "10.0.0.1",
+    source_address: str | None = "10.0.0.1",
     host: str = "host-1",
     outcome: str = "failure",
 ):
@@ -62,8 +60,7 @@ def test_single_failed_login_no_alert():
 
 def test_multiple_failures_from_one_source_trigger_alert():
     events = [
-        _make_auth_event(f"evt-{i}", f"2024-01-01T00:00:{i:02d}Z")
-        for i in range(6)
+        _make_auth_event(f"evt-{i}", f"2024-01-01T00:00:{i:02d}Z") for i in range(6)
     ]
     results = _make_rule(threshold=5, window_seconds=300).evaluate(events)
     assert len(results) == 1
@@ -103,8 +100,7 @@ def test_failures_outside_time_window_no_alert():
     # 6 failures spread at 5-minute intervals (0, 300, 600, ... s). Window is
     # 300s, so at most 2 events fall in any window → no alert.
     events = [
-        _make_auth_event(f"evt-{i}", f"2024-01-01T00:{i * 5:02d}:00Z")
-        for i in range(6)
+        _make_auth_event(f"evt-{i}", f"2024-01-01T00:{i * 5:02d}:00Z") for i in range(6)
     ]
     results = _make_rule(threshold=5, window_seconds=300).evaluate(events)
     assert results == []
@@ -151,9 +147,7 @@ def test_out_of_order_timestamps_still_trigger():
         "2024-01-01T00:00:25Z",
         "2024-01-01T00:00:15Z",
     ]
-    events = [
-        _make_auth_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_auth_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = _make_rule(threshold=5, window_seconds=300).evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["count"] == 6
@@ -161,9 +155,7 @@ def test_out_of_order_timestamps_still_trigger():
 
 def test_invalid_timestamps_skipped_no_false_alert():
     # 6 events with unparseable timestamps → none can be placed in a window.
-    events = [
-        _make_auth_event(f"evt-{i}", "not-a-timestamp") for i in range(6)
-    ]
+    events = [_make_auth_event(f"evt-{i}", "not-a-timestamp") for i in range(6)]
     results = _make_rule(threshold=5, window_seconds=300).evaluate(events)
     assert results == []
 

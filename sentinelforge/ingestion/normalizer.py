@@ -8,40 +8,41 @@ invented: only data present in the raw log (or a generated event id) is used.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.ingestion.reader import _get_event_id
 
 
 @dataclass(frozen=True)
 class ProcessInfo:
-    pid: Optional[int] = None
-    ppid: Optional[int] = None
-    name: Optional[str] = None
-    path: Optional[str] = None
-    command_line: Optional[str] = None
-    user: Optional[str] = None
-    hash_sha256: Optional[str] = None
+    pid: int | None = None
+    ppid: int | None = None
+    name: str | None = None
+    path: str | None = None
+    command_line: str | None = None
+    user: str | None = None
+    hash_sha256: str | None = None
 
 
 @dataclass(frozen=True)
 class NetworkInfo:
-    direction: Optional[str] = None  # inbound | outbound | unknown
-    local_address: Optional[str] = None
-    remote_address: Optional[str] = None
-    local_port: Optional[int] = None
-    remote_port: Optional[int] = None
-    protocol: Optional[str] = None  # tcp | udp | ...
+    direction: str | None = None  # inbound | outbound | unknown
+    local_address: str | None = None
+    remote_address: str | None = None
+    local_port: int | None = None
+    remote_port: int | None = None
+    protocol: str | None = None  # tcp | udp | ...
 
 
 @dataclass(frozen=True)
 class AuthenticationInfo:
-    outcome: Optional[str] = None  # success | failure | ...
-    method: Optional[str] = None
-    username: Optional[str] = None
-    source_address: Optional[str] = None
+    outcome: str | None = None  # success | failure | ...
+    method: str | None = None
+    username: str | None = None
+    source_address: str | None = None
 
 
 @dataclass(frozen=True)
@@ -51,26 +52,24 @@ class NormalizedEvent:
     event_id: str
     source: str  # json | jsonl | sysmon
     raw: dict  # original payload, preserved verbatim
-    timestamp: Optional[str] = None  # ISO-8601 UTC (absent when not parseable)
-    event_type: Optional[str] = None
-    user: Optional[str] = None
-    host: Optional[str] = None
-    process: Optional[ProcessInfo] = None
-    network: Optional[NetworkInfo] = None
-    authentication: Optional[AuthenticationInfo] = None
-    ingested_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str | None = None  # ISO-8601 UTC (absent when not parseable)
+    event_type: str | None = None
+    user: str | None = None
+    host: str | None = None
+    process: ProcessInfo | None = None
+    network: NetworkInfo | None = None
+    authentication: AuthenticationInfo | None = None
+    ingested_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
-def _to_iso(value: Any) -> Optional[str]:
+def _to_iso(value: Any) -> str | None:
     """Best-effort ISO-8601 conversion of a timestamp present in the log.
 
     Returns None when no parseable timestamp exists; we never invent one.
@@ -79,7 +78,7 @@ def _to_iso(value: Any) -> Optional[str]:
         return None
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(float(value), tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
     text = str(value)
@@ -92,21 +91,21 @@ def _to_iso(value: Any) -> Optional[str]:
         try:
             dt = datetime.strptime(text, fmt)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt.isoformat()
         except ValueError:
             continue
     return None
 
 
-def _first(d: dict, *keys: str) -> Optional[str]:
+def _first(d: dict, *keys: str) -> str | None:
     for key in keys:
         if key in d and d[key] is not None:
             return str(d[key])
     return None
 
 
-def _int(value: Any) -> Optional[int]:
+def _int(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -116,7 +115,9 @@ def _int(value: Any) -> Optional[int]:
 def _extract_sysmon_fields(raw: dict) -> dict[str, str]:
     event = raw.get("Event", {}) if isinstance(raw, dict) else {}
     data_items = (
-        (event.get("EventData", {}) or {}).get("Data", []) if isinstance(event, dict) else []
+        (event.get("EventData", {}) or {}).get("Data", [])
+        if isinstance(event, dict)
+        else []
     )
     fields: dict[str, str] = {}
     for item in data_items:
@@ -125,20 +126,42 @@ def _extract_sysmon_fields(raw: dict) -> dict[str, str]:
         name = item.get("Name") or item.get("@Name")
         if name is None:
             continue
-        fields[str(name)] = item.get("#text", item.get("text", ""))
+        fields[str(name)] = item.get("#text", item.get("text", "")) or ""
     return fields
 
 
-def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
+def normalize(
+    raw: dict,
+    source: str = "json",
+    source_file: str | None = None,
+    position: int | None = None,
+    allow_fallback: bool = True,
+) -> NormalizedEvent:
     """Normalize one raw event into :class:`NormalizedEvent`.
 
     ``source`` must be one of ``json``, ``jsonl`` or ``sysmon``. The original
     ``raw`` dict is stored verbatim under ``NormalizedEvent.raw``.
+
+    ``source_file`` and ``position`` are used when generating an event id
+    for records that lack a source-supplied id. Together with the canonical
+    content they ensure that identical records at different positions or in
+    different files receive distinct ids (no false deduplication). When
+    omitted (single-event utility calls), a content-only hash is used —
+    this is safe only for non-persistent, single-event use; distinct but
+    identical records may receive the same ID. Persistent batch/stream
+    ingestion must supply source_file via normalize_stream() or cmd_ingest().
+
+    ``allow_fallback`` controls whether a content-only hash is used when
+    no source-supplied ID exists and source_file is None. Single-event
+    utility calls default to True; normalize_stream() passes False to
+    enforce source identity for persistent ingestion.
     """
     if not isinstance(raw, dict):
-        raise ValueError("raw event must be a dict")
+        raise TypeError("raw event must be a dict")
 
-    event_id = _get_event_id(raw)
+    event_id = _get_event_id(
+        raw, source_file=source_file, position=position, allow_fallback=allow_fallback
+    )
 
     if source == "sysmon":
         fields = _extract_sysmon_fields(raw)
@@ -155,7 +178,9 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
             "process.create" if fields.get("Image") else None
         )
         user = _first(fields, "User", "UserName", "SubjectUserName")
-        host = _first(system, "Computer", "Host") or _first(fields, "Computer", "HostName")
+        host = _first(system, "Computer", "Host") or _first(
+            fields, "Computer", "HostName"
+        )
         process = ProcessInfo(
             pid=_int(_first(fields, "ProcessId", "PID")),
             ppid=_int(_first(fields, "ParentProcessId", "PPID")),
@@ -183,7 +208,9 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
                 ppid=_int(proc_raw.get("ppid") or proc_raw.get("PPID")),
                 name=_first(proc_raw, "name", "process_name", "Image"),
                 path=_first(proc_raw, "path", "executable", "Image"),
-                command_line=_first(proc_raw, "command_line", "commandLine", "CommandLine"),
+                command_line=_first(
+                    proc_raw, "command_line", "commandLine", "CommandLine"
+                ),
                 user=_first(proc_raw, "user", "username"),
                 hash_sha256=_first(proc_raw, "hash_sha256", "sha256", "Hash"),
             )
@@ -196,7 +223,9 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
                 local_address=_first(net_raw, "local_address", "localAddress"),
                 remote_address=_first(net_raw, "remote_address", "remoteAddress"),
                 local_port=_int(net_raw.get("local_port") or net_raw.get("localPort")),
-                remote_port=_int(net_raw.get("remote_port") or net_raw.get("remotePort")),
+                remote_port=_int(
+                    net_raw.get("remote_port") or net_raw.get("remotePort")
+                ),
                 protocol=_first(net_raw, "protocol"),
             )
 
@@ -207,7 +236,9 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
                 outcome=_first(auth_raw, "outcome", "status", "result"),
                 method=_first(auth_raw, "method", "auth_method"),
                 username=_first(auth_raw, "username", "user"),
-                source_address=_first(auth_raw, "source_address", "src_address", "source_ip"),
+                source_address=_first(
+                    auth_raw, "source_address", "src_address", "source_ip"
+                ),
             )
 
     return NormalizedEvent(
@@ -224,7 +255,32 @@ def normalize(raw: dict, source: str = "json") -> NormalizedEvent:
     )
 
 
-def normalize_stream(raw_events: Iterator[dict], source: str = "json") -> Iterator[NormalizedEvent]:
-    """Normalize an iterator of raw events, preserving order."""
+def normalize_stream(
+    raw_events: Iterator[dict],
+    source: str = "json",
+    source_file: str | None = None,
+    start_position: int = 1,
+) -> Iterator[NormalizedEvent]:
+    """Normalize an iterator of raw events, preserving order.
+
+    ``source_file`` and ``start_position`` are passed through to
+    :func:`normalize` for every record that lacks a source-supplied event
+    ID. Records that carry their own ``event_id`` are preserved verbatim
+    and do not require source_file. Records without a source-supplied ID
+    require source_file to be set, otherwise a ValueError is raised
+    (content-only hashes are not safe for batch ingestion).
+
+    ``start_position`` sets the initial record position; combined with
+    ``source_file`` it ensures stable, collision-free IDs across
+    re-ingestion of the same source file.
+    """
+    position = start_position
     for raw in raw_events:
-        yield normalize(raw, source=source)
+        yield normalize(
+            raw,
+            source=source,
+            source_file=source_file,
+            position=position,
+            allow_fallback=False,
+        )
+        position += 1

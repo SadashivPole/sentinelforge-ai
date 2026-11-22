@@ -20,12 +20,9 @@ Scenarios:
 from __future__ import annotations
 
 from sentinelforge.detection.base import DetectionResult, Evidence, Severity
-from sentinelforge.risk.correlator import DetectionCorrelator
 from sentinelforge.risk.scorer import (
-    RiskAssessment,
     RiskScorer,
     ScoringWeights,
-    _assessment_id,
     _classify,
     _correlation_score,
     _evidence_quality_score,
@@ -82,6 +79,7 @@ def _empty_detection(rule_id: str, severity: Severity, host: str) -> DetectionRe
 
 # ---------------------------------------------------------------- scoring units
 
+
 def test_severity_score_mapping():
     assert _severity_score([Severity.CRITICAL]) == 100.0
     assert _severity_score([Severity.HIGH]) == 80.0
@@ -114,9 +112,7 @@ def test_evidence_quality_score():
     assert conf == "low"
 
     # Partial evidence (raw only).
-    ev_partial = Evidence(
-        event_id="e2", timestamp="", source="", raw={"a": 1}
-    )
+    ev_partial = Evidence(event_id="e2", timestamp="", source="", raw={"a": 1})
     score, conf = _evidence_quality_score([ev_partial])
     assert 0 < score < 100
     assert conf in ("low", "medium")
@@ -154,6 +150,7 @@ def test_classify_bounds():
 
 # ---------------------------------------------------------------- end-to-end
 
+
 def test_single_low_severity_detection():
     det = _make_detection("failed_login", Severity.LOW, "host-1")
     assessments = RiskScorer().score([det])
@@ -182,7 +179,9 @@ def test_multiple_correlated_detections_higher_score():
     assert len(assessments) == 1
     a = assessments[0]
     # Three distinct detection types on one host -> correlation factor high.
-    assert any(f.name == "correlation" and f.raw_score == 75.0 for f in a.scoring_factors)
+    assert any(
+        f.name == "correlation" and f.raw_score == 75.0 for f in a.scoring_factors
+    )
     assert a.contributing_detection_ids == [
         "failed_login",
         "c2_beacon",
@@ -260,8 +259,12 @@ def test_missing_timestamps_handled_safely():
 def test_out_of_order_timestamps_same_score():
     base = "2024-01-01T00:00:00+00:00"
     det1 = _make_detection("a", Severity.MEDIUM, "host-1", triggered_at=base)
-    det2 = _make_detection("b", Severity.MEDIUM, "host-1", triggered_at="2024-01-01T00:30:00+00:00")
-    det3 = _make_detection("c", Severity.MEDIUM, "host-1", triggered_at="2024-01-01T00:15:00+00:00")
+    det2 = _make_detection(
+        "b", Severity.MEDIUM, "host-1", triggered_at="2024-01-01T00:30:00+00:00"
+    )
+    det3 = _make_detection(
+        "c", Severity.MEDIUM, "host-1", triggered_at="2024-01-01T00:15:00+00:00"
+    )
 
     # Shuffled order should produce the same score.
     a1 = RiskScorer().score([det1, det2, det3])
@@ -330,7 +333,10 @@ def test_evidence_confidence_separate_from_score():
     # Same severity, but different evidence completeness -> different scores.
     assert a1.evidence_confidence == "high"
     assert a2.evidence_confidence == "low"
-    assert a1.risk_score != a2.risk_score or a1.evidence_confidence != a2.evidence_confidence
+    assert (
+        a1.risk_score != a2.risk_score
+        or a1.evidence_confidence != a2.evidence_confidence
+    )
 
 
 def test_detection_order_does_not_change_score():

@@ -10,17 +10,12 @@ rule metadata — nothing is hardcoded.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from .catalogue import (
     ATTACKCatalogue,
-    TechniqueEntry,
-    VALID_STATUSES,
 )
-
 
 # Direct detection mappings, keyed by rule_id. These are derived from the
 # actual detection rule metadata, not hardcoded as coverage claims.
@@ -277,9 +272,7 @@ class CoverageReporter:
         subtechniques = [e for e in entries if e.subtechnique_parent_id is not None]
 
         implemented = self.catalogue.implemented_and_tested()
-        unique_mapped = {
-            e.technique_id for e in implemented
-        }
+        unique_mapped = {e.technique_id for e in implemented}
 
         total = len(entries)
         implemented_count = len(implemented)
@@ -295,8 +288,8 @@ class CoverageReporter:
                 if e.subtechnique_parent_id == parent.technique_id
             }
             if any(
-                self.catalogue.get(sid).detection_status
-                == "IMPLEMENTED_AND_TESTED"
+                (entry := self.catalogue.get(sid)) is not None
+                and entry.detection_status == "IMPLEMENTED_AND_TESTED"
                 for sid in sub_ids
             ):
                 parent_rollups += 1
@@ -310,16 +303,12 @@ class CoverageReporter:
             telemetry_available_no_detection=statuses.get(
                 "TELEMETRY_AVAILABLE_NO_DETECTION", 0
             ),
-            planned_requires_telemetry=statuses.get(
-                "PLANNED_REQUIRES_TELEMETRY", 0
-            ),
+            planned_requires_telemetry=statuses.get("PLANNED_REQUIRES_TELEMETRY", 0),
             unsupported_by_current_telemetry=statuses.get(
                 "UNSUPPORTED_BY_CURRENT_TELEMETRY", 0
             ),
             direct_mapping_count=len(self._direct_mappings),
-            unique_detection_rule_count=len(
-                set(self._direct_mappings.keys())
-            ),
+            unique_detection_rule_count=len(set(self._direct_mappings.keys())),
             unique_mapped_techniques=len(unique_mapped),
             parent_rollups=parent_rollups,
             coverage_percentage=coverage_pct,
@@ -373,7 +362,7 @@ class CoverageReporter:
 
         return [tactic_map[t["id"]] for t in ENTERPRISE_TACTICS]
 
-    def compute_telemetry_coverage(self) -> dict[str, dict[str, Any]]:
+    def compute_telemetry_coverage(self) -> dict[str, Any]:
         """Compute telemetry coverage matrix from normalizer inspection.
 
         Fields are derived from sentinelforge/ingestion/normalizer.py —
@@ -404,7 +393,14 @@ class CoverageReporter:
                     "username",
                     "source_address",
                 ],
-                "event": ["event_id", "timestamp", "event_type", "user", "host", "source"],
+                "event": [
+                    "event_id",
+                    "timestamp",
+                    "event_type",
+                    "user",
+                    "host",
+                    "source",
+                ],
             },
             "log_sources": TELEMETRY_INVENTORY,
             "raw_only_fields": [

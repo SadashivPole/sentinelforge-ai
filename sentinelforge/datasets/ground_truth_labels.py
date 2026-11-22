@@ -9,7 +9,7 @@ as benign.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -31,9 +31,7 @@ class EventGroundTruth:
             "event_id": self.event_id,
             "classification": self.classification,
             "scenario_id": self.scenario_id,
-            "expected_detection_categories": list(
-                self.expected_detection_categories
-            ),
+            "expected_detection_categories": list(self.expected_detection_categories),
             "expected_severity": self.expected_severity,
             "explanation": self.explanation,
             "event_type": self.event_type,
@@ -54,10 +52,7 @@ class EventGroundTruthManifest:
         return self.entries.get(event_id)
 
     def by_classification(self, classification: str) -> list[EventGroundTruth]:
-        return [
-            e for e in self.entries.values()
-            if e.classification == classification
-        ]
+        return [e for e in self.entries.values() if e.classification == classification]
 
     def counts(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -79,7 +74,7 @@ class EventGroundTruthManifest:
             json.dump(self.to_dict(), fh, indent=2)
 
     @classmethod
-    def load_json(cls, path: str | Path) -> "EventGroundTruthManifest":
+    def load_json(cls, path: str | Path) -> EventGroundTruthManifest:
         """Load the manifest from a JSON file."""
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -122,9 +117,7 @@ def build_event_ground_truth(
                 "expected_detection_category": entry.get(
                     "expected_detection_category", ""
                 ),
-                "expected_severity_range": entry.get(
-                    "expected_severity_range", ""
-                ),
+                "expected_severity_range": entry.get("expected_severity_range", ""),
                 "explanation": entry.get("explanation", ""),
             }
 
@@ -138,9 +131,11 @@ def build_event_ground_truth(
             # This event is part of a known scenario.
             classification = scenario_info["classification"]
             det_cat = scenario_info.get("expected_detection_category", "")
-            categories = tuple(
-                c.strip() for c in det_cat.split(",") if c.strip()
-            ) if det_cat else ()
+            categories = (
+                tuple(c.strip() for c in det_cat.split(",") if c.strip())
+                if det_cat
+                else ()
+            )
             severity = scenario_info.get("expected_severity_range", "")
             explanation = scenario_info.get("explanation", "")
             scenario_id = scenario_info.get("scenario_id", "")
@@ -164,14 +159,16 @@ def build_event_ground_truth(
             explanation = "Not part of any labelled scenario; ground truth unknown."
             scenario_id = None
 
-        manifest.add_entry(EventGroundTruth(
-            event_id=event_id,
-            classification=classification,
-            scenario_id=scenario_id,
-            expected_detection_categories=categories,
-            expected_severity=severity,
-            explanation=explanation,
-            event_type=event.get("event_type"),
-        ))
+        manifest.add_entry(
+            EventGroundTruth(
+                event_id=event_id,
+                classification=classification,
+                scenario_id=scenario_id,
+                expected_detection_categories=categories,
+                expected_severity=severity,
+                explanation=explanation,
+                event_type=event.get("event_type"),
+            )
+        )
 
     return manifest

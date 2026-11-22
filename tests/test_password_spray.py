@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sentinelforge.detection.base import Severity
 from sentinelforge.detection.password_spray import PasswordSprayRule
@@ -52,17 +52,19 @@ def _make_auth_event(
 
 def test_password_spray_detects_multiple_usernames_same_source():
     """3+ failed logins from one source against distinct usernames triggers."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     for i, username in enumerate(["alice", "bob", "charlie"]):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert len(results) == 1
@@ -73,17 +75,19 @@ def test_password_spray_detects_multiple_usernames_same_source():
 
 def test_password_spray_below_username_threshold_no_alert():
     """2 distinct usernames from one source (below threshold of 3) → no alert."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     for i, username in enumerate(["alice", "bob"]):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert results == []
@@ -91,28 +95,32 @@ def test_password_spray_below_username_threshold_no_alert():
 
 def test_password_spray_different_sources_no_cross_contamination():
     """Failed logins from different sources are not grouped together."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     # Source A: 3 attempts against 1 username (not spraying)
     for i in range(3):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-a-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username="alice",
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-a-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username="alice",
+                source_address="192.0.2.100",
+            )
+        )
     # Source B: 3 attempts against 1 username (not spraying)
     for i in range(3):
         ts = base.replace(minute=9, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-b-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username="bob",
-            source_address="198.51.100.50",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-b-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username="bob",
+                source_address="198.51.100.50",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert results == []
@@ -120,22 +128,26 @@ def test_password_spray_different_sources_no_cross_contamination():
 
 def test_password_spray_successful_auth_not_counted():
     """Successful authentications are not counted as spray attempts."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     # 2 failures + 1 success from same source against different users
-    for i, (username, outcome) in enumerate([
-        ("alice", "failure"),
-        ("bob", "failure"),
-        ("charlie", "success"),
-    ]):
+    for i, (username, outcome) in enumerate(
+        [
+            ("alice", "failure"),
+            ("bob", "failure"),
+            ("charlie", "success"),
+        ]
+    ):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome=outcome,
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome=outcome,
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert results == []  # only 2 distinct failure usernames, below threshold
@@ -143,17 +155,19 @@ def test_password_spray_successful_auth_not_counted():
 
 def test_password_spray_outside_window_no_alert():
     """Attempts spread outside the time window don't trigger."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     for i, username in enumerate(["alice", "bob", "charlie"]):
         ts = base.replace(hour=8 + i, minute=0).isoformat()  # 1 hour apart
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert results == []
@@ -161,17 +175,19 @@ def test_password_spray_outside_window_no_alert():
 
 def test_password_spray_severity_high():
     """Password spray alerts are HIGH severity."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     for i, username in enumerate(["alice", "bob", "charlie"]):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert len(results) == 1
@@ -180,17 +196,19 @@ def test_password_spray_severity_high():
 
 def test_password_spray_mitre_mapping():
     """Password spray maps to MITRE T1110.003."""
-    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     events = []
     for i, username in enumerate(["alice", "bob", "charlie"]):
         ts = base.replace(minute=8, second=i * 10).isoformat()
-        events.append(_make_auth_event(
-            event_id=f"evt-spray-{i}",
-            timestamp=ts,
-            outcome="failure",
-            username=username,
-            source_address="192.0.2.100",
-        ))
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
 
     results = PasswordSprayRule().evaluate(events)
     assert len(results) == 1
@@ -202,6 +220,7 @@ def test_password_spray_mitre_mapping():
 # Independent end-to-end regression test (M8.3.6 requirement)
 # Generates data in a temp directory, runs the real pipeline, queries its own DB.
 # ---------------------------------------------------------------------------
+
 
 def test_password_spray_rule_detects_all_expected_events_e2e():
     """End-to-end: generated dataset → pipeline → DB → verify exact event ID sets.
@@ -221,12 +240,12 @@ def test_password_spray_rule_detects_all_expected_events_e2e():
     from pathlib import Path
 
     from sentinelforge.datasets.generator import DatasetGenerator
-    from sentinelforge.ingestion.reader import reader_for
-    from sentinelforge.ingestion.normalizer import normalize
     from sentinelforge.detection.base import RuleRegistry
     from sentinelforge.detection.password_spray import PasswordSprayRule
+    from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import reader_for
     from sentinelforge.storage.database import Database
-    from sentinelforge.storage.repositories import EventRepository, DetectionRepository
+    from sentinelforge.storage.repositories import DetectionRepository, EventRepository
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # ---- Step 1: Generate dataset in temp directory ----
@@ -305,9 +324,15 @@ def test_password_spray_rule_detects_all_expected_events_e2e():
         duplicate_references = {eid: cnt for eid, cnt in dup_counts.items() if cnt > 1}
 
         # Set operations
-        intersection = expected_password_spray_event_ids & detected_password_spray_event_ids
-        missing_ids = expected_password_spray_event_ids - detected_password_spray_event_ids
-        unexpected_ids = detected_password_spray_event_ids - expected_password_spray_event_ids
+        intersection = (
+            expected_password_spray_event_ids & detected_password_spray_event_ids
+        )
+        missing_ids = (
+            expected_password_spray_event_ids - detected_password_spray_event_ids
+        )
+        unexpected_ids = (
+            detected_password_spray_event_ids - expected_password_spray_event_ids
+        )
 
         conn.close()
 
@@ -356,8 +381,90 @@ def test_password_spray_rule_detects_all_expected_events_e2e():
 
         # Report
         print(f"\n  Expected password_spray event IDs: {expected_count}")
-        print(f"  Detected password_spray event IDs: {len(detected_password_spray_event_ids)}")
+        print(
+            f"  Detected password_spray event IDs: {len(detected_password_spray_event_ids)}"
+        )
         print(f"  Intersection: {len(intersection)}")
         print(f"  Missing: {len(missing_ids)}")
         print(f"  Unexpected: {len(unexpected_ids)} (attribution errors)")
         print(f"  Duplicate evidence references: {len(duplicate_references)}")
+
+
+# ---------------------------------------------------------------------------
+# Missing source address handling (M9.1 finding: events with missing
+# source_address must NOT be grouped together, preventing unrelated events
+# from different hosts being combined into one spray alert.)
+# ---------------------------------------------------------------------------
+
+
+def test_password_spray_missing_source_address_skipped():
+    """Events with missing source_address are NOT grouped into spray detection.
+
+    Without a source IP, events from different hosts could be incorrectly
+    combined into a single spray alert. Missing source_address events are
+    excluded from grouping entirely.
+    """
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
+    events = []
+
+    # 3 events with missing source_address against 3 different usernames
+    for i, username in enumerate(["alice", "bob", "charlie"]):
+        ts = base.replace(minute=8, second=i * 10).isoformat()
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-missing-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address=None,  # missing source address
+            )
+        )
+
+    results = PasswordSprayRule().evaluate(events)
+    assert results == [], (
+        f"Expected no alert for events with missing source_address, "
+        f"got {len(results)} alert(s)"
+    )
+
+
+def test_password_spray_mixed_source_and_missing_source():
+    """Events with source_address are grouped; events without are skipped.
+
+    3 events with source_address against 3 usernames -> alert.
+    3 events with missing source_address against 3 usernames -> ignored.
+    """
+    base = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
+    events = []
+
+    # 3 events with source_address (should trigger alert)
+    for i, username in enumerate(["alice", "bob", "charlie"]):
+        ts = base.replace(minute=8, second=i * 10).isoformat()
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-mixed-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address="192.0.2.100",
+            )
+        )
+
+    # 3 events with missing source_address (should be skipped)
+    for i, username in enumerate(["dave", "eve", "frank"]):
+        ts = base.replace(minute=9, second=i * 10).isoformat()
+        events.append(
+            _make_auth_event(
+                event_id=f"evt-spray-mixed-missing-{i}",
+                timestamp=ts,
+                outcome="failure",
+                username=username,
+                source_address=None,
+            )
+        )
+
+    results = PasswordSprayRule().evaluate(events)
+    assert len(results) == 1
+    assert results[0].metadata["distinct_username_count"] == 3
+    assert results[0].metadata["source_address"] == "192.0.2.100"
+    # Evidence should only include the 3 events with source_address
+    assert len(results[0].evidence) == 3

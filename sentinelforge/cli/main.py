@@ -11,9 +11,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 from sentinelforge.config import settings
+from sentinelforge.datasets.evaluation import evaluate_detections
 from sentinelforge.detection.base import RuleRegistry
 from sentinelforge.detection.beacon import C2BeaconRule
 from sentinelforge.detection.failed_logins import FailedLoginBurstRule
@@ -22,14 +23,11 @@ from sentinelforge.detection.powershell import SuspiciousPowerShellRule
 from sentinelforge.detection.processtree import SuspiciousProcessTreeRule
 from sentinelforge.ingestion.normalizer import normalize
 from sentinelforge.ingestion.reader import LogParseError, reader_for
-from sentinelforge.risk.correlator import DetectionCorrelator
-from sentinelforge.risk.scorer import RiskScorer
 from sentinelforge.storage.database import Database
 from sentinelforge.storage.repositories import (
     DetectionRepository,
     DuplicateIdCollisionError,
     EventRepository,
-    RiskAssessmentRepository,
 )
 
 EXIT_OK = 0
@@ -47,9 +45,33 @@ def _build_registry() -> RuleRegistry:
     return registry
 
 
+def _source_from_reader(reader: Any) -> str:
+    """Map a reader instance to its source name for normalization.
+
+    The reader is selected by content sniffing in reader_for(), so this
+    mapping reflects the actual format detected, not the file extension.
+    This ensures Sysmon-formatted content is normalized using Sysmon field
+    mapping regardless of file extension.
+    """
+    from sentinelforge.ingestion.reader import (
+        JSONLReader,
+        JSONReader,
+        SysmonReader,
+    )
+
+    if isinstance(reader, SysmonReader):
+        return "sysmon"
+    if isinstance(reader, JSONLReader):
+        return "jsonl"
+    if isinstance(reader, JSONReader):
+        return "json"
+    return "json"
+
+
 # ---------------------------------------------------------------------------
 # ingest command
 # ---------------------------------------------------------------------------
+
 
 def cmd_ingest(args: argparse.Namespace) -> int:
     """Ingest log files into the SQLite database.
@@ -62,7 +84,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
     try:
         db.initialize()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
         print(f"ERROR: Failed to initialize database: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
@@ -70,6 +92,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     total_normalized = 0
     total_stored = 0
     total_skipped = 0
+    total_rejected = 0
     errors: list[str] = []
 
     for input_path in input_paths:
@@ -83,15 +106,29 @@ def cmd_ingest(args: argparse.Namespace) -> int:
             errors.append(f"Cannot open {input_path}: {exc}")
             continue
 
-        source = input_path.suffix.lower().lstrip(".") or "json"
-        if source not in ("json", "jsonl", "sysmon"):
-            source = "json"
+        # Determine source from the reader type (content sniffed), not the
+        # file extension. This ensures Sysmon-formatted content is
+        # normalized using Sysmon field mapping regardless of extension.
+        source = _source_from_reader(reader)
+
+        # Per-file record counter for stable, collision-free event id
+        # generation. Position is sequential within this file; combined
+        # with source_file and content hash it guarantees that identical
+        # records at different positions or in different files receive
+        # distinct ids.
+        position = 0
 
         try:
             for raw in reader.read(input_path):
+                position += 1
                 total_normalized += 1
                 try:
-                    event = normalize(raw, source=source)
+                    event = normalize(
+                        raw,
+                        source=source,
+                        source_file=str(input_path),
+                        position=position,
+                    )
                     try:
                         event_repo.insert_event(event)
                         total_stored += 1
@@ -100,16 +137,26 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                         total_skipped += 1
                 except ValueError as exc:
                     errors.append(f"Normalization error in {input_path}: {exc}")
+            # Report rejected (non-dict) records from this reader.
+            rejected = len(reader.skipped_records)
+            total_rejected += rejected
+            if rejected:
+                for line_no, content, reason in reader.skipped_records:
+                    print(
+                        f"  Rejected record in {input_path} line {line_no}: "
+                        f"{reason} ({content})"
+                    )
         except LogParseError as exc:
             errors.append(f"Parse error in {input_path} line {exc.line_number}: {exc}")
         except OSError as exc:
             errors.append(f"Read error in {input_path}: {exc}")
 
-    print(f"Ingestion complete.")
+    print("Ingestion complete.")
     print(f"  Files processed: {len(input_paths)}")
     print(f"  Events normalized: {total_normalized}")
     print(f"  Events stored: {total_stored}")
     print(f"  Duplicates skipped: {total_skipped}")
+    print(f"  Records rejected: {total_rejected}")
     if errors:
         print(f"  Errors: {len(errors)}")
         for err in errors[:10]:
@@ -124,6 +171,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 # detect command
 # ---------------------------------------------------------------------------
 
+
 def cmd_detect(args: argparse.Namespace) -> int:
     """Run detection rules on stored events and optionally write results."""
     db = Database(args.db_path)
@@ -131,21 +179,41 @@ def cmd_detect(args: argparse.Namespace) -> int:
     try:
         version = db.schema_version()
         if version is None:
-            print("ERROR: Database not initialized. Run 'ingest' first.", file=sys.stderr)
+            print(
+                "ERROR: Database not initialized. Run 'ingest' first.", file=sys.stderr
+            )
             return EXIT_ERROR
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
         print(f"ERROR: Cannot read database schema: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
     event_repo = EventRepository(db)
     detection_repo = DetectionRepository(db)
 
-    # Load all events from the database.
-    events = event_repo.get_events(limit=100_000)
+    # Safety guard: refuse to load all events when the database exceeds the
+    # configured maximum. Unbounded fetchall() can exhaust memory on large
+    # datasets; we never silently truncate.
+    event_count = event_repo.count_events()
+    if event_count > settings.max_detection_events:
+        print(
+            "ERROR: Database contains "
+            f"{event_count} events, exceeding the configured maximum of "
+            f"{settings.max_detection_events} for detection. "
+            f"Increase SENTINELFORGE_MAX_DETECTION_EVENTS or reduce the "
+            f"dataset before running detection.",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+
+    # Load ALL events from the database (no arbitrary limit).
+    # If the dataset is very large, this may use significant memory,
+    # but processing all events is required for correct detection.
+    events = event_repo.get_events(limit=None)
     if not events:
         print("No events found in database. Run 'ingest' first.")
         return EXIT_OK
 
+    total_events = len(events)
     registry = _build_registry()
     results = registry.evaluate_all(events)
 
@@ -160,8 +228,8 @@ def cmd_detect(args: argparse.Namespace) -> int:
             pass
 
     # Print summary.
-    print(f"Detection complete.")
-    print(f"  Events evaluated: {len(events)}")
+    print("Detection complete.")
+    print(f"  Events evaluated: {total_events}")
     print(f"  Detection alerts: {len(results)}")
     print(f"  Alerts stored: {total_stored}")
 
@@ -216,6 +284,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
 # evaluate command
 # ---------------------------------------------------------------------------
 
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
     """Run detection quality evaluation.
 
@@ -229,25 +298,21 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return _evaluate_builtin(output_path=args.output)
 
 
-def _evaluate_builtin(output_path: Optional[str] = None) -> int:
-    """Run the built-in independent evaluation (same logic as evaluate_independent.py)."""
+def _evaluate_builtin(output_path: str | None = None) -> int:
+    """Run the built-in independent evaluation (packaged evaluator)."""
     import contextlib
-    import importlib.util
     import io
+    import sys
 
-    spec = importlib.util.spec_from_file_location(
-        "evaluate_independent", "evaluate_independent.py"
-    )
-    if spec is None or spec.loader is None:
-        print("ERROR: Cannot locate evaluate_independent.py", file=sys.stderr)
-        return EXIT_ERROR
+    from sentinelforge.datasets.independent_evaluation import main
 
-    module = importlib.util.module_from_spec(spec)
-
-    # Capture the module's stdout so we can write it to the output file if requested.
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
-        spec.loader.exec_module(module)
+        try:
+            main()
+        except FileNotFoundError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return EXIT_ERROR
 
     output_text = captured.getvalue()
     sys.stdout.write(output_text)
@@ -263,10 +328,14 @@ def _evaluate_builtin(output_path: Optional[str] = None) -> int:
 
 
 def _evaluate_from_db(args: argparse.Namespace) -> int:
-    """Evaluate stored detections against a ground-truth file."""
+    """Evaluate stored detections against a ground-truth file.
+
+    Uses the canonical evaluation implementation from
+    sentinelforge.datasets.evaluation to compute alert-level and
+    event-level metrics separately, avoiding mixed-population F1 scores.
+    """
     db = Database(args.db_path)
     detection_repo = DetectionRepository(db)
-    event_repo = EventRepository(db)
 
     # Load ground truth.
     gt_path = Path(args.input)
@@ -278,80 +347,83 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
         with open(gt_path, "r", encoding="utf-8") as fh:
             ground_truth = json.load(fh)
     except json.JSONDecodeError as exc:
-        print(f"ERROR: Invalid JSON in ground truth file {gt_path}: {exc}", file=sys.stderr)
+        print(
+            f"ERROR: Invalid JSON in ground truth file {gt_path}: {exc}",
+            file=sys.stderr,
+        )
         return EXIT_ERROR
 
-    gt_entries = ground_truth.get("entries", ground_truth)
-    gt_lookup: dict[str, dict] = {}
-    for entry in gt_entries:
-        for eid in entry.get("event_ids", []):
-            gt_lookup[eid] = entry
+    # Load ALL stored detections (no arbitrary limit).
+    # Safety guard: refuse when the detection count exceeds the configured
+    # maximum to avoid unbounded memory consumption.
+    detection_count = detection_repo.count_detections()
+    if detection_count > settings.max_detection_events:
+        print(
+            "ERROR: Database contains "
+            f"{detection_count} detections, exceeding the configured maximum of "
+            f"{settings.max_detection_events} for evaluation. "
+            f"Increase SENTINELFORGE_MAX_DETECTION_EVENTS or reduce the "
+            f"dataset before running evaluation.",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
 
-    # Load stored detections.
-    detections = detection_repo.get_detections(limit=100_000)
-    if not detections:
+    detections = detection_repo.get_detections(limit=None)
+    total_detections = len(detections)
+    if total_detections == 0:
         print("No detections found in database. Run 'detect' first.")
         return EXIT_OK
 
-    # Build detection citations: event_id -> list of detections.
-    suspicious_ids = {
-        eid for eid, g in gt_lookup.items() if g.get("classification") == "suspicious"
-    }
-    benign_ids = {
-        eid for eid, g in gt_lookup.items() if g.get("classification") == "benign"
-    }
-
-    detected_ids: set[str] = set()
-    for det in detections:
-        for ev in det.evidence:
-            detected_ids.add(ev.event_id)
-
-    tp = detected_ids & suspicious_ids
-    fp = detected_ids & benign_ids
-    fn = suspicious_ids - detected_ids
-
-    precision = len(tp) / (len(tp) + len(fp)) if (len(tp) + len(fp)) > 0 else 0.0
-    recall = len(tp) / (len(tp) + len(fn)) if (len(tp) + len(fn)) > 0 else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
+    # Run canonical evaluation: alert-level and event-level metrics computed
+    # separately, with F1 marked valid only when unit and population match.
+    results = evaluate_detections(
+        dataset_id=gt_path.stem,
+        detection_results=detections,
+        event_ground_truth=ground_truth,
     )
 
-    print(f"Evaluation complete.")
-    print(f"  Ground truth events: {len(gt_lookup)}")
-    print(f"    Suspicious: {len(suspicious_ids)}")
-    print(f"    Benign: {len(benign_ids)}")
-    print(f"  Detection results: {len(detections)}")
-    print(f"  Unique events detected: {len(detected_ids)}")
-    print(f"  True Positives: {len(tp)}")
-    print(f"  False Positives: {len(fp)}")
-    print(f"  False Negatives: {len(fn)}")
-    print(f"  Precision: {precision:.4f}")
-    print(f"  Recall: {recall:.4f}")
-    print(f"  F1: {f1:.4f}")
+    print("Evaluation complete.")
+    print(f"  Dataset: {results.dataset_id}")
+    print(f"  Total ground truth events: {results.total_events}")
+    print(f"    Suspicious: {results.suspicious_events}")
+    print(f"    Benign: {results.benign_events}")
+    print(f"    Unlabeled: {results.unlabeled_events}")
+    print(f"  Detection alerts loaded: {total_detections}")
+    print()
+    print("  Alert-level evaluation:")
+    al = results.alert_level
+    print(f"    Total alerts: {al.total_alerts}")
+    print(f"    True positives: {al.true_positive_alerts}")
+    print(f"    False positives: {al.false_positive_alerts}")
+    print(f"    Attribution errors: {al.attribution_error_alerts}")
+    print(f"    Unassessed: {al.unassessed_alerts}")
+    print(f"    Assessed: {al.assessed_alerts}")
+    print(f"    Precision: {al.precision:.4f}")
+    print(f"    Assessment coverage: {al.assessment_coverage:.4f}")
+    print()
+    print("  Event-level evaluation:")
+    el = results.event_level
+    print(f"    Total suspicious: {el.total_suspicious_events}")
+    print(f"    Detected: {el.detected_suspicious_events}")
+    print(f"    Undetected: {el.undetected_suspicious_events}")
+    print(f"    Recall: {el.recall:.4f}")
+    print()
+    print("  F1 scores:")
+    fa = results.f1_alert
+    fe = results.f1_event
+    print(
+        f"    Alert-level:  valid={fa.valid}, precision={fa.precision}, "
+        f"recall={fa.recall}, f1={fa.f1_score} ({fa.formula})"
+    )
+    print(
+        f"    Event-level:  valid={fe.valid}, precision={fe.precision}, "
+        f"recall={fe.recall}, f1={fe.f1_score} ({fe.formula})"
+    )
 
     if args.output:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        report = {
-            "total_ground_truth": len(gt_lookup),
-            "suspicious_count": len(suspicious_ids),
-            "benign_count": len(benign_ids),
-            "detection_count": len(detections),
-            "detected_event_count": len(detected_ids),
-            "true_positives": len(tp),
-            "false_positives": len(fp),
-            "false_negatives": len(fn),
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "tp_event_ids": sorted(tp),
-            "fp_event_ids": sorted(fp),
-            "fn_event_ids": sorted(fn),
-        }
-        with open(output_path, "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2)
+        results.write_json(output_path)
         print(f"  Report written to: {output_path}")
 
     return EXIT_OK
@@ -360,6 +432,7 @@ def _evaluate_from_db(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -375,7 +448,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # ingest
-    p_ingest = subparsers.add_parser("ingest", help="Ingest log files into the database")
+    p_ingest = subparsers.add_parser(
+        "ingest", help="Ingest log files into the database"
+    )
     p_ingest.add_argument(
         "input",
         nargs="+",
@@ -394,9 +469,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_detect.set_defaults(func=cmd_detect)
 
     # evaluate
-    p_eval = subparsers.add_parser(
-        "evaluate", help="Evaluate detection quality"
-    )
+    p_eval = subparsers.add_parser("evaluate", help="Evaluate detection quality")
     p_eval.add_argument(
         "--input",
         help="Ground truth JSON file for database-backed evaluation",
@@ -410,7 +483,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 

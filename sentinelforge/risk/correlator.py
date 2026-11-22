@@ -9,13 +9,12 @@ detection is counted once, and unrelated hosts are never mixed.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime
 
 from sentinelforge.detection.base import DetectionResult, Severity
 
 
-def _parse_triggered_at(result: DetectionResult) -> Optional[datetime]:
+def _parse_triggered_at(result: DetectionResult) -> datetime | None:
     """Parse a detection's triggered_at timestamp into an aware UTC datetime."""
     if not result.triggered_at:
         return None
@@ -29,11 +28,11 @@ def _parse_triggered_at(result: DetectionResult) -> Optional[datetime]:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
-def _host_of(result: DetectionResult) -> Optional[str]:
+def _host_of(result: DetectionResult) -> str | None:
     """Extract the affected host from a detection result.
 
     Host is taken from metadata first (set by most rules), then from the
@@ -51,12 +50,12 @@ def _host_of(result: DetectionResult) -> Optional[str]:
 class CorrelationCluster:
     """A group of detections on the same host within a time window."""
 
-    host: Optional[str]
+    host: str | None
     detection_ids: list[str]
     rule_ids: set[str]
     severities: list[Severity]
-    first_triggered: Optional[datetime]
-    last_triggered: Optional[datetime]
+    first_triggered: datetime | None
+    last_triggered: datetime | None
     distinct_rule_count: int = field(init=False)
 
     def __post_init__(self) -> None:
@@ -77,7 +76,7 @@ class DetectionCorrelator:
     def correlate(self, results: list[DetectionResult]) -> list[CorrelationCluster]:
         """Group detections into host-scoped time-window clusters."""
         # Group by host first.
-        by_host: dict[Optional[str], list[DetectionResult]] = {}
+        by_host: dict[str | None, list[DetectionResult]] = {}
         for result in results:
             host = _host_of(result)
             by_host.setdefault(host, []).append(result)
@@ -87,15 +86,15 @@ class DetectionCorrelator:
             # Sort by triggered_at (missing timestamps go to the end).
             sorted_results = sorted(
                 host_results,
-                key=lambda r: _parse_triggered_at(r) or datetime.min.replace(
-                    tzinfo=timezone.utc
+                key=lambda r: (
+                    _parse_triggered_at(r) or datetime.min.replace(tzinfo=UTC)
                 ),
             )
 
             # Sliding window: start a new cluster when the gap from the
             # cluster's first detection exceeds the window.
             current: list[DetectionResult] = []
-            cluster_start: Optional[datetime] = None
+            cluster_start: datetime | None = None
 
             for result in sorted_results:
                 ts = _parse_triggered_at(result)
@@ -123,7 +122,7 @@ class DetectionCorrelator:
         return clusters
 
     def _make_cluster(
-        self, host: Optional[str], results: list[DetectionResult]
+        self, host: str | None, results: list[DetectionResult]
     ) -> CorrelationCluster:
         ids = [r.detection_id for r in results]
         rule_ids = {r.rule_id for r in results}

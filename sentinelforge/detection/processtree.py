@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sentinelforge.config import settings
 from sentinelforge.detection.base import (
@@ -50,8 +50,15 @@ DEFAULT_SUSPICIOUS_RELATIONSHIPS: list[tuple[str, str]] = [
 
 # Flags that take a value token; the value is not a file operand.
 _VALUE_TAKING_FLAGS = {
-    "-executionpolicy", "-ep", "-file", "-f", "-command", "-c",
-    "-encodedcommand", "-enc", "-windowstyle",
+    "-executionpolicy",
+    "-ep",
+    "-file",
+    "-f",
+    "-command",
+    "-c",
+    "-encodedcommand",
+    "-enc",
+    "-windowstyle",
 }
 
 # File activity event types that indicate file creation/download/opening.
@@ -72,12 +79,20 @@ FILE_ACTIVITY_TYPES = {
 
 # Raw-log keys that commonly hold a file path.
 _FILE_PATH_KEYS = (
-    "FileName", "file_name", "file_path", "FilePath", "TargetFilename",
-    "Image", "path", "filename", "File", "file",
+    "FileName",
+    "file_name",
+    "file_path",
+    "FilePath",
+    "TargetFilename",
+    "Image",
+    "path",
+    "filename",
+    "File",
+    "file",
 )
 
 
-def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+def _parse_timestamp(value: str | None) -> datetime | None:
     """Parse an ISO-8601 timestamp string into an aware UTC datetime."""
     if not value:
         return None
@@ -91,11 +106,11 @@ def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
-def _extract_file_path(raw: Optional[dict]) -> Optional[str]:
+def _extract_file_path(raw: dict | None) -> str | None:
     """Extract a file path from a raw event dict."""
     if not raw or not isinstance(raw, dict):
         return None
@@ -106,7 +121,7 @@ def _extract_file_path(raw: Optional[dict]) -> Optional[str]:
     return None
 
 
-def _normalize_file_path(path: Optional[str]) -> Optional[str]:
+def _normalize_file_path(path: str | None) -> str | None:
     """Normalize a file path for comparison: lowercase, strip trailing slash."""
     if not path:
         return None
@@ -116,7 +131,7 @@ def _normalize_file_path(path: Optional[str]) -> Optional[str]:
     return text or None
 
 
-def _extract_file_operands(command_line: Optional[str]) -> list[str]:
+def _extract_file_operands(command_line: str | None) -> list[str]:
     """Extract file operands from a command line (non-flag tokens after the
     executable, skipping values of value-taking flags).
 
@@ -171,10 +186,10 @@ def _build_file_activity_index(
 
 def _has_correlated_file_activity(
     file_activity_index: dict,
-    child_host: Optional[str],
-    child_user: Optional[str],
+    child_host: str | None,
+    child_user: str | None,
     file_operands: list[str],
-    child_timestamp: Optional[datetime],
+    child_timestamp: datetime | None,
     window_seconds: int,
 ) -> bool:
     """Check if any file operand correlates with a file activity event."""
@@ -202,7 +217,7 @@ CONFIDENCE_MEDIUM = "medium"
 CONFIDENCE_LOW = "low"
 
 
-def _normalize_process_name(name: Optional[str]) -> Optional[str]:
+def _normalize_process_name(name: str | None) -> str | None:
     """Normalize a process name: strip path/extension, lowercase.
 
     Returns None when no name is available.
@@ -271,8 +286,8 @@ class SuspiciousProcessTreeRule(DetectionRule):
 
     def _confidence(
         self,
-        child_command_line: Optional[str],
-        parent_command_line: Optional[str],
+        child_command_line: str | None,
+        parent_command_line: str | None,
         parent_found: bool,
     ) -> str:
         """Confidence reflects how much corroborating evidence exists.

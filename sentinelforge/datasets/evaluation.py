@@ -20,7 +20,7 @@ unit and the same population.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -188,19 +188,26 @@ def evaluate_detections(
     # Each short name maps to exactly ONE primary rule to avoid double counting.
     CATEGORY_ALIASES: dict[str, set[str]] = {
         "sentinelforge.detection.suspicious_powershell": {
-            "powershell", "t1059.001",
+            "powershell",
+            "t1059.001",
         },
         "sentinelforge.detection.failed_login_burst": {
-            "failed_login_burst", "t1110", "t1110.001",
+            "failed_login_burst",
+            "t1110",
+            "t1110.001",
         },
         "sentinelforge.detection.password_spray": {
-            "password_spray", "t1110.003",
+            "password_spray",
+            "t1110.003",
         },
         "sentinelforge.detection.suspicious_processtree": {
-            "suspicious_processtree", "t1204.002", "t1204",
+            "suspicious_processtree",
+            "t1204.002",
+            "t1204",
         },
         "sentinelforge.detection.c2_beacon": {
-            "c2_beacon", "t1071",
+            "c2_beacon",
+            "t1071",
         },
     }
 
@@ -217,15 +224,9 @@ def evaluate_detections(
         gt_by_event[entry["event_id"]] = entry
 
     # Count events by classification.
-    benign_count = sum(
-        1 for e in gt_entries if e["classification"] == "benign"
-    )
-    suspicious_count = sum(
-        1 for e in gt_entries if e["classification"] == "suspicious"
-    )
-    unlabeled_count = sum(
-        1 for e in gt_entries if e["classification"] == "unlabeled"
-    )
+    benign_count = sum(1 for e in gt_entries if e["classification"] == "benign")
+    suspicious_count = sum(1 for e in gt_entries if e["classification"] == "suspicious")
+    unlabeled_count = sum(1 for e in gt_entries if e["classification"] == "unlabeled")
     labeled_count = benign_count + suspicious_count
     total_events = len(gt_entries)
 
@@ -237,9 +238,7 @@ def evaluate_detections(
     for result in detection_results:
         rule_id = getattr(result, "rule_id", "unknown")
         rule_name = getattr(result, "rule_name", "unknown")
-        evidence_event_ids = [
-            ev.event_id for ev in getattr(result, "evidence", [])
-        ]
+        evidence_event_ids = [ev.event_id for ev in getattr(result, "evidence", [])]
         metadata = getattr(result, "metadata", {}) or {}
         mitre_technique = metadata.get("mitre_attack_technique", "")
 
@@ -295,12 +294,11 @@ def evaluate_detections(
                     if isinstance(expected_cats, str):
                         expected_cats = [
                             c.strip().lower()
-                            for c in expected_cats.split(",") if c.strip()
+                            for c in expected_cats.split(",")
+                            if c.strip()
                         ]
                     else:
-                        expected_cats = [
-                            c.strip().lower() for c in expected_cats
-                        ]
+                        expected_cats = [c.strip().lower() for c in expected_cats]
                     if alert_cats & set(expected_cats) or not expected_cats:
                         is_tp = True
                         detected_suspicious_event_ids.add(eid)
@@ -351,9 +349,7 @@ def evaluate_detections(
         for cat in expected_cats:
             matching_rules = RULES_BY_CATEGORY.get(cat, set())
             for rule_id in matching_rules:
-                rule_event_expected[rule_id] = (
-                    rule_event_expected.get(rule_id, 0) + 1
-                )
+                rule_event_expected[rule_id] = rule_event_expected.get(rule_id, 0) + 1
 
     # Count detected events per rule (event is detected if any alert on it
     # matches the rule's category).
@@ -372,13 +368,10 @@ def evaluate_detections(
                 )
                 if isinstance(expected_cats, str):
                     expected_cats = [
-                        c.strip().lower()
-                        for c in expected_cats.split(",") if c.strip()
+                        c.strip().lower() for c in expected_cats.split(",") if c.strip()
                     ]
                 else:
-                    expected_cats = [
-                        c.strip().lower() for c in expected_cats
-                    ]
+                    expected_cats = [c.strip().lower() for c in expected_cats]
                 alert_cats = alert["alert_categories"]
                 if alert_cats & set(expected_cats) or not expected_cats:
                     detected_for_rule.add(eid)
@@ -411,17 +404,19 @@ def evaluate_detections(
                     rule_name = a["rule_name"]
                     break
 
-        rule_alert_metrics.append(RuleAlertMetrics(
-            rule_id=rule_id,
-            rule_name=rule_name,
-            total_alerts=total,
-            true_positive_alerts=tp,
-            false_positive_alerts=fp,
-            attribution_error_alerts=attribution_errors,
-            unassessed_alerts=unassessed,
-            assessed_alerts=assessed,
-            precision=round(precision, 4),
-        ))
+        rule_alert_metrics.append(
+            RuleAlertMetrics(
+                rule_id=rule_id,
+                rule_name=rule_name,
+                total_alerts=total,
+                true_positive_alerts=tp,
+                false_positive_alerts=fp,
+                attribution_error_alerts=attribution_errors,
+                unassessed_alerts=unassessed,
+                assessed_alerts=assessed,
+                precision=round(precision, 4),
+            )
+        )
 
         total_alert_tp += tp
         total_alert_fp += fp
@@ -456,21 +451,21 @@ def evaluate_detections(
                     rule_name = a["rule_name"]
                     break
 
-        rule_event_metrics.append(RuleEventMetrics(
-            rule_id=rule_id,
-            rule_name=rule_name,
-            expected_events=expected,
-            detected_events=detected,
-            missed_events=missed,
-            recall=round(recall, 4),
-        ))
+        rule_event_metrics.append(
+            RuleEventMetrics(
+                rule_id=rule_id,
+                rule_name=rule_name,
+                expected_events=expected,
+                detected_events=detected,
+                missed_events=missed,
+                recall=round(recall, 4),
+            )
+        )
 
         total_event_expected += expected
         total_event_detected += detected
 
-    event_recall = _safe_divide(
-        len(detected_suspicious_event_ids), suspicious_count
-    )
+    event_recall = _safe_divide(len(detected_suspicious_event_ids), suspicious_count)
 
     # ------------------------------------------------------------------
     # Per-classification breakdown of alerts

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from sentinelforge.detection.base import (
     DetectionResult,
@@ -77,13 +77,13 @@ SCORE_MEDIUM = 4
 SCORE_HIGH = 6
 
 
-def _is_powershell_process(process_name: Optional[str]) -> bool:
+def _is_powershell_process(process_name: str | None) -> bool:
     if not process_name:
         return False
     return process_name.strip().lower() in POWERSHELL_PROCESS_NAMES
 
 
-def _basename(path_or_name: Optional[str]) -> Optional[str]:
+def _basename(path_or_name: str | None) -> str | None:
     """Return the final path component of a process path/name, lowercased."""
     if not path_or_name:
         return None
@@ -94,7 +94,7 @@ def _basename(path_or_name: Optional[str]) -> Optional[str]:
     return parts[-1].lower() if parts else None
 
 
-def _match_indicators(command_line: Optional[str]) -> list[tuple[str, int]]:
+def _match_indicators(command_line: str | None) -> list[tuple[str, int]]:
     """Return list of (category, weight) for indicators found in the command line."""
     if not command_line:
         return []
@@ -190,7 +190,9 @@ class SuspiciousPowerShellRule(DetectionRule):
                     "process_path": process.path,
                     "command_line": command_line,
                     "indicators": categories,
-                    "indicator_weights": {category: weight for category, weight in hits},
+                    "indicator_weights": {
+                        category: weight for category, weight in hits
+                    },
                     "total_weight": total_weight,
                     "threshold": self.threshold,
                     "host": event.host,

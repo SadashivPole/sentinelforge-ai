@@ -8,7 +8,7 @@ ground-truth completeness.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,8 +37,13 @@ def validate_dataset(output_dir: str | Path) -> dict[str, Any]:
 
     # --- Load category files ---
     categories = [
-        "windows_sysmon", "linux_auth", "firewall", "dns",
-        "network", "correlated_attacks", "benign_activity",
+        "windows_sysmon",
+        "linux_auth",
+        "firewall",
+        "dns",
+        "network",
+        "correlated_attacks",
+        "benign_activity",
     ]
     all_events: list[dict] = []
     events_by_category: dict[str, list[dict]] = {}
@@ -139,7 +144,9 @@ def validate_dataset(output_dir: str | Path) -> dict[str, Any]:
     }
     if missing_gt_ids:
         results["valid"] = False
-        results["errors"].append(f"{len(missing_gt_ids)} ground-truth event IDs not in dataset")
+        results["errors"].append(
+            f"{len(missing_gt_ids)} ground-truth event IDs not in dataset"
+        )
 
     # --- Check 7: Ground truth separate from raw events ---
     # Verify no raw event contains classification labels

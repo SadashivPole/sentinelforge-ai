@@ -10,10 +10,12 @@ from collections import Counter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from datetime import UTC
+
 from sentinelforge.datasets.generator import DatasetGenerator
 from sentinelforge.datasets.scenarios import ScenarioLibrary
 from sentinelforge.datasets.validators import validate_dataset
-from tests.test_evaluation import make_detection_result, evaluate_with_gt, make_gt_entry
+from tests.test_evaluation import evaluate_with_gt, make_detection_result, make_gt_entry
 
 
 def test_generator_creates_minimum_events():
@@ -26,7 +28,10 @@ def test_generator_creates_minimum_events():
 
 def test_generator_is_deterministic():
     """Same seed produces identical output."""
-    with tempfile.TemporaryDirectory() as tmpdir1, tempfile.TemporaryDirectory() as tmpdir2:
+    with (
+        tempfile.TemporaryDirectory() as tmpdir1,
+        tempfile.TemporaryDirectory() as tmpdir2,
+    ):
         gen1 = DatasetGenerator(seed=42, output_dir=tmpdir1)
         gen2 = DatasetGenerator(seed=42, output_dir=tmpdir2)
         m1 = gen1.generate(total_events=5000)
@@ -89,11 +94,13 @@ def test_scenario_library_has_defaults():
 
 def test_scenario_generates_deterministic_events():
     """Same scenario with same seed produces same events."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    from sentinelforge.datasets.scenarios import SmallBruteForceScenario as BruteForceScenario
+    from sentinelforge.datasets.scenarios import (
+        SmallBruteForceScenario as BruteForceScenario,
+    )
 
-    start = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+    start = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
     hosts = ["WKSTN-01", "SRV-01"]
     users = ["jdoe", "asmith"]
 
@@ -132,6 +139,7 @@ def test_event_ground_truth_complete_coverage():
         from sentinelforge.datasets.ground_truth_labels import (
             EventGroundTruthManifest,
         )
+
         gt_path = os.path.join(tmpdir, "event_ground_truth.json")
         assert os.path.exists(gt_path)
 
@@ -148,6 +156,7 @@ def test_event_ground_truth_complete_coverage():
                     line = line.strip()
                     if line:
                         import json as _json
+
                         ev = _json.loads(line)
                         all_event_ids.add(ev["event_id"])
 
@@ -167,6 +176,7 @@ def test_event_ground_truth_classifications():
         from sentinelforge.datasets.ground_truth_labels import (
             EventGroundTruthManifest,
         )
+
         manifest = EventGroundTruthManifest.load_json(
             os.path.join(tmpdir, "event_ground_truth.json")
         )
@@ -182,11 +192,12 @@ def test_event_ground_truth_no_unknown_as_benign():
     """Unknown events are 'unlabeled', never silently classified as benign."""
     with tempfile.TemporaryDirectory() as tmpdir:
         gen = DatasetGenerator(seed=42, output_dir=tmpdir)
-        manifest = gen.generate(total_events=5000)
+        gen.generate(total_events=5000)
 
         from sentinelforge.datasets.ground_truth_labels import (
             EventGroundTruthManifest,
         )
+
         gt_manifest = EventGroundTruthManifest.load_json(
             os.path.join(tmpdir, "event_ground_truth.json")
         )
@@ -204,18 +215,21 @@ def test_benign_powershell_admin_not_flagged():
         gen = DatasetGenerator(seed=42, output_dir=tmpdir)
         gen.generate(total_events=5000)
 
-        from sentinelforge.detection.powershell import SuspiciousPowerShellRule
-        from sentinelforge.detection.base import RuleRegistry
-        from sentinelforge.ingestion.reader import reader_for
-        from sentinelforge.ingestion.normalizer import normalize
         from pathlib import Path
+
+        from sentinelforge.detection.base import RuleRegistry
+        from sentinelforge.detection.powershell import SuspiciousPowerShellRule
+        from sentinelforge.ingestion.normalizer import normalize
+        from sentinelforge.ingestion.reader import reader_for
 
         # Read benign activity events
         benign_path = Path(tmpdir) / "benign_activity.jsonl"
         assert benign_path.exists()
 
         reader = reader_for(benign_path)
-        events = [normalize(raw, source="jsonl") for raw in reader.read(str(benign_path))]
+        events = [
+            normalize(raw, source="jsonl") for raw in reader.read(str(benign_path))
+        ]
 
         registry = RuleRegistry()
         registry.register(SuspiciousPowerShellRule())
@@ -228,7 +242,8 @@ def test_benign_powershell_admin_not_flagged():
         # encoded commands, so this produces 1 FP. All other benign commands
         # (Get-Process, Get-Service, RemoteSigned, NoProfile) produce no alerts.
         powershell_alerts = [
-            r for r in results
+            r
+            for r in results
             if r.rule_id == "sentinelforge.detection.suspicious_powershell"
         ]
         # 1 alert from the benign encoded command (legitimate FP - detection
@@ -246,8 +261,9 @@ def test_sysmon_reader_parses_generic_jsonl():
         gen = DatasetGenerator(seed=42, output_dir=tmpdir)
         gen.generate(total_events=10000)
 
-        from sentinelforge.ingestion.reader import reader_for
         from pathlib import Path
+
+        from sentinelforge.ingestion.reader import reader_for
 
         sysmon_path = Path(tmpdir) / "windows_sysmon.jsonl"
         assert sysmon_path.exists()
@@ -274,18 +290,21 @@ def test_password_spray_scenario_detected():
         gen = DatasetGenerator(seed=42, output_dir=tmpdir)
         gen.generate(total_events=10000)
 
-        from sentinelforge.detection.password_spray import PasswordSprayRule
-        from sentinelforge.detection.base import RuleRegistry
-        from sentinelforge.ingestion.reader import reader_for
-        from sentinelforge.ingestion.normalizer import normalize
         from pathlib import Path
+
+        from sentinelforge.detection.base import RuleRegistry
+        from sentinelforge.detection.password_spray import PasswordSprayRule
+        from sentinelforge.ingestion.normalizer import normalize
+        from sentinelforge.ingestion.reader import reader_for
 
         # Password spraying scenario events are in correlated_attacks.jsonl
         attacks_path = Path(tmpdir) / "correlated_attacks.jsonl"
         assert attacks_path.exists()
 
         reader = reader_for(attacks_path)
-        events = [normalize(raw, source="jsonl") for raw in reader.read(str(attacks_path))]
+        events = [
+            normalize(raw, source="jsonl") for raw in reader.read(str(attacks_path))
+        ]
 
         registry = RuleRegistry()
         registry.register(PasswordSprayRule())
@@ -294,12 +313,9 @@ def test_password_spray_scenario_detected():
         # The dataset includes a password spraying scenario (scenario-st-003)
         # with 6 failed logins from one source against 6 different users.
         spray_alerts = [
-            r for r in results
-            if r.rule_id == "sentinelforge.detection.password_spray"
+            r for r in results if r.rule_id == "sentinelforge.detection.password_spray"
         ]
-        assert len(spray_alerts) >= 1, (
-            "Password spraying scenario should be detected"
-        )
+        assert len(spray_alerts) >= 1, "Password spraying scenario should be detected"
 
 
 def test_native_sysmon_generation():
@@ -328,8 +344,8 @@ def test_native_sysmon_generation():
 
 def test_native_sysmon_jsonl_roundtrip():
     """Native Sysmon JSONL can be written and read back."""
-    import tempfile
     import os
+    import tempfile
 
     from sentinelforge.datasets.native_sysmon import (
         generate_native_sysmon_events,
@@ -349,6 +365,7 @@ def test_native_sysmon_jsonl_roundtrip():
         assert len(lines) == 50
 
         import json as _json
+
         for line in lines:
             ev = _json.loads(line)
             assert "Event" in ev
@@ -357,8 +374,8 @@ def test_native_sysmon_jsonl_roundtrip():
 
 def test_sysmon_reader_parses_native_sysmon():
     """SysmonReader correctly parses native Sysmon EVTX-converted JSON."""
-    import tempfile
     import os
+    import tempfile
 
     from sentinelforge.datasets.native_sysmon import (
         generate_native_sysmon_events,
@@ -375,6 +392,7 @@ def test_sysmon_reader_parses_native_sysmon():
         write_native_sysmon_jsonl(events, path)
 
         from sentinelforge.ingestion.reader import SysmonReader
+
         reader = reader_for(path)
         assert isinstance(reader, SysmonReader), (
             f"Expected SysmonReader, got {type(reader).__name__}"
@@ -392,15 +410,15 @@ def test_sysmon_reader_parses_native_sysmon():
 
 def test_sysmon_reader_normalizes_native_events():
     """Native Sysmon events normalize correctly through the normalizer."""
-    import tempfile
     import os
+    import tempfile
 
     from sentinelforge.datasets.native_sysmon import (
         generate_native_sysmon_events,
         write_native_sysmon_jsonl,
     )
-    from sentinelforge.ingestion.reader import reader_for
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import reader_for
 
     events = generate_native_sysmon_events(count=20, seed=42)
 
@@ -427,34 +445,50 @@ def test_sysmon_reader_normalizes_native_events():
 # Reader selection tests (M8.3.1 corrections)
 # ---------------------------------------------------------------------------
 
+
 def test_reader_for_jsonl_sysmon_content():
     """.jsonl with Sysmon-formatted content selects SysmonReader."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, SysmonReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import SysmonReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "sysmon.jsonl")
         with open(p, "w") as f:
-            f.write('{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n')
+            f.write(
+                '{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n'
+            )
         reader = reader_for(p)
-        assert isinstance(reader, SysmonReader), f"Expected SysmonReader, got {type(reader).__name__}"
+        assert isinstance(reader, SysmonReader), (
+            f"Expected SysmonReader, got {type(reader).__name__}"
+        )
 
 
 def test_reader_for_jsonl_generic_content():
     """.jsonl with generic content selects JSONLReader."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, JSONLReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import JSONLReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "generic.jsonl")
         with open(p, "w") as f:
             f.write('{"event_id": "1", "event_type": "auth"}\n')
         reader = reader_for(p)
-        assert isinstance(reader, JSONLReader), f"Expected JSONLReader, got {type(reader).__name__}"
+        assert isinstance(reader, JSONLReader), (
+            f"Expected JSONLReader, got {type(reader).__name__}"
+        )
 
 
 def test_reader_for_long_first_line_over_200_chars():
     """First JSONL record longer than 200 chars is read in full."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, SysmonReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import SysmonReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "long.jsonl")
         long_line = (
@@ -469,55 +503,77 @@ def test_reader_for_long_first_line_over_200_chars():
         with open(p, "w") as f:
             f.write(long_line + "\n")
         reader = reader_for(p)
-        assert isinstance(reader, SysmonReader), f"Expected SysmonReader, got {type(reader).__name__}"
+        assert isinstance(reader, SysmonReader), (
+            f"Expected SysmonReader, got {type(reader).__name__}"
+        )
 
 
 def test_reader_for_leading_blank_lines():
     """Leading blank lines do not break reader detection."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, SysmonReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import SysmonReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "blank.jsonl")
         with open(p, "w") as f:
             f.write("\n\n\n")
-            f.write('{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n')
+            f.write(
+                '{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n'
+            )
         reader = reader_for(p)
-        assert isinstance(reader, SysmonReader), f"Expected SysmonReader, got {type(reader).__name__}"
+        assert isinstance(reader, SysmonReader), (
+            f"Expected SysmonReader, got {type(reader).__name__}"
+        )
 
 
 def test_reader_for_json_sysmon_document():
     """.json with a single Sysmon document selects SysmonReader."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, SysmonReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import SysmonReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "sysmon.json")
         with open(p, "w") as f:
             f.write('{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}')
         reader = reader_for(p)
-        assert isinstance(reader, SysmonReader), f"Expected SysmonReader, got {type(reader).__name__}"
+        assert isinstance(reader, SysmonReader), (
+            f"Expected SysmonReader, got {type(reader).__name__}"
+        )
 
 
 def test_reader_for_json_generic_document():
     """.json with generic content selects JSONReader."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import reader_for, JSONReader
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import JSONReader, reader_for
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "generic.json")
         with open(p, "w") as f:
             f.write('{"event_id": "1", "event_type": "auth"}')
         reader = reader_for(p)
-        assert isinstance(reader, JSONReader), f"Expected JSONReader, got {type(reader).__name__}"
+        assert isinstance(reader, JSONReader), (
+            f"Expected JSONReader, got {type(reader).__name__}"
+        )
 
 
 def test_jsonl_reader_raises_on_malformed_line():
     """JSONLReader raises LogParseError with line number on malformed line."""
-    import tempfile, os
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.reader import JSONLReader, LogParseError
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "bad.jsonl")
         with open(p, "w") as f:
             f.write('{"valid": 1}\n')
-            f.write('{bad json\n')
+            f.write("{bad json\n")
             f.write('{"valid": 2}\n')
         reader = JSONLReader()
         try:
@@ -530,13 +586,18 @@ def test_jsonl_reader_raises_on_malformed_line():
 
 def test_sysmon_reader_raises_on_malformed_jsonl():
     """SysmonReader raises LogParseError on malformed JSONL lines."""
-    import tempfile, os
-    from sentinelforge.ingestion.reader import SysmonReader, LogParseError
+    import os
+    import tempfile
+
+    from sentinelforge.ingestion.reader import LogParseError, SysmonReader
+
     with tempfile.TemporaryDirectory() as d:
         p = os.path.join(d, "bad.evt")
         with open(p, "w") as f:
-            f.write('{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n')
-            f.write('{broken\n')
+            f.write(
+                '{"Event": {"System": {"EventID": 1}, "EventData": {"Data": []}}}\n'
+            )
+            f.write("{broken\n")
         reader = SysmonReader()
         try:
             list(reader.read(p))
@@ -549,7 +610,10 @@ def test_sysmon_reader_raises_on_malformed_jsonl():
 # Sysmon Event ID independent tests (M8.3.1 corrections)
 # ---------------------------------------------------------------------------
 
-def _make_sysmon_event(event_id: int, timestamp: str, computer: str, data_fields: list[dict]) -> dict:
+
+def _make_sysmon_event(
+    event_id: int, timestamp: str, computer: str, data_fields: list[dict]
+) -> dict:
     """Build a Sysmon-style event dict."""
     data = [{"Name": k, "#text": v} for k, v in data_fields]
     return {
@@ -567,7 +631,10 @@ def _make_sysmon_event(event_id: int, timestamp: str, computer: str, data_fields
 
 def test_sysmon_event_id_1_process_create():
     """Event ID 1 (Process Create): extract Event ID, timestamp, computer, process fields."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event(
@@ -593,7 +660,10 @@ def test_sysmon_event_id_1_process_create():
         # Event ID extraction
         assert rec["Event"]["System"]["EventID"] == 1
         # Timestamp extraction
-        assert rec["Event"]["System"]["TimeCreated"]["SystemTime"] == "2024-01-15T08:00:00Z"
+        assert (
+            rec["Event"]["System"]["TimeCreated"]["SystemTime"]
+            == "2024-01-15T08:00:00Z"
+        )
         # Computer extraction
         assert rec["Event"]["System"]["Computer"] == "HOST-01"
         # EventData field extraction
@@ -610,7 +680,10 @@ def test_sysmon_event_id_1_process_create():
 
 def test_sysmon_event_id_3_network_connection():
     """Event ID 3 (Network Connection): extract Event ID, timestamp, computer, network fields."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event(
@@ -633,7 +706,10 @@ def test_sysmon_event_id_3_network_connection():
         assert len(records) == 1
         rec = records[0]
         assert rec["Event"]["System"]["EventID"] == 3
-        assert rec["Event"]["System"]["TimeCreated"]["SystemTime"] == "2024-01-15T08:01:00Z"
+        assert (
+            rec["Event"]["System"]["TimeCreated"]["SystemTime"]
+            == "2024-01-15T08:01:00Z"
+        )
         assert rec["Event"]["System"]["Computer"] == "HOST-01"
         names = {d["Name"]: d["#text"] for d in rec["Event"]["EventData"]["Data"]}
         assert names["DestinationIp"] == "198.51.100.42"
@@ -643,7 +719,10 @@ def test_sysmon_event_id_3_network_connection():
 
 def test_sysmon_event_id_11_file_create():
     """Event ID 11 (File Create): extract Event ID, timestamp, computer, file fields."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event(
@@ -664,15 +743,23 @@ def test_sysmon_event_id_11_file_create():
         assert len(records) == 1
         rec = records[0]
         assert rec["Event"]["System"]["EventID"] == 11
-        assert rec["Event"]["System"]["TimeCreated"]["SystemTime"] == "2024-01-15T08:02:00Z"
+        assert (
+            rec["Event"]["System"]["TimeCreated"]["SystemTime"]
+            == "2024-01-15T08:02:00Z"
+        )
         assert rec["Event"]["System"]["Computer"] == "HOST-01"
         names = {d["Name"]: d["#text"] for d in rec["Event"]["EventData"]["Data"]}
-        assert names["TargetFilename"] == "C:\\\\Users\\\\user\\\\Downloads\\\\payload.ps1"
+        assert (
+            names["TargetFilename"] == "C:\\\\Users\\\\user\\\\Downloads\\\\payload.ps1"
+        )
 
 
 def test_sysmon_event_id_22_dns_query():
     """Event ID 22 (DNS Query): extract Event ID, timestamp, computer, DNS fields."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event(
@@ -694,7 +781,10 @@ def test_sysmon_event_id_22_dns_query():
         assert len(records) == 1
         rec = records[0]
         assert rec["Event"]["System"]["EventID"] == 22
-        assert rec["Event"]["System"]["TimeCreated"]["SystemTime"] == "2024-01-15T08:03:00Z"
+        assert (
+            rec["Event"]["System"]["TimeCreated"]["SystemTime"]
+            == "2024-01-15T08:03:00Z"
+        )
         assert rec["Event"]["System"]["Computer"] == "HOST-01"
         names = {d["Name"]: d["#text"] for d in rec["Event"]["EventData"]["Data"]}
         assert names["QueryName"] == "evil.example.com"
@@ -706,15 +796,18 @@ def test_sysmon_event_id_22_dns_query():
 # Evaluation integrity tests (M8.3.1 corrections)
 # ---------------------------------------------------------------------------
 
+
 def test_attribution_error_not_counted_as_fp():
     """Category mismatch on suspicious evidence = attribution error, not FP."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-002",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-002",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
     det = make_detection_result(
         rule_id="sentinelforge.detection.c2_beacon",
         rule_name="C2 Beacon",
@@ -730,13 +823,15 @@ def test_attribution_error_not_counted_as_fp():
 
 def test_duplicate_detections_not_inflated_event_level():
     """Multiple detections of same event count once at event level."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-001",
-        "expected_detection_category": "suspicious_processtree",
-        "expected_severity_range": "high",
-        "explanation": "Word->PowerShell",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-001",
+            "expected_detection_category": "suspicious_processtree",
+            "expected_severity_range": "high",
+            "explanation": "Word->PowerShell",
+        }
+    ]
     det1 = make_detection_result(
         rule_id="sentinelforge.detection.suspicious_processtree",
         rule_name="Suspicious Process Tree",
@@ -756,13 +851,15 @@ def test_duplicate_detections_not_inflated_event_level():
 
 def test_wrong_rule_on_suspicious_not_benign():
     """Suspicious event detected by wrong rule is not treated as benign."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-007",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Distributed brute force",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-007",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Distributed brute force",
+        }
+    ]
     # password_spray alert on a failed_login_burst event
     det = make_detection_result(
         rule_id="sentinelforge.detection.password_spray",
@@ -780,20 +877,24 @@ def test_wrong_rule_on_suspicious_not_benign():
 
 def test_assessment_coverage_reported():
     """Assessment coverage = assessed / total is reported."""
-    gt_suspicious = [{
-        "event_id": "evt-susp-1",
-        "scenario_id": "scenario-st-001",
-        "expected_detection_category": "failed_login_burst",
-        "expected_severity_range": "high",
-        "explanation": "Brute force",
-    }]
-    gt_unlabeled = [{
-        "event_id": "evt-unlabeled-1",
-        "scenario_id": None,
-        "expected_detection_category": "",
-        "expected_severity_range": "",
-        "explanation": "Not in scenario",
-    }]
+    gt_suspicious = [
+        {
+            "event_id": "evt-susp-1",
+            "scenario_id": "scenario-st-001",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "Brute force",
+        }
+    ]
+    gt_unlabeled = [
+        {
+            "event_id": "evt-unlabeled-1",
+            "scenario_id": None,
+            "expected_detection_category": "",
+            "expected_severity_range": "",
+            "explanation": "Not in scenario",
+        }
+    ]
     det_tp = make_detection_result(
         rule_id="sentinelforge.detection.failed_login_burst",
         rule_name="Failed Login Burst",
@@ -816,15 +917,42 @@ def test_assessment_coverage_reported():
 def test_aggregate_metrics_reconcile_with_per_rule():
     """System-level metrics equal the sum of per-rule metrics."""
     gt_suspicious = [
-        {"event_id": "evt-1", "scenario_id": "s1", "expected_detection_category": "failed_login_burst", "expected_severity_range": "high", "explanation": "bf"},
-        {"event_id": "evt-2", "scenario_id": "s2", "expected_detection_category": "c2_beacon", "expected_severity_range": "medium", "explanation": "beacon"},
+        {
+            "event_id": "evt-1",
+            "scenario_id": "s1",
+            "expected_detection_category": "failed_login_burst",
+            "expected_severity_range": "high",
+            "explanation": "bf",
+        },
+        {
+            "event_id": "evt-2",
+            "scenario_id": "s2",
+            "expected_detection_category": "c2_beacon",
+            "expected_severity_range": "medium",
+            "explanation": "beacon",
+        },
     ]
     gt_benign = [
-        {"event_id": "evt-b", "scenario_id": "s3", "expected_detection_category": "none", "expected_severity_range": "info", "explanation": "heartbeat"},
+        {
+            "event_id": "evt-b",
+            "scenario_id": "s3",
+            "expected_detection_category": "none",
+            "expected_severity_range": "info",
+            "explanation": "heartbeat",
+        },
     ]
-    det1 = make_detection_result("sentinelforge.detection.failed_login_burst", "Failed Login Burst", ["evt-1"], "T1110")
-    det2 = make_detection_result("sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-2"], "T1071")
-    det3 = make_detection_result("sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-b"], "T1071")  # FP on benign
+    det1 = make_detection_result(
+        "sentinelforge.detection.failed_login_burst",
+        "Failed Login Burst",
+        ["evt-1"],
+        "T1110",
+    )
+    det2 = make_detection_result(
+        "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-2"], "T1071"
+    )
+    det3 = make_detection_result(
+        "sentinelforge.detection.c2_beacon", "C2 Beacon", ["evt-b"], "T1071"
+    )  # FP on benign
     result = evaluate_with_gt([det1, det2, det3], gt_suspicious, gt_benign)
 
     # Aggregate
@@ -845,9 +973,12 @@ def test_aggregate_metrics_reconcile_with_per_rule():
 # Ground truth correction regression tests (M8.3.3)
 # ---------------------------------------------------------------------------
 
+
 def test_st015_brute_force_not_password_spray():
     """The 200 brute-force events in st-015-bf are not password spraying."""
-    import tempfile, os
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -859,12 +990,15 @@ def test_st015_brute_force_not_password_spray():
             gt = json.load(f)
 
         bf_events = [
-            e for e in gt["entries"]
-            if e["scenario_id"] == "scenario-st-015-bf"
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-bf"
         ]
-        assert len(bf_events) == 200, f"Expected 200 brute-force events, got {len(bf_events)}"
+        assert len(bf_events) == 200, (
+            f"Expected 200 brute-force events, got {len(bf_events)}"
+        )
         for e in bf_events:
-            assert e["classification"] == "suspicious", f"{e['event_id']}: wrong classification"
+            assert e["classification"] == "suspicious", (
+                f"{e['event_id']}: wrong classification"
+            )
             assert e["expected_detection_categories"] == ["failed_login_burst"], (
                 f"{e['event_id']}: expected [failed_login_burst], got {e['expected_detection_categories']}"
             )
@@ -872,7 +1006,10 @@ def test_st015_brute_force_not_password_spray():
 
 def test_st015_password_spray_classified_correctly():
     """The 204 password-spray events in st-015-ps are classified correctly."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -884,12 +1021,15 @@ def test_st015_password_spray_classified_correctly():
             gt = json.load(f)
 
         ps_events = [
-            e for e in gt["entries"]
-            if e["scenario_id"] == "scenario-st-015-ps"
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-ps"
         ]
-        assert len(ps_events) == 204, f"Expected 204 password-spray events, got {len(ps_events)}"
+        assert len(ps_events) == 204, (
+            f"Expected 204 password-spray events, got {len(ps_events)}"
+        )
         for e in ps_events:
-            assert e["classification"] == "suspicious", f"{e['event_id']}: wrong classification"
+            assert e["classification"] == "suspicious", (
+                f"{e['event_id']}: wrong classification"
+            )
             assert e["expected_detection_categories"] == ["password_spray"], (
                 f"{e['event_id']}: expected [password_spray], got {e['expected_detection_categories']}"
             )
@@ -897,7 +1037,10 @@ def test_st015_password_spray_classified_correctly():
 
 def test_st015_c2_beacon_not_password_spray():
     """The 200 C2 beacon events in st-015-c2 are not password spraying."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -909,12 +1052,15 @@ def test_st015_c2_beacon_not_password_spray():
             gt = json.load(f)
 
         c2_events = [
-            e for e in gt["entries"]
-            if e["scenario_id"] == "scenario-st-015-c2"
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-c2"
         ]
-        assert len(c2_events) == 200, f"Expected 200 C2 beacon events, got {len(c2_events)}"
+        assert len(c2_events) == 200, (
+            f"Expected 200 C2 beacon events, got {len(c2_events)}"
+        )
         for e in c2_events:
-            assert e["classification"] == "suspicious", f"{e['event_id']}: wrong classification"
+            assert e["classification"] == "suspicious", (
+                f"{e['event_id']}: wrong classification"
+            )
             assert e["expected_detection_categories"] == ["c2_beacon"], (
                 f"{e['event_id']}: expected [c2_beacon], got {e['expected_detection_categories']}"
             )
@@ -922,7 +1068,10 @@ def test_st015_c2_beacon_not_password_spray():
 
 def test_st003_password_spray_events():
     """The st-003 password-spray events remain correctly labelled."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -934,12 +1083,15 @@ def test_st003_password_spray_events():
             gt = json.load(f)
 
         st003_events = [
-            e for e in gt["entries"]
-            if e["scenario_id"] == "scenario-st-003"
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-003"
         ]
-        assert len(st003_events) == 6, f"Expected 6 st-003 events, got {len(st003_events)}"
+        assert len(st003_events) == 6, (
+            f"Expected 6 st-003 events, got {len(st003_events)}"
+        )
         for e in st003_events:
-            assert e["classification"] == "suspicious", f"{e['event_id']}: wrong classification"
+            assert e["classification"] == "suspicious", (
+                f"{e['event_id']}: wrong classification"
+            )
             assert e["expected_detection_categories"] == ["password_spray"], (
                 f"{e['event_id']}: expected [password_spray], got {e['expected_detection_categories']}"
             )
@@ -947,7 +1099,10 @@ def test_st003_password_spray_events():
 
 def test_no_category_contamination_across_st015():
     """No st-015 event has multiple expected detection categories."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -958,7 +1113,11 @@ def test_no_category_contamination_across_st015():
         with open(gt_path) as f:
             gt = json.load(f)
 
-        st015_scenarios = ["scenario-st-015-bf", "scenario-st-015-ps", "scenario-st-015-c2"]
+        st015_scenarios = [
+            "scenario-st-015-bf",
+            "scenario-st-015-ps",
+            "scenario-st-015-c2",
+        ]
         for e in gt["entries"]:
             if e["scenario_id"] in st015_scenarios:
                 cats = e["expected_detection_categories"]
@@ -969,12 +1128,15 @@ def test_no_category_contamination_across_st015():
 
 def test_ground_truth_counts_reconcile_with_generator():
     """Ground-truth counts reconcile with scenario generator output."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
         gen = DatasetGenerator(seed=42, output_dir=tmpdir)
-        manifest = gen.generate(total_events=10000)
+        gen.generate(total_events=10000)
 
         gt_path = os.path.join(tmpdir, "event_ground_truth.json")
         with open(gt_path) as f:
@@ -987,29 +1149,55 @@ def test_ground_truth_counts_reconcile_with_generator():
                 category_counts[cat] += 1
 
         # Verify st-015-specific counts
-        bf_count = sum(1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-bf")
-        ps_count = sum(1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-ps")
-        c2_count = sum(1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-c2")
+        bf_count = sum(
+            1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-bf"
+        )
+        ps_count = sum(
+            1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-ps"
+        )
+        c2_count = sum(
+            1 for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-c2"
+        )
         assert bf_count == 200
         assert ps_count == 204
         assert c2_count == 200
 
         # Total suspicious = sum of all scenario suspicious events
-        suspicious_count = sum(1 for e in gt["entries"] if e["classification"] == "suspicious")
-        assert suspicious_count == 641, f"Expected 641 suspicious, got {suspicious_count}"
+        suspicious_count = sum(
+            1 for e in gt["entries"] if e["classification"] == "suspicious"
+        )
+        assert suspicious_count == 641, (
+            f"Expected 641 suspicious, got {suspicious_count}"
+        )
 
         # Total labeled = suspicious + benign
-        labeled_count = sum(1 for e in gt["entries"] if e["classification"] in ("suspicious", "benign"))
+        labeled_count = sum(
+            1 for e in gt["entries"] if e["classification"] in ("suspicious", "benign")
+        )
         assert labeled_count == 1298, f"Expected 1298 labeled, got {labeled_count}"
 
         # st-002: 8 failed_login_burst events + 1 successful login (contextual,
         # no category). Total suspicious events from st-002 = 9.
-        st002_events = [e for e in gt["entries"] if e["scenario_id"] == "scenario-st-002"]
-        assert len(st002_events) == 9, f"Expected 9 st-002 events, got {len(st002_events)}"
-        st002_bf_events = [e for e in st002_events if "failed_login_burst" in e.get("expected_detection_categories", [])]
-        assert len(st002_bf_events) == 8, f"Expected 8 failed_login_burst events in st-002, got {len(st002_bf_events)}"
-        st002_success_events = [e for e in st002_events if e.get("event_type") == "auth.login.success"]
-        assert len(st002_success_events) == 1, f"Expected 1 successful login in st-002, got {len(st002_success_events)}"
+        st002_events = [
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-002"
+        ]
+        assert len(st002_events) == 9, (
+            f"Expected 9 st-002 events, got {len(st002_events)}"
+        )
+        st002_bf_events = [
+            e
+            for e in st002_events
+            if "failed_login_burst" in e.get("expected_detection_categories", [])
+        ]
+        assert len(st002_bf_events) == 8, (
+            f"Expected 8 failed_login_burst events in st-002, got {len(st002_bf_events)}"
+        )
+        st002_success_events = [
+            e for e in st002_events if e.get("event_type") == "auth.login.success"
+        ]
+        assert len(st002_success_events) == 1, (
+            f"Expected 1 successful login in st-002, got {len(st002_success_events)}"
+        )
         assert not st002_success_events[0].get("expected_detection_categories"), (
             "Successful login should have no detection category (contextual evidence)"
         )
@@ -1017,7 +1205,10 @@ def test_ground_truth_counts_reconcile_with_generator():
 
 def test_detection_output_cannot_affect_ground_truth():
     """Ground truth is assigned before detection runs - detection output cannot affect labels."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1030,8 +1221,7 @@ def test_detection_output_cannot_affect_ground_truth():
 
         # All st-015-c2 events are c2_beacon, regardless of what PowerShell rule detects
         c2_events = [
-            e for e in gt["entries"]
-            if e["scenario_id"] == "scenario-st-015-c2"
+            e for e in gt["entries"] if e["scenario_id"] == "scenario-st-015-c2"
         ]
         for e in c2_events:
             assert "password_spray" not in e["expected_detection_categories"], (
@@ -1044,12 +1234,15 @@ def test_detection_output_cannot_affect_ground_truth():
 
 def test_duplicate_detections_do_not_inflate_event_recall():
     """Multiple detections of the same event count once at event level."""
-    from sentinelforge.datasets.evaluation import evaluate_detections
-    from tests.test_evaluation import make_detection_result, make_gt_entry, evaluate_with_gt
+    from tests.test_evaluation import evaluate_with_gt, make_detection_result
 
     gt_entry = make_gt_entry(
-        "evt-susp-1", "suspicious", "scenario-st-001",
-        "suspicious_processtree", "high", "Word->PowerShell",
+        "evt-susp-1",
+        "suspicious",
+        "scenario-st-001",
+        "suspicious_processtree",
+        "high",
+        "Word->PowerShell",
     )
     det1 = make_detection_result(
         rule_id="sentinelforge.detection.suspicious_processtree",
@@ -1085,9 +1278,13 @@ def test_duplicate_detections_do_not_inflate_event_recall():
 # Ground-truth independence regression tests (M8.3.4 TASK 5)
 # ---------------------------------------------------------------------------
 
+
 def test_ground_truth_derives_from_scenario_intent():
     """Ground-truth labels come from scenario generation, not detection output."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1114,7 +1311,10 @@ def test_ground_truth_derives_from_scenario_intent():
                 actual = set(e.get("expected_detection_categories", []))
                 # st-002's successful login (evt-009) is contextual evidence,
                 # not a detection-bearing failed_login_burst event
-                if sid == "scenario-st-002" and e.get("event_type") == "auth.login.success":
+                if (
+                    sid == "scenario-st-002"
+                    and e.get("event_type") == "auth.login.success"
+                ):
                     expected = set()
                 assert actual == expected, (
                     f"{e['event_id']}: scenario {sid} expects {expected}, got {actual}"
@@ -1123,7 +1323,10 @@ def test_ground_truth_derives_from_scenario_intent():
 
 def test_raw_logs_contain_no_ground_truth_labels():
     """Raw event files do not contain embedded ground-truth labels."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1132,8 +1335,12 @@ def test_raw_logs_contain_no_ground_truth_labels():
 
         # Check all raw event files for embedded labels
         raw_files = [
-            "windows_sysmon.jsonl", "linux_auth.jsonl", "firewall.jsonl",
-            "dns.jsonl", "network.jsonl", "correlated_attacks.jsonl",
+            "windows_sysmon.jsonl",
+            "linux_auth.jsonl",
+            "firewall.jsonl",
+            "dns.jsonl",
+            "network.jsonl",
+            "correlated_attacks.jsonl",
             "benign_activity.jsonl",
         ]
         for fname in raw_files:
@@ -1146,10 +1353,14 @@ def test_raw_logs_contain_no_ground_truth_labels():
                     event = json.loads(line)
                     # Raw events must not contain classification, scenario_id, or
                     # expected_detection_categories fields
-                    for forbidden in ("classification", "scenario_id",
-                                       "expected_detection_category",
-                                       "expected_detection_categories",
-                                       "expected_severity", "explanation"):
+                    for forbidden in (
+                        "classification",
+                        "scenario_id",
+                        "expected_detection_category",
+                        "expected_detection_categories",
+                        "expected_severity",
+                        "explanation",
+                    ):
                         assert forbidden not in event, (
                             f"{fname}:{line_num}: raw event contains forbidden field '{forbidden}': {event.get('event_id')}"
                         )
@@ -1157,7 +1368,10 @@ def test_raw_logs_contain_no_ground_truth_labels():
 
 def test_every_labeled_event_has_valid_scenario():
     """Every labeled event has a valid scenario association."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1185,7 +1399,10 @@ def test_every_labeled_event_has_valid_scenario():
 
 def test_no_contradictory_category_assignments():
     """No event has contradictory or overlapping category assignments."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1202,36 +1419,57 @@ def test_no_contradictory_category_assignments():
             classification = e["classification"]
             if classification == "benign":
                 # Benign events should not have attack categories
-                attack_cats = {"failed_login_burst", "password_spray", "c2_beacon",
-                               "suspicious_processtree", "t1059.001", "t1204.002"}
+                attack_cats = {
+                    "failed_login_burst",
+                    "password_spray",
+                    "c2_beacon",
+                    "suspicious_processtree",
+                    "t1059.001",
+                    "t1204.002",
+                }
                 assert not (set(cats) & attack_cats), (
                     f"{e['event_id']}: benign event has attack categories {cats}"
                 )
-            elif classification == "suspicious":
+            elif (
+                classification == "suspicious"
+                and not cats
+                and e.get("event_type") != "auth.login.success"
+            ):
                 # Suspicious events should have at least one attack category,
                 # UNLESS they're contextual/corroborating evidence (e.g., a
                 # successful login in a brute-force scenario).
-                if not cats and e.get("event_type") != "auth.login.success":
-                    assert cats, (
-                        f"{e['event_id']}: suspicious event with no categories "
-                        "and is not contextual evidence"
-                    )
+                assert cats, (
+                    f"{e['event_id']}: suspicious event with no categories "
+                    "and is not contextual evidence"
+                )
 
 
 def test_detection_results_cannot_alter_ground_truth():
     """Ground truth is immutable - detection results don't change labels."""
     from sentinelforge.datasets.evaluation import evaluate_detections
-    from tests.test_evaluation import make_detection_result, make_gt_entry
+    from tests.test_evaluation import make_detection_result
 
     gt_entry = make_gt_entry(
-        "evt-susp-1", "suspicious", "scenario-st-003",
-        "password_spray", "high", "Password spraying",
+        "evt-susp-1",
+        "suspicious",
+        "scenario-st-003",
+        "password_spray",
+        "high",
+        "Password spraying",
     )
     # Even if no detection matches, ground truth stays the same
     result_no_det = evaluate_detections(
-        "test-ds", [],
-        {"dataset_id": "test-ds", "total_events": 1,
-         "entries": [make_gt_entry(**gt_entry.to_dict() if hasattr(gt_entry, 'to_dict') else gt_entry)]},
+        "test-ds",
+        [],
+        {
+            "dataset_id": "test-ds",
+            "total_events": 1,
+            "entries": [
+                make_gt_entry(
+                    **gt_entry.to_dict() if hasattr(gt_entry, "to_dict") else gt_entry
+                )
+            ],
+        },
     )
     # Ground truth counts should be unchanged regardless of detections
     assert result_no_det.event_level.total_suspicious_events == 1
@@ -1245,9 +1483,17 @@ def test_detection_results_cannot_alter_ground_truth():
         mitre_technique="T1110.003",
     )
     result_many_det = evaluate_detections(
-        "test-ds", [det] * 100,
-        {"dataset_id": "test-ds", "total_events": 1,
-         "entries": [make_gt_entry(**gt_entry.to_dict() if hasattr(gt_entry, 'to_dict') else gt_entry)]},
+        "test-ds",
+        [det] * 100,
+        {
+            "dataset_id": "test-ds",
+            "total_events": 1,
+            "entries": [
+                make_gt_entry(
+                    **gt_entry.to_dict() if hasattr(gt_entry, "to_dict") else gt_entry
+                )
+            ],
+        },
     )
     assert result_many_det.event_level.total_suspicious_events == 1
     assert result_many_det.suspicious_events == 1
@@ -1255,7 +1501,10 @@ def test_detection_results_cannot_alter_ground_truth():
 
 def test_all_registered_scenarios_match_ground_truth():
     """Every event's category matches its scenario's declared metadata."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
     from sentinelforge.datasets.scenarios import ScenarioLibrary
 
@@ -1270,11 +1519,11 @@ def test_all_registered_scenarios_match_ground_truth():
         # Build scenario -> expected category mapping from ScenarioLibrary
         lib = ScenarioLibrary()
         scenario_categories = {
-            s.scenario_id: set(
+            s.scenario_id: {
                 c.strip().lower()
                 for c in s.expected_detection_category.split(",")
                 if c.strip()
-            )
+            }
             for s in lib.all()
         }
 
@@ -1285,7 +1534,10 @@ def test_all_registered_scenarios_match_ground_truth():
                 actual = set(e.get("expected_detection_categories", []))
                 # st-002's successful login (evt-009) is contextual evidence,
                 # not a detection-bearing failed_login_burst event
-                if sid == "scenario-st-002" and e.get("event_type") == "auth.login.success":
+                if (
+                    sid == "scenario-st-002"
+                    and e.get("event_type") == "auth.login.success"
+                ):
                     expected = set()
                 assert actual == expected, (
                     f"{e['event_id']}: scenario {sid} expects {expected}, got {actual}"
@@ -1294,7 +1546,10 @@ def test_all_registered_scenarios_match_ground_truth():
 
 def test_no_duplicate_event_ids():
     """No duplicate event IDs exist in ground truth."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1313,7 +1568,10 @@ def test_no_duplicate_event_ids():
 
 def test_no_contradictory_classifications():
     """No event has contradictory classification-category combinations."""
-    import tempfile, os, json
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.datasets.generator import DatasetGenerator
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -1330,30 +1588,35 @@ def test_no_contradictory_classifications():
 
             if classification == "benign":
                 attack_cats = {
-                    "failed_login_burst", "password_spray", "c2_beacon",
-                    "suspicious_processtree", "t1059.001", "t1204.002",
+                    "failed_login_burst",
+                    "password_spray",
+                    "c2_beacon",
+                    "suspicious_processtree",
+                    "t1059.001",
+                    "t1204.002",
                 }
                 assert not (cats & attack_cats), (
                     f"{e['event_id']}: benign event has attack categories {cats}"
                 )
-            elif classification == "suspicious":
+            elif classification == "suspicious" and not cats:
                 # Suspicious events should have at least one attack category,
                 # UNLESS they're contextual/corroborating evidence (e.g., a
                 # successful login in a brute-force scenario).
-                if not cats:
-                    etype = e.get("event_type", "")
-                    assert etype == "auth.login.success", (
-                        f"{e['event_id']}: suspicious event with no categories "
-                        "and is not contextual evidence"
-                    )
+                etype = e.get("event_type", "")
+                assert etype == "auth.login.success", (
+                    f"{e['event_id']}: suspicious event with no categories "
+                    "and is not contextual evidence"
+                )
 
 
 # ---------------------------------------------------------------------------
 # Sysmon normalization through the actual normalizer (M8.3.2)
 # ---------------------------------------------------------------------------
 
-def _make_sysmon_event_v2(event_id: int, timestamp: str, computer: str,
-                          data_fields: list[tuple[str, str]]) -> dict:
+
+def _make_sysmon_event_v2(
+    event_id: int, timestamp: str, computer: str, data_fields: list[tuple[str, str]]
+) -> dict:
     """Build a Sysmon-style event dict."""
     data = [{"Name": k, "#text": v} for k, v in data_fields]
     return {
@@ -1371,9 +1634,12 @@ def _make_sysmon_event_v2(event_id: int, timestamp: str, computer: str,
 
 def test_sysmon_normalize_event_id_1_process_create():
     """Event ID 1 through SysmonReader → normalizer: process fields extracted."""
-    import tempfile, os, json
-    from sentinelforge.ingestion.reader import SysmonReader
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event_v2(
         event_id=1,
@@ -1423,9 +1689,12 @@ def test_sysmon_normalize_event_id_3_network_connection():
     (SourceIp, DestinationIp, DestinationPort, Protocol) to NormalizedEvent
     network fields. This is a documented limitation — raw data is preserved.
     """
-    import tempfile, os, json
-    from sentinelforge.ingestion.reader import SysmonReader
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event_v2(
         event_id=3,
@@ -1465,8 +1734,7 @@ def test_sysmon_normalize_event_id_3_network_connection():
         # Raw source event preserved — network data accessible in raw
         assert nev.raw == event
         raw_fields = {
-            d["Name"]: d["#text"]
-            for d in nev.raw["Event"]["EventData"]["Data"]
+            d["Name"]: d["#text"] for d in nev.raw["Event"]["EventData"]["Data"]
         }
         assert raw_fields["DestinationIp"] == "198.51.100.42"
         assert raw_fields["DestinationPort"] == "4433"
@@ -1480,9 +1748,12 @@ def test_sysmon_normalize_event_id_11_file_create():
     any NormalizedEvent field. Raw data is preserved. This is a documented
     limitation.
     """
-    import tempfile, os, json
-    from sentinelforge.ingestion.reader import SysmonReader
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event_v2(
         event_id=11,
@@ -1517,8 +1788,7 @@ def test_sysmon_normalize_event_id_11_file_create():
         # Raw preserved — file data accessible in raw
         assert nev.raw == event
         raw_fields = {
-            d["Name"]: d["#text"]
-            for d in nev.raw["Event"]["EventData"]["Data"]
+            d["Name"]: d["#text"] for d in nev.raw["Event"]["EventData"]["Data"]
         }
         assert raw_fields["TargetFilename"] == (
             "C:\\\\Users\\\\user\\\\Downloads\\\\payload.ps1"
@@ -1533,9 +1803,12 @@ def test_sysmon_normalize_event_id_22_dns_query():
     any NormalizedEvent field. Raw data is preserved. This is a documented
     limitation.
     """
-    import tempfile, os, json
-    from sentinelforge.ingestion.reader import SysmonReader
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event_v2(
         event_id=22,
@@ -1571,8 +1844,7 @@ def test_sysmon_normalize_event_id_22_dns_query():
         # Raw preserved — DNS data accessible in raw
         assert nev.raw == event
         raw_fields = {
-            d["Name"]: d["#text"]
-            for d in nev.raw["Event"]["EventData"]["Data"]
+            d["Name"]: d["#text"] for d in nev.raw["Event"]["EventData"]["Data"]
         }
         assert raw_fields["QueryName"] == "evil.example.com"
         assert raw_fields["QueryType"] == "A"
@@ -1581,9 +1853,12 @@ def test_sysmon_normalize_event_id_22_dns_query():
 
 def test_sysmon_normalize_timestamp_nested_systemtime():
     """Sysmon TimeCreated as nested {\"SystemTime\": \"...\"} dict is extracted."""
-    import tempfile, os, json
-    from sentinelforge.ingestion.reader import SysmonReader
+    import json
+    import os
+    import tempfile
+
     from sentinelforge.ingestion.normalizer import normalize
+    from sentinelforge.ingestion.reader import SysmonReader
 
     event = _make_sysmon_event_v2(
         event_id=1,
@@ -1610,7 +1885,8 @@ def test_password_spray_rule_evidence_set_equality():
     - No duplicate detection references inflate counts
     - Attribution errors (st-007 failed_login_burst events) are tracked separately
     """
-    import json, sqlite3
+    import json
+    import sqlite3
 
     with open("data/generated/event_ground_truth.json") as f:
         egt = json.load(f)
@@ -1662,11 +1938,12 @@ def test_password_spray_rule_evidence_set_equality():
         )
 
     # Report results
-    print(f"\nPasswordSprayRule Evidence Verification:")
+    print("\nPasswordSprayRule Evidence Verification:")
     print(f"  Expected: {len(expected_ps)}")
     print(f"  Detected: {len(detected_ps)}")
     print(f"  Intersection: {len(intersection)}")
     print(f"  Missing: {len(missing)}")
     print(f"  Extra (attribution errors): {len(extra)}")
-    print(f"  Recall: {len(intersection)}/{len(expected_ps)} = {len(intersection)/len(expected_ps):.4f}")
-
+    print(
+        f"  Recall: {len(intersection)}/{len(expected_ps)} = {len(intersection) / len(expected_ps):.4f}"
+    )

@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from sentinelforge.datasets.ground_truth import GroundTruthEntry, GroundTruthManifest
 from sentinelforge.datasets.ground_truth_labels import (
-    EventGroundTruth,
-    EventGroundTruthManifest,
     build_event_ground_truth,
 )
 from sentinelforge.datasets.scenarios import ScenarioLibrary
@@ -57,7 +55,7 @@ PROCESS_NAMES = [
 ]
 
 # Default start time for generated datasets
-DEFAULT_START_TIME = datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc)
+DEFAULT_START_TIME = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
 
 # Events per category (targets ~10,000+ total)
 CATEGORY_COUNTS = {
@@ -67,13 +65,13 @@ CATEGORY_COUNTS = {
     "dns": 2000,
     "network": 2000,
     "correlated_attacks": 0,  # Populated by scenarios
-    "benign_activity": 0,    # Populated by scenarios
+    "benign_activity": 0,  # Populated by scenarios
 }
 
 
 def _iso(dt: datetime) -> str:
     """Format a datetime as ISO-8601 UTC."""
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _random_ip(rng: random.Random) -> str:
@@ -154,15 +152,20 @@ class DatasetGenerator:
         events: list[dict] = []
         for i in range(count):
             ts = _iso(
-                self.start_time
-                + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
+                self.start_time + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
             )
             host = _random_host(self.rng)
             user = _random_user(self.rng)
             proc = _random_process(self.rng)
             event_type = self.rng.choice(
-                ["process.create", "process.terminate", "file.create",
-                 "file.download", "network.connect", "file.open"]
+                [
+                    "process.create",
+                    "process.terminate",
+                    "file.create",
+                    "file.download",
+                    "network.connect",
+                    "file.open",
+                ]
             )
 
             proc_info: dict[str, Any] = {
@@ -196,9 +199,7 @@ class DatasetGenerator:
                     )
                 elif ps_roll < 0.85:
                     # Benign: simple command, no suspicious indicators.
-                    proc_info["command_line"] = (
-                        f"{proc} -Command Get-Process"
-                    )
+                    proc_info["command_line"] = f"{proc} -Command Get-Process"
                 else:
                     # Benign: encoded command for legitimate obfuscation of
                     # non-malicious content (e.g., licensed software).
@@ -224,15 +225,17 @@ class DatasetGenerator:
                     f"C:\\\\Users\\\\{user}\\\\Documents\\\\file_{i}.txt"
                 )
 
-            events.append(_base_event(
-                event_id=_event_id("sysmon", i),
-                timestamp=ts,
-                event_type=event_type,
-                host=host,
-                user=user,
-                source="jsonl",
-                extra=extra,
-            ))
+            events.append(
+                _base_event(
+                    event_id=_event_id("sysmon", i),
+                    timestamp=ts,
+                    event_type=event_type,
+                    host=host,
+                    user=user,
+                    source="jsonl",
+                    extra=extra,
+                )
+            )
         return events
 
     def _generate_linux_auth(self, count: int) -> list[dict]:
@@ -240,8 +243,7 @@ class DatasetGenerator:
         events: list[dict] = []
         for i in range(count):
             ts = _iso(
-                self.start_time
-                + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
+                self.start_time + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
             )
             host = _random_host(self.rng)
             user = _random_user(self.rng)
@@ -249,22 +251,24 @@ class DatasetGenerator:
             outcome = self.rng.choice(
                 ["success", "success", "success", "failure", "failure", "failure"]
             )
-            events.append(_base_event(
-                event_id=_event_id("auth", i),
-                timestamp=ts,
-                event_type=f"auth.login.{outcome}",
-                host=host,
-                user=user,
-                source="linux_auth",
-                extra={
-                    "authentication": {
-                        "outcome": outcome,
-                        "method": "ssh",
-                        "username": user,
-                        "source_address": source_ip,
-                    }
-                },
-            ))
+            events.append(
+                _base_event(
+                    event_id=_event_id("auth", i),
+                    timestamp=ts,
+                    event_type=f"auth.login.{outcome}",
+                    host=host,
+                    user=user,
+                    source="linux_auth",
+                    extra={
+                        "authentication": {
+                            "outcome": outcome,
+                            "method": "ssh",
+                            "username": user,
+                            "source_address": source_ip,
+                        }
+                    },
+                )
+            )
         return events
 
     def _generate_firewall(self, count: int) -> list[dict]:
@@ -272,8 +276,7 @@ class DatasetGenerator:
         events: list[dict] = []
         for i in range(count):
             ts = _iso(
-                self.start_time
-                + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
+                self.start_time + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
             )
             host = _random_host(self.rng)
             action = self.rng.choice(["allow", "allow", "allow", "deny"])
@@ -281,24 +284,26 @@ class DatasetGenerator:
             src_ip = _random_ip(self.rng)
             dst_ip = _random_ip(self.rng)
             dst_port = self.rng.choice([80, 443, 4433, 8080, 22, 3389])
-            events.append(_base_event(
-                event_id=_event_id("fw", i),
-                timestamp=ts,
-                event_type="firewall.connection",
-                host=host,
-                user="system",
-                source="firewall",
-                extra={
-                    "network": {
-                        "direction": direction,
-                        "local_address": src_ip,
-                        "remote_address": dst_ip,
-                        "remote_port": str(dst_port),
-                        "protocol": "tcp",
+            events.append(
+                _base_event(
+                    event_id=_event_id("fw", i),
+                    timestamp=ts,
+                    event_type="firewall.connection",
+                    host=host,
+                    user="system",
+                    source="firewall",
+                    extra={
+                        "network": {
+                            "direction": direction,
+                            "local_address": src_ip,
+                            "remote_address": dst_ip,
+                            "remote_port": str(dst_port),
+                            "protocol": "tcp",
+                        },
+                        "action": action,
                     },
-                    "action": action,
-                },
-            ))
+                )
+            )
         return events
 
     def _generate_dns(self, count: int) -> list[dict]:
@@ -306,27 +311,28 @@ class DatasetGenerator:
         events: list[dict] = []
         for i in range(count):
             ts = _iso(
-                self.start_time
-                + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
+                self.start_time + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
             )
             host = _random_host(self.rng)
             domain = _random_domain(self.rng)
             if self.rng.random() < 0.05:
                 domain = f"suspicious-{self.rng.randint(1000, 9999)}.example.com"
-            events.append(_base_event(
-                event_id=_event_id("dns", i),
-                timestamp=ts,
-                event_type="dns.query",
-                host=host,
-                user="system",
-                source="dns",
-                extra={
-                    "query": domain,
-                    "query_type": "A",
-                    "response_code": "NOERROR",
-                    "source_address": _random_ip(self.rng),
-                },
-            ))
+            events.append(
+                _base_event(
+                    event_id=_event_id("dns", i),
+                    timestamp=ts,
+                    event_type="dns.query",
+                    host=host,
+                    user="system",
+                    source="dns",
+                    extra={
+                        "query": domain,
+                        "query_type": "A",
+                        "response_code": "NOERROR",
+                        "source_address": _random_ip(self.rng),
+                    },
+                )
+            )
         return events
 
     def _generate_network(self, count: int) -> list[dict]:
@@ -334,15 +340,21 @@ class DatasetGenerator:
         events: list[dict] = []
         for i in range(count):
             ts = _iso(
-                self.start_time
-                + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
+                self.start_time + timedelta(seconds=self.rng.randint(0, 7 * 24 * 3600))
             )
             host = _random_host(self.rng)
             user = _random_user(self.rng)
-            conn_type = self.rng.choice([
-                "regular", "regular", "regular", "jittered", "irregular",
-                "heartbeat", "update",
-            ])
+            conn_type = self.rng.choice(
+                [
+                    "regular",
+                    "regular",
+                    "regular",
+                    "jittered",
+                    "irregular",
+                    "heartbeat",
+                    "update",
+                ]
+            )
             if conn_type == "heartbeat":
                 dest = "169.254.169.254"
                 port = "443"
@@ -367,18 +379,20 @@ class DatasetGenerator:
                 "pid": self.rng.randint(1000, 9999),
             }
 
-            events.append(_base_event(
-                event_id=_event_id("net", i),
-                timestamp=ts,
-                event_type="network.connect",
-                host=host,
-                user=user,
-                source="network",
-                extra={
-                    "network": net_info,
-                    "process": proc_info,
-                },
-            ))
+            events.append(
+                _base_event(
+                    event_id=_event_id("net", i),
+                    timestamp=ts,
+                    event_type="network.connect",
+                    host=host,
+                    user=user,
+                    source="network",
+                    extra={
+                        "network": net_info,
+                        "process": proc_info,
+                    },
+                )
+            )
         return events
 
     # ------------------------------------------------------------------
@@ -396,8 +410,11 @@ class DatasetGenerator:
         per_category = total_events // (len(CATEGORY_COUNTS) - 2)
         remainder = total_events % (len(CATEGORY_COUNTS) - 2)
 
-        cat_order = [c for c in CATEGORY_COUNTS
-                     if c not in ("correlated_attacks", "benign_activity")]
+        cat_order = [
+            c
+            for c in CATEGORY_COUNTS
+            if c not in ("correlated_attacks", "benign_activity")
+        ]
         for idx, cat in enumerate(cat_order):
             n = per_category + (1 if idx < remainder else 0)
             if cat == "windows_sysmon":
@@ -422,8 +439,9 @@ class DatasetGenerator:
                 continue
             filepath = self.output_dir / f"{cat}.jsonl"
             with open(filepath, "w", encoding="utf-8") as fh:
-                for ev in events:
-                    fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+                fh.writelines(
+                    json.dumps(ev, ensure_ascii=False) + "\n" for ev in events
+                )
             self.all_event_ids.update(ev["event_id"] for ev in events)
 
         # Write ground truth manifest (separate from raw events)
@@ -505,19 +523,21 @@ class DatasetGenerator:
 
             # Build ground-truth entry
             event_ids = tuple(ev["event_id"] for ev in events)
-            self.manifest.add_entry(GroundTruthEntry(
-                dataset_id=self.dataset_id,
-                scenario_id=scenario.scenario_id,
-                event_ids=event_ids,
-                expected_behaviour=scenario.expected_behaviour,
-                classification=scenario.classification,
-                expected_detection_category=scenario.expected_detection_category,
-                expected_severity_range=scenario.expected_severity_range,
-                att_ck_candidate_mappings=scenario.att_ck_candidate_mappings,
-                scenario_start_timestamp=start_ts,
-                scenario_end_timestamp=end_ts,
-                explanation=scenario.explanation,
-            ))
+            self.manifest.add_entry(
+                GroundTruthEntry(
+                    dataset_id=self.dataset_id,
+                    scenario_id=scenario.scenario_id,
+                    event_ids=event_ids,
+                    expected_behaviour=scenario.expected_behaviour,
+                    classification=scenario.classification,
+                    expected_detection_category=scenario.expected_detection_category,
+                    expected_severity_range=scenario.expected_severity_range,
+                    att_ck_candidate_mappings=scenario.att_ck_candidate_mappings,
+                    scenario_start_timestamp=start_ts,
+                    scenario_end_timestamp=end_ts,
+                    explanation=scenario.explanation,
+                )
+            )
 
             if scenario.classification == "benign":
                 benign_events.extend(events)

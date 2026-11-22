@@ -17,8 +17,8 @@ Scenarios:
 
 from __future__ import annotations
 
-from sentinelforge.detection.beacon import C2BeaconRule
 from sentinelforge.detection.base import Severity
+from sentinelforge.detection.beacon import C2BeaconRule
 from sentinelforge.ingestion.normalizer import (
     NetworkInfo,
     NormalizedEvent,
@@ -32,7 +32,7 @@ def _make_net_event(
     remote_address: str = "203.0.113.45",
     remote_port: int = 4433,
     host: str = "host-1",
-    process_name: Optional[str] = "svchost.exe",
+    process_name: str | None = "svchost.exe",
     direction: str = "outbound",
     protocol: str = "tcp",
 ):
@@ -68,27 +68,22 @@ def _make_net_event(
     )
 
 
-from typing import Optional  # noqa: E402
-
-
 def _regular_intervals(base: str, count: int, interval_seconds: int):
     """Generate ``count`` timestamps starting at ``base`` spaced by interval."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    dt = datetime.fromisoformat(base.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(base)
     return [
-        (dt + timedelta(seconds=i * interval_seconds)).isoformat()
-        for i in range(count)
+        (dt + timedelta(seconds=i * interval_seconds)).isoformat() for i in range(count)
     ]
 
 
 # ---------------------------------------------------------------- beacon tests
 
+
 def test_regular_periodic_connections_trigger_alert():
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     result = results[0]
@@ -99,12 +94,13 @@ def test_regular_periodic_connections_trigger_alert():
     assert result.metadata["standard_deviation_seconds"] == 0.0
     assert result.metadata["regularity_score"] == 1.0
     assert result.metadata["label"] == "Potential C2 Beaconing"
-    assert result.metadata["confirmation"] == "Not confirmed C2 — requires analyst investigation."
+    assert (
+        result.metadata["confirmation"]
+        == "Not confirmed C2 — requires analyst investigation."
+    )
     # Evidence cites every connection event.
     assert len(result.evidence) == 6
-    assert {ev.event_id for ev in result.evidence} == {
-        f"evt-{i}" for i in range(6)
-    }
+    assert {ev.event_id for ev in result.evidence} == {f"evt-{i}" for i in range(6)}
 
 
 def test_periodic_connections_with_jitter_trigger_alert():
@@ -117,9 +113,7 @@ def test_periodic_connections_with_jitter_trigger_alert():
         "2024-01-01T00:04:00Z",
         "2024-01-01T00:04:58Z",
     ]
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["regularity_score"] >= 0.75
@@ -135,9 +129,7 @@ def test_irregular_connections_no_alert():
         "2024-01-01T00:20:00Z",
         "2024-01-01T00:20:01Z",
     ]
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert results == []
 
@@ -145,9 +137,7 @@ def test_irregular_connections_no_alert():
 def test_insufficient_connection_count_no_alert():
     # 5 connections, min is 6 → no alert.
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 5, 60)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert results == []
 
@@ -170,9 +160,7 @@ def test_out_of_order_events_still_detected():
         "2024-01-01T00:04:00Z",
         "2024-01-01T00:05:00Z",
     ]
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["connection_count"] == 6
@@ -180,9 +168,7 @@ def test_out_of_order_events_still_detected():
 
 def test_missing_timestamps_skipped_no_false_alert():
     # 6 events with unparseable timestamps → none can be placed in sequence.
-    events = [
-        _make_net_event(f"evt-{i}", "not-a-timestamp") for i in range(6)
-    ]
+    events = [_make_net_event(f"evt-{i}", "not-a-timestamp") for i in range(6)]
     results = C2BeaconRule().evaluate(events)
     assert results == []
 
@@ -203,9 +189,7 @@ def test_missing_destination_ip_handled_safely():
         raw=raw,
         event_type="network.connection",
         host="host-1",
-        network=NetworkInfo(
-            direction="outbound", remote_port=4433, protocol="tcp"
-        ),
+        network=NetworkInfo(direction="outbound", remote_port=4433, protocol="tcp"),
     )
     results = C2BeaconRule().evaluate([event] * 6)
     assert results == []
@@ -215,9 +199,21 @@ def test_multiple_unrelated_destinations_separate_groups():
     # 3 connections to IP A, 3 to IP B → neither reaches min 6 → no alert.
     events: list = []
     for i in range(3):
-        events.append(_make_net_event(f"evt-a-{i}", _regular_intervals("2024-01-01T00:00:00Z", 1, 0)[0], remote_address="10.0.0.1"))
+        events.append(
+            _make_net_event(
+                f"evt-a-{i}",
+                _regular_intervals("2024-01-01T00:00:00Z", 1, 0)[0],
+                remote_address="10.0.0.1",
+            )
+        )
     for i in range(3):
-        events.append(_make_net_event(f"evt-b-{i}", _regular_intervals("2024-01-01T00:00:00Z", 1, 0)[0], remote_address="10.0.0.2"))
+        events.append(
+            _make_net_event(
+                f"evt-b-{i}",
+                _regular_intervals("2024-01-01T00:00:00Z", 1, 0)[0],
+                remote_address="10.0.0.2",
+            )
+        )
     results = C2BeaconRule().evaluate(events)
     assert results == []
 
@@ -280,21 +276,29 @@ def test_allowlisted_process_excluded():
 
 # ----------------------------------------------------------- MITRE regression
 
+
 def test_legitimate_https_standard_port_no_t1071():
     """Periodic HTTPS connections on the standard port 443 must trigger the
     beacon rule but must NOT assign T1071 (Application Layer Protocol),
     because there is no protocol-specific C2 context (standard port)."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="198.51.100.42",
-                        remote_port=443, process_name="chrome.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="198.51.100.42",
+            remote_port=443,
+            process_name="chrome.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_https_non_standard_port_triggers_t1071():
@@ -303,9 +307,14 @@ def test_https_non_standard_port_triggers_t1071():
     + non-standard port)."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="198.51.100.42",
-                        remote_port=4433, process_name="powershell.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="198.51.100.42",
+            remote_port=4433,
+            process_name="powershell.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
@@ -319,15 +328,22 @@ def test_https_non_standard_port_normal_process_no_t1071():
     insufficient."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="example.com",
-                        remote_port=4433, process_name="svchost.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="example.com",
+            remote_port=4433,
+            process_name="svchost.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_potential_beacon_without_mitre_attribution():
@@ -335,16 +351,23 @@ def test_potential_beacon_without_mitre_attribution():
     ATT&CK attribution is absent — detection and attribution are separate."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="example.com",
-                        remote_port=443, process_name="chrome.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="example.com",
+            remote_port=443,
+            process_name="chrome.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["label"] == "Potential C2 Beaconing"
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_https_non_standard_port_raw_ip_triggers_t1071():
@@ -353,15 +376,22 @@ def test_https_non_standard_port_raw_ip_triggers_t1071():
     without a suspicious process."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="198.51.100.42",
-                        remote_port=4433, process_name="svchost.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="198.51.100.42",
+            remote_port=4433,
+            process_name="svchost.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_https_non_standard_port_suspicious_process_no_t1071():
@@ -370,25 +400,31 @@ def test_https_non_standard_port_suspicious_process_no_t1071():
     is not sufficient without raw-IP application-layer context."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
     events = [
-        _make_net_event(f"evt-{i}", ts, remote_address="example.com",
-                        remote_port=4433, process_name="powershell.exe",
-                        protocol="https")
+        _make_net_event(
+            f"evt-{i}",
+            ts,
+            remote_address="example.com",
+            remote_port=4433,
+            process_name="powershell.exe",
+            protocol="https",
+        )
         for i, ts in enumerate(timestamps)
     ]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 # ----------------------------------------------------------- interval range coverage
 
+
 def test_thirty_second_beacon_high_confidence():
     """30-second intervals → high confidence C2 pattern."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 30)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "short_interval"
@@ -397,9 +433,7 @@ def test_thirty_second_beacon_high_confidence():
 def test_sixty_second_beacon_high_confidence():
     """60-second intervals → short_interval pattern tier."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 60)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "short_interval"
@@ -408,9 +442,7 @@ def test_sixty_second_beacon_high_confidence():
 def test_five_minute_beacon_high_confidence():
     """5-minute (300s) intervals → short_interval pattern tier (boundary inclusive)."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 300)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "short_interval"
@@ -419,9 +451,7 @@ def test_five_minute_beacon_high_confidence():
 def test_ten_minute_beacon_medium_confidence():
     """10-minute (600s) intervals → medium_interval pattern tier."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 600)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "medium_interval"
@@ -430,9 +460,7 @@ def test_ten_minute_beacon_medium_confidence():
 def test_thirty_minute_beacon_medium_confidence():
     """30-minute (1800s) intervals → medium_interval pattern tier, still detected."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 1800)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "medium_interval"
@@ -441,9 +469,7 @@ def test_thirty_minute_beacon_medium_confidence():
 def test_sixty_minute_beacon_medium_confidence():
     """60-minute (3600s) intervals → medium_interval pattern tier (boundary inclusive)."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 3600)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "medium_interval"
@@ -453,9 +479,7 @@ def test_six_hour_beacon_low_confidence_still_detected():
     """6-hour (21600s) intervals → long_interval pattern tier but NOT silently discarded.
     Slow periodic patterns remain visible for analyst review."""
     timestamps = _regular_intervals("2024-01-01T00:00:00Z", 6, 21600)
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "long_interval"
@@ -473,9 +497,7 @@ def test_jittered_long_interval_still_detected():
         "2024-01-02T00:00:01Z",
         "2024-01-02T06:00:04Z",
     ]
-    events = [
-        _make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)
-    ]
+    events = [_make_net_event(f"evt-{i}", ts) for i, ts in enumerate(timestamps)]
     results = C2BeaconRule().evaluate(events)
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "long_interval"
@@ -501,8 +523,10 @@ def test_legitimate_periodic_software_update_medium_confidence():
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "medium_interval"
     # Standard port + normal process → no T1071 attribution
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_legitimate_monitoring_telemetry_low_confidence():
@@ -524,8 +548,10 @@ def test_legitimate_monitoring_telemetry_low_confidence():
     assert len(results) == 1
     assert results[0].metadata["pattern_tier"] == "medium_interval"
     # Standard port for http (8080) + normal process → no T1071
-    assert "mitre_attack_technique" not in results[0].metadata or \
-        results[0].metadata["mitre_attack_technique"] != "T1071"
+    assert (
+        "mitre_attack_technique" not in results[0].metadata
+        or results[0].metadata["mitre_attack_technique"] != "T1071"
+    )
 
 
 def test_slow_c2_pattern_remains_visible():
