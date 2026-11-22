@@ -1430,15 +1430,18 @@ def test_no_contradictory_category_assignments():
                 assert not (set(cats) & attack_cats), (
                     f"{e['event_id']}: benign event has attack categories {cats}"
                 )
-            elif classification == "suspicious":
+            elif (
+                classification == "suspicious"
+                and not cats
+                and e.get("event_type") != "auth.login.success"
+            ):
                 # Suspicious events should have at least one attack category,
                 # UNLESS they're contextual/corroborating evidence (e.g., a
                 # successful login in a brute-force scenario).
-                if not cats and e.get("event_type") != "auth.login.success":
-                    assert cats, (
-                        f"{e['event_id']}: suspicious event with no categories "
-                        "and is not contextual evidence"
-                    )
+                assert cats, (
+                    f"{e['event_id']}: suspicious event with no categories "
+                    "and is not contextual evidence"
+                )
 
 
 def test_detection_results_cannot_alter_ground_truth():
@@ -1595,16 +1598,15 @@ def test_no_contradictory_classifications():
                 assert not (cats & attack_cats), (
                     f"{e['event_id']}: benign event has attack categories {cats}"
                 )
-            elif classification == "suspicious":
+            elif classification == "suspicious" and not cats:
                 # Suspicious events should have at least one attack category,
                 # UNLESS they're contextual/corroborating evidence (e.g., a
                 # successful login in a brute-force scenario).
-                if not cats:
-                    etype = e.get("event_type", "")
-                    assert etype == "auth.login.success", (
-                        f"{e['event_id']}: suspicious event with no categories "
-                        "and is not contextual evidence"
-                    )
+                etype = e.get("event_type", "")
+                assert etype == "auth.login.success", (
+                    f"{e['event_id']}: suspicious event with no categories "
+                    "and is not contextual evidence"
+                )
 
 
 # ---------------------------------------------------------------------------
