@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Security & privacy — SentinelForge</title>
-  <meta name="description" content="Design decisions and honest limitations.">
+  <title>Security &amp; privacy — SentinelForge</title>
+  <meta name="description" content="Design decisions and honest limitations for the local dashboard and public demo.">
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/chat-widget.css">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
@@ -16,10 +17,7 @@
         <img src="img/logo-mark.svg" alt="" width="32" height="32">
         <span class="wordmark">Sentinel<span>Forge</span></span>
       </a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-    <nav class="nav-links" id="nav-links">
+      <nav class="nav-links" id="nav-links">
         <a href="index.html">Home</a>
         <a href="overview.html">Platform</a>
         <a href="features.html">Features</a>
@@ -29,23 +27,117 @@
         <a href="demo.html">Demo</a>
         <a href="docs.html">Docs</a>
         <a href="installation.html">Installation</a>
-        <a href="security.html">Security</a>
+        <a href="security.html" class="active">Security</a>
         <a href="roadmap.html">Roadmap</a>
         <a href="about.html">About</a>
-    </nav>
+      </nav>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-actions">
+        <button class="btn-support" id="support-btn" aria-label="Open AI support assistant">
+          <span>Support</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:var(--forge-cyan);color:var(--text-on-cyan);display:flex;align-items:center;justify-content:center;font-size:0.625rem;font-weight:700;">?</span>
+        </button>
+      </div>
     </div>
   </header>
   <main id="main">
-<section class="section"><div class="container"><div class="section-header"><h1>Security &amp; privacy</h1><p>Design decisions and honest limitations for the local dashboard and public demo.</p></div><ul style="color: var(--text-secondary); line-height: 1.8; margin: var(--space-md) 0; padding-left: 1.25rem;"><li><strong>Binds to 127.0.0.1 only</strong> by default.</li><li><strong>No wildcard CORS</strong> — same-origin only.</li><li><strong>No arbitrary shell execution</strong> or filesystem path traversal.</li><li><strong>No credentials in source code</strong> — SENTINELFORGE_* env vars only.</li><li><strong>Error messages exclude raw event data</strong>.</li></ul></div></section>
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h1>Security &amp; privacy</h1>
+          <p>Design decisions and honest limitations for the local dashboard and public demo.</p>
+        </div>
+        <div class="cards-grid">
+          <div class="card">
+            <h3>Localhost-only binding</h3>
+            <p>The dashboard binds to 127.0.0.1 only by default — never 0.0.0.0.</p>
+          </div>
+          <div class="card">
+            <h3>No wildcard CORS</h3>
+            <p>Same-origin access only. No cross-origin exposure.</p>
+          </div>
+          <div class="card">
+            <h3>No shell execution</h3>
+            <p>No arbitrary shell execution or filesystem path traversal from the dashboard.</p>
+          </div>
+          <div class="card">
+            <h3>No credentials in source</h3>
+            <p>Configuration uses SENTINELFORGE_* environment variables only.</p>
+          </div>
+          <div class="card">
+            <h3>Sanitized errors</h3>
+            <p>Error messages exclude raw event data.</p>
+          </div>
+          <div class="card">
+            <h3>Read-only endpoints</h3>
+            <p>All dashboard endpoints are read-only — no state-changing operations.</p>
+          </div>
+        </div>
+        <div class="callout callout-warning">
+          <h3>Prototype — not production</h3>
+          <p>SentinelForge is an open prototype, not a production SIEM. It is not a hosted service and does not provide real-time SOC monitoring.</p>
+        </div>
+      </div>
+    </section>
   </main>
   <footer>
     <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>Sentinel<span style="color: var(--forge-cyan);">Forge</span></h3>
+          <p>Evidence-first detection engineering platform for SOC analysts. Open prototype — not a production SIEM.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="overview.html">Platform overview</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="detection.html">Detection rules</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Get started</h4>
+          <ul>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="docs.html">Documentation</a></li>
+            <li><a href="demo.html">Interactive demo</a></li>
+            <li><a href="security.html">Security &amp; privacy</a></li>
+          </ul>
+        </div>
+      </div>
       <div class="footer-bottom">
         <p>&copy; 2026 SentinelForge. Open prototype — not a production SIEM.</p>
         <p><a href="about.html">About</a> · <a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener">GitHub</a></p>
       </div>
     </div>
   </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Backend not yet hosted — documentation only</div>
+    </div>
+  </div>
   <script src="js/nav.js"></script>
+  <script src="js/chat-widget.js"></script>
 </body>
 </html>
