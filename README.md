@@ -7,7 +7,6 @@
 **License:** MIT (proposed)  
 **Python:** 3.12+
 **Tests:** 359 passed, 1 skipped (pytest)
-**Website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Design principles
 

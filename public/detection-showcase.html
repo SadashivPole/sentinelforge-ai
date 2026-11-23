@@ -190,7 +190,7 @@
             <tr><td>Precision</td><td>0.6250</td><td>TP / (TP + FP) = 30 / 48</td></tr>
             <tr><td>Recall</td><td>1.0000</td><td>TP / (TP + FN) = 30 / 30</td></tr>
             <tr><td>F1 score</td><td>0.7692</td><td>Harmonic mean of precision and recall</td></tr>
-            <tr><td>False positive rate</td><td>0.7500</td><td>FP / (FP + TN) = 18 / 24</td></tr>
+            <tr><td>False positive rate</td><td>0.7500</td><td>FP / (FP + TN) = 18 / 24 (TN = 6)</td></tr>
             <tr><td>False negative rate</td><td>0.0000</td><td>FN / (FN + TP) = 0 / 30</td></tr>
           </tbody>
         </table>
@@ -198,17 +198,14 @@
         <div class="card" style="margin-top: var(--space-lg); border-left: 3px solid var(--alert-red);">
           <h3 style="margin-top: 0;">Known limitation — C2 beaconing vs benign traffic</h3>
           <p style="color: var(--text-secondary); margin: var(--space-sm) 0;">
-            The C2BeaconRule flags benign periodic HTTPS traffic (software updates, EDR heartbeats, monitoring telemetry)
-            because it produces regular periodic connections identical to low-frequency C2 beaconing. Available telemetry
-            (interval, port, protocol, process, destination IP) cannot reliably distinguish them. Analyst investigation with
-            destination reputation and process context is required.
+            All 18 false positives originated from C2BeaconRule flagging benign periodic HTTPS traffic (software updates, EDR heartbeats, monitoring telemetry). C2BeaconRule cannot reliably distinguish benign periodic traffic from low-frequency C2 beaconing because both produce regular periodic connections. Available telemetry (interval, port, protocol, process, destination IP) cannot reliably distinguish them. All other detection rules produced zero false positives. Analyst investigation with destination reputation and process context is required.
           </p>
         </div>
 
         <div style="margin-top: var(--space-lg); color: var(--dim-text); font-size: 0.875rem;">
           <p><strong>Export source:</strong> <code>public/demo/data/detection-showcase.json</code></p>
           <p><strong>Pipeline:</strong> <code>sentinelforge ingest</code> → <code>sentinelforge detect</code> → static JSON export</p>
-          <p><strong>Data classification:</strong> Synthetic test data only. All IP addresses are RFC 5737 TEST-NET ranges. No real SOC data, no credentials, no production logs.</p>
+          <p><strong>Data classification:</strong> Synthetic test data only. External source IPs use RFC 5737 TEST-NET ranges (203.0.113.45, 198.51.100.77). Internal host IPs use RFC 1918 private ranges (10.0.1.x). No real SOC data, no credentials, no production logs.</p>
         </div>
       </div>
     </section>

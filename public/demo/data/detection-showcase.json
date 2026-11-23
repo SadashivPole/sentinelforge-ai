@@ -254,7 +254,8 @@
     "f1Score": 0.7692,
     "falsePositiveRate": 0.7500,
     "falseNegativeRate": 0.0000,
-    "methodology": "Event-level evaluation using ground-truth labeled synthetic events. TP = suspicious events with at least one matching detection. FP = benign events flagged by at least one detection. FN = suspicious events with no matching detection. C2BeaconRule flags benign periodic HTTPS traffic (software updates, EDR heartbeats) which accounts for the false positives.",
+    "trueNegatives": 6,
+    "methodology": "Event-level evaluation using ground-truth labeled synthetic events. TP = suspicious events with at least one matching detection. FP = benign events flagged by at least one detection. FN = suspicious events with no matching detection. TN = benign events with no detection. All 18 false positives originated from C2BeaconRule flagging benign periodic HTTPS traffic (software updates, EDR heartbeats). All other rules produced zero false positives.",
     "limitation": "C2BeaconRule cannot reliably distinguish benign periodic traffic (software updates, EDR heartbeats, monitoring telemetry) from low-frequency C2 beaconing. Both produce regular periodic connections. Analyst investigation with destination reputation and process context is required."
   }
 }
