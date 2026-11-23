@@ -86,21 +86,21 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install safety for dependency scanning
+      - name: Install security scanning tools
         run: |
           python -m pip install --upgrade pip
           pip install safety bandit
 
       - name: Run dependency vulnerability scan
-        run: safety check --file requirements.txt || true
+        run: safety check --file requirements.txt
 
       - name: Run bandit SAST scan
-        run: bandit -r sentinelforge/ --exit-zero || true
+        run: bandit -r sentinelforge/
 
   build:
     name: Build wheel
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test, lint, security]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -124,3 +124,257 @@ jobs:
         with:
           name: sentinelforge-wheel
           path: dist/*.whl
+
+  clean-install-smoke-test:
+    name: Clean-install smoke test
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Create fresh venv and install wheel
+        run: |
+          python -m venv /tmp/sf-smoke-venv
+          /tmp/sf-smoke-venv/bin/pip install --upgrade pip
+          /tmp/sf-smoke-venv/bin/pip install dist/sentinelforge-0.1.0-py3-none-any.whl
+
+      - name: Verify CLI entry point
+        run: /tmp/sf-smoke-venv/bin/sentinelforge --help
+
+  dashboard-smoke-test:
+    name: Dashboard smoke test
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download built wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sentinelforge-wheel
+          path: dist/
+
+      - name: Create fresh venv and install wheel
+        run: |
+          python -m venv /tmp/sf-smoke-venv
+          /tmp/sf-smoke-venv/bin/pip install --upgrade pip
+          WHEEL=$(find dist -maxdepth 1 -name '*.whl' -print -quit)
+          test -n "$WHEEL" || { echo "No wheel artifact found in dist/"; exit 1; }
+          /tmp/sf-smoke-venv/bin/pip install "$WHEEL"
+
+      - name: Initialize canonical SQLite database with synthetic records
+        run: |
+          DB_PATH="/tmp/sf-smoke-test.db"
+          rm -f "$DB_PATH"
+          /tmp/sf-smoke-venv/bin/python - << 'PYEOF'
+          import sqlite3, uuid
+          from datetime import UTC, datetime
+
+          db_path = "/tmp/sf-smoke-test.db"
+          conn = sqlite3.connect(db_path)
+          conn.execute("PRAGMA foreign_keys = ON;")
+
+          # Create canonical schema
+          conn.executescript("""
+          CREATE TABLE IF NOT EXISTS events (
+              event_id           TEXT PRIMARY KEY,
+              timestamp          TEXT,
+              source             TEXT NOT NULL,
+              raw                TEXT NOT NULL,
+              event_type         TEXT,
+              user               TEXT,
+              host               TEXT,
+              process_pid        INTEGER,
+              process_ppid       INTEGER,
+              process_name       TEXT,
+              process_path       TEXT,
+              process_command_line TEXT,
+              process_user       TEXT,
+              process_hash_sha256 TEXT,
+              network_direction  TEXT,
+              network_local_address TEXT,
+              network_remote_address TEXT,
+              network_local_port  INTEGER,
+              network_remote_port INTEGER,
+              network_protocol   TEXT,
+              auth_outcome       TEXT,
+              auth_method        TEXT,
+              auth_username      TEXT,
+              auth_source_address TEXT,
+              ingested_at        TEXT NOT NULL
+          );
+          CREATE TABLE IF NOT EXISTS detections (
+              detection_id   TEXT PRIMARY KEY,
+              rule_id        TEXT NOT NULL,
+              rule_name      TEXT NOT NULL,
+              severity       TEXT NOT NULL,
+              description    TEXT NOT NULL,
+              triggered_at   TEXT NOT NULL,
+              metadata       TEXT NOT NULL,
+              host           TEXT
+          );
+          CREATE TABLE IF NOT EXISTS evidence (
+              evidence_id       TEXT PRIMARY KEY,
+              detection_id      TEXT NOT NULL,
+              event_id          TEXT,
+              external_event_ref TEXT,
+              timestamp         TEXT,
+              source            TEXT,
+              event_type        TEXT,
+              user              TEXT,
+              host              TEXT,
+              source_address    TEXT,
+              raw               TEXT NOT NULL,
+              FOREIGN KEY (detection_id) REFERENCES detections(detection_id),
+              FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE RESTRICT
+          );
+          CREATE TABLE IF NOT EXISTS risk_assessments (
+              assessment_id          TEXT PRIMARY KEY,
+              affected_host          TEXT,
+              risk_score             INTEGER NOT NULL,
+              risk_classification    TEXT NOT NULL,
+              explanation            TEXT NOT NULL,
+              evidence_confidence    TEXT NOT NULL,
+              detection_severity     TEXT NOT NULL,
+              asset_criticality_provided INTEGER NOT NULL DEFAULT 0,
+              supporting_evidence_count INTEGER NOT NULL DEFAULT 0,
+              created_at             TEXT NOT NULL,
+              scoring_factors_json   TEXT NOT NULL DEFAULT '[]',
+              contributing_detection_ids_json TEXT NOT NULL DEFAULT '[]',
+              score_breakdown_json   TEXT NOT NULL DEFAULT '{}',
+              recommended_investigation_priorities_json TEXT NOT NULL DEFAULT '[]'
+          );
+          CREATE TABLE IF NOT EXISTS risk_assessment_detections (
+              assessment_id TEXT NOT NULL,
+              detection_id  TEXT NOT NULL,
+              PRIMARY KEY (assessment_id, detection_id),
+              FOREIGN KEY (assessment_id) REFERENCES risk_assessments(assessment_id),
+              FOREIGN KEY (detection_id) REFERENCES detections(detection_id)
+          );
+          CREATE TABLE IF NOT EXISTS schema_metadata (
+              key   TEXT PRIMARY KEY,
+              value TEXT NOT NULL
+          );
+          """)
+
+          now = datetime.now(UTC).isoformat()
+
+          # Insert synthetic events
+          events = [
+              ("evt-001", now, "json", '{"raw": "test"}', "auth.login.failure", "admin", "host-1",
+               None, None, None, None, None, None, None, None, None, None, None, None, None,
+               "203.0.113.45", "password", "admin", "203.0.113.45", now),
+              ("evt-002", now, "json", '{"raw": "test2"}', "process.create", "svc_deploy", "host-2",
+               1234, 1, "cmd.exe", "C:\\\\\\\\Windows\\\\\\\\System32\\\\\\\\cmd.exe", "/c whoami", "SYSTEM", None,
+               None, "10.0.1.50", "10.0.1.100", 445, 12345, "TCP", None, None, None, None, now),
+          ]
+          for ev in events:
+              conn.execute("INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ev)
+
+          # Insert synthetic detections
+          detections = [
+              ("det-001", "FailedLoginBurstRule", "Failed Login Burst", "High",
+               "Multiple failed login attempts detected", now, '{"host": "host-1"}', "host-1"),
+              ("det-002", "SuspiciousProcessRule", "Suspicious Process", "Medium",
+               "Suspicious process execution detected", now, '{"host": "host-2"}', "host-2"),
+          ]
+          for det in detections:
+              conn.execute("INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)", det)
+
+          # Insert evidence linking events to detections
+          evidence = [
+              ("ev-001", "det-001", "evt-001", None, now, "json", "auth.login.failure", "admin",
+               "host-1", "203.0.113.45", '{"raw": "test"}'),
+              ("ev-002", "det-002", "evt-002", None, now, "json", "process.create", "svc_deploy",
+               "host-2", "10.0.1.50", '{"raw": "test2"}'),
+          ]
+          for evd in evidence:
+              conn.execute("INSERT INTO evidence VALUES (?,?,?,?,?,?,?,?,?,?,?)", evd)
+
+          # Insert schema version
+          conn.execute("INSERT INTO schema_metadata (key, value) VALUES ('schema_version', '3')")
+
+          conn.commit()
+          conn.close()
+          print("Canonical SQLite database initialized at /tmp/sf-smoke-test.db")
+          PYEOF
+
+      - name: Start dashboard on localhost
+        run: |
+          /tmp/sf-smoke-venv/bin/python -m sentinelforge.dashboard.server \
+            --host 127.0.0.1 --port 8080 --db-path /tmp/sf-smoke-test.db \
+            > /tmp/dashboard.log 2>&1 &
+          echo $! > /tmp/dashboard.pid
+
+          # Bounded readiness loop (max 30 seconds)
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/overview > /dev/null 2>&1; then
+              echo "Dashboard ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/overview > /dev/null || {
+            echo "Dashboard failed to start"
+            cat /tmp/dashboard.log
+            exit 1
+          }
+
+      - name: Test dashboard routes
+        run: |
+          for route in /overview /alerts /events /rules /attacks /diagnostics /event/evt-001 /static/css/dashboard.css /static/js/dashboard.js; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080$route)
+            if [ "$code" != "200" ]; then
+              echo "Route $route returned HTTP $code (expected 200)"
+              exit 1
+            fi
+            echo "Route $route: HTTP 200"
+          done
+
+      - name: Stop dashboard
+        if: always()
+        run: |
+          kill $(cat /tmp/dashboard.pid) 2>/dev/null || true
+          wait $(cat /tmp/dashboard.pid) 2>/dev/null || true
+
+  website-build:
+    name: Website build check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify website files exist
+        run: |
+          for f in public/index.html public/overview.html public/features.html public/architecture.html public/detection.html public/soc-workflows.html public/demo.html public/docs.html public/installation.html public/security.html public/roadmap.html public/about.html public/demo/index.html public/css/main.css public/js/nav.js public/img/favicon.svg; do
+            test -f "$f" || { echo "Missing: $f"; exit 1; }
+            test -s "$f" || { echo "Empty: $f"; exit 1; }
+          done
+          echo "All website files present and non-empty"

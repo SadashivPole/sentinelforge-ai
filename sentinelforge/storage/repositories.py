@@ -639,28 +639,36 @@ class EventRepository:
         clause). Otherwise, at most ``limit`` events are returned starting
         at ``offset``.
         """
-        where = "WHERE 1=1"
-        params: list[Any] = []
-        if host:
-            where += " AND host = ?"
-            params.append(host)
-        if source:
-            where += " AND source = ?"
-            params.append(source)
-        if event_type:
-            where += " AND event_type = ?"
-            params.append(event_type)
+        # Normalize empty strings to None so they are treated as "no filter",
+        # matching the previous truthy-check behaviour.
+        host = host or None
+        source = source or None
+        event_type = event_type or None
+
+        params: list[Any] = [host, host, source, source, event_type, event_type]
 
         with self.db.connection() as conn:
             if limit is not None:
                 rows = conn.execute(
-                    f"SELECT * FROM events {where} ORDER BY timestamp DESC "
-                    "LIMIT ? OFFSET ?",
-                    params + [limit, offset],
+                    """
+                    SELECT * FROM events
+                    WHERE (? IS NULL OR host = ?)
+                      AND (? IS NULL OR source = ?)
+                      AND (? IS NULL OR event_type = ?)
+                    ORDER BY timestamp DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    [*params, limit, offset],
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT * FROM events {where} ORDER BY timestamp DESC",
+                    """
+                    SELECT * FROM events
+                    WHERE (? IS NULL OR host = ?)
+                      AND (? IS NULL OR source = ?)
+                      AND (? IS NULL OR event_type = ?)
+                    ORDER BY timestamp DESC
+                    """,
                     params,
                 ).fetchall()
             return [_row_to_event(row) for row in rows]
@@ -878,28 +886,36 @@ class DetectionRepository:
         If ``limit`` is None, all matching detections are returned without
         a LIMIT clause.
         """
-        where = "WHERE 1=1"
-        params: list[Any] = []
-        if host:
-            where += " AND host = ?"
-            params.append(host)
-        if severity:
-            where += " AND severity = ?"
-            params.append(severity)
-        if rule_id:
-            where += " AND rule_id = ?"
-            params.append(rule_id)
+        # Normalize empty strings to None so they are treated as "no filter",
+        # matching the previous truthy-check behaviour.
+        host = host or None
+        severity = severity or None
+        rule_id = rule_id or None
+
+        params: list[Any] = [host, host, severity, severity, rule_id, rule_id]
 
         with self.db.connection() as conn:
             if limit is not None:
                 rows = conn.execute(
-                    f"SELECT * FROM detections {where} ORDER BY triggered_at DESC "
-                    "LIMIT ? OFFSET ?",
-                    params + [limit, offset],
+                    """
+                    SELECT * FROM detections
+                    WHERE (? IS NULL OR host = ?)
+                      AND (? IS NULL OR severity = ?)
+                      AND (? IS NULL OR rule_id = ?)
+                    ORDER BY triggered_at DESC
+                    LIMIT ? OFFSET ?
+                    """,
+                    [*params, limit, offset],
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT * FROM detections {where} ORDER BY triggered_at DESC",
+                    """
+                    SELECT * FROM detections
+                    WHERE (? IS NULL OR host = ?)
+                      AND (? IS NULL OR severity = ?)
+                      AND (? IS NULL OR rule_id = ?)
+                    ORDER BY triggered_at DESC
+                    """,
                     params,
                 ).fetchall()
             results: list[DetectionResult] = []
@@ -963,20 +979,22 @@ class DetectionRepository:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Return detections over time for timeline visualization."""
-        where = "WHERE 1=1"
-        params: list[Any] = []
-        if host:
-            where += " AND host = ?"
-            params.append(host)
+        # Normalize empty strings to None so they are treated as "no filter",
+        # matching the previous truthy-check behaviour.
+        host = host or None
+
+        params: list[Any] = [host, host]
+
         with self.db.connection() as conn:
             rows = conn.execute(
-                f"""
+                """
                 SELECT triggered_at AS ts, rule_id, severity, host, description
-                FROM detections {where}
+                FROM detections
+                WHERE (? IS NULL OR host = ?)
                 ORDER BY triggered_at DESC
                 LIMIT ?
                 """,
-                params + [limit],
+                [*params, limit],
             ).fetchall()
             return [dict(row) for row in rows]
 
@@ -1099,19 +1117,21 @@ class RiskAssessmentRepository:
         min_score: int | None = None,
     ) -> list[RiskAssessment]:
         """Retrieve risk assessments with optional filtering."""
-        where = "WHERE 1=1"
-        params: list[Any] = []
-        if host:
-            where += " AND affected_host = ?"
-            params.append(host)
-        if min_score is not None:
-            where += " AND risk_score >= ?"
-            params.append(min_score)
+        # Normalize empty strings to None so they are treated as "no filter",
+        # matching the previous truthy-check behaviour.
+        host = host or None
+
+        params: list[Any] = [host, host, min_score, min_score]
 
         with self.db.connection() as conn:
             rows = conn.execute(
-                f"SELECT * FROM risk_assessments {where} ORDER BY risk_score DESC, "
-                "created_at DESC LIMIT ? OFFSET ?",
-                params + [limit, offset],
+                """
+                SELECT * FROM risk_assessments
+                WHERE (? IS NULL OR affected_host = ?)
+                  AND (? IS NULL OR risk_score >= ?)
+                ORDER BY risk_score DESC, created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
             ).fetchall()
             return [_row_to_assessment(row) for row in rows]

@@ -18,6 +18,17 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+
+def _deterministic_rng(seed: int) -> random.Random:
+    """Create a seeded RNG for reproducible synthetic dataset generation.
+
+    Used exclusively for generating synthetic test datasets where seed
+    reproducibility is required for deterministic test output. NOT used
+    for any cryptographic or security-sensitive purpose.
+    """
+    return random.Random(seed)  # nosec B311
+
+
 from sentinelforge.datasets.ground_truth import GroundTruthEntry, GroundTruthManifest
 from sentinelforge.datasets.ground_truth_labels import (
     build_event_ground_truth,
@@ -133,7 +144,7 @@ class DatasetGenerator:
         output_dir: str | Path | None = None,
     ) -> None:
         self.seed = seed
-        self.rng = random.Random(seed)
+        self.rng = _deterministic_rng(seed)
         self.start_time = start_time or DEFAULT_START_TIME
         self.output_dir = Path(output_dir or "data/generated")
         self.dataset_id = "sentinelforge-ds-001"

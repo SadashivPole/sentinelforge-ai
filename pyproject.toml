@@ -11,6 +11,7 @@ dependencies = []
 
 [project.scripts]
 sentinelforge = "sentinelforge.cli.main:main"
+sentinelforge-dashboard = "sentinelforge.dashboard.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["sentinelforge"]
+packages = ["sentinelforge", "sentinelforge.dashboard"]

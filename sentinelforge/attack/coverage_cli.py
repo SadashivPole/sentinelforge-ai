@@ -107,7 +107,8 @@ def main() -> int:
         str(COVERAGE_JSON_PATH),
     )
     coverage_hash_2 = compute_sha256(COVERAGE_JSON_PATH)
-    assert coverage_hash == coverage_hash_2, "Coverage JSON not deterministic"
+    if coverage_hash != coverage_hash_2:
+        raise RuntimeError("Coverage JSON not deterministic")
 
     generate_markdown_report(
         catalogue,
@@ -119,7 +120,8 @@ def main() -> int:
         str(COVERAGE_REPORT_PATH),
     )
     report_hash_2 = compute_sha256(COVERAGE_REPORT_PATH)
-    assert report_hash == report_hash_2, "Markdown report not deterministic"
+    if report_hash != report_hash_2:
+        raise RuntimeError("Markdown report not deterministic")
 
     generate_primary_layer(
         catalogue,
@@ -127,7 +129,8 @@ def main() -> int:
         str(PRIMARY_NAV_PATH),
     )
     primary_hash_2 = compute_sha256(PRIMARY_NAV_PATH)
-    assert primary_hash == primary_hash_2, "Primary Navigator layer not deterministic"
+    if primary_hash != primary_hash_2:
+        raise RuntimeError("Primary Navigator layer not deterministic")
 
     generate_secondary_layer(
         catalogue,
@@ -135,9 +138,8 @@ def main() -> int:
         str(SECONDARY_NAV_PATH),
     )
     secondary_hash_2 = compute_sha256(SECONDARY_NAV_PATH)
-    assert secondary_hash == secondary_hash_2, (
-        "Secondary Navigator layer not deterministic"
-    )
+    if secondary_hash != secondary_hash_2:
+        raise RuntimeError("Secondary Navigator layer not deterministic")
 
     # Print summary
     print("ATT&CK Coverage Report Generation Complete")
