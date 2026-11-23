@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sadashivpole.github.io/sentinelforge-ai/sitemap.xml
