@@ -424,19 +424,7 @@ class testHTMLEscaping:
 class TestDashboardServer:
     def test_dashboard_routes_with_canonical_db(self):
         """Start the dashboard on a real canonical database and test all routes."""
-        fd, db_path = tempfile.mkstemp(suffix=".db")
-        os.close(fd)
-
-        # Initialize database
-        conn = sqlite3.connect(db_path)
-        conn.execute("PRAGMA foreign_keys = ON;")
-        for stmt in get_schema_sql():
-            conn.execute(stmt)
-        conn.execute(
-            "INSERT INTO schema_metadata (key, value) VALUES ('schema_version', '3')"
-        )
-        conn.commit()
-        conn.close()
+        db_path = _make_temp_db()
 
         # Start server
         proc = subprocess.Popen(
