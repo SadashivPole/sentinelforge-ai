@@ -36,7 +36,16 @@
     </div>
   </header>
   <main id="main">
-<section class="section"><div class="container"><div class="section-header"><h1>Architecture</h1><p>Three separated experiences share a common Python detection core.</p></div><div class="cards-grid"><div class="card"><h3>Public website</h3><p>Static HTML/CSS/JS hosted on GitHub Pages.</p></div><div class="card"><h3>Public interactive demo</h3><p>Static site with synthetic security scenarios only.</p></div><div class="card"><h3>Local SOC dashboard</h3><p>Python HTTP server on 127.0.0.1 backed by SQLite.</p></div><div class="card"><h3>Common core (Python)</h3><p>The <code>sentinelforge/</code> package — CLI, ingestion, detection, risk, storage.</p></div></div></div></section>
+<section class="section"><div class="container"><div class="section-header"><h1>Architecture</h1><p>Three separated experiences share a common Python detection core.</p></div><svg class="architecture-diagram" src="img/architecture.svg" width="100%" height="520" alt="SentinelForge architecture diagram"></svg>
+<div class="card" style="margin-top: var(--space-lg); border-left: 3px solid var(--forge-cyan);">
+  <h3 style="margin-top: 0;">Public vs local boundary</h3>
+  <ul style="color: var(--text-secondary); line-height: 1.7; margin: var(--space-sm) 0; padding-left: 1.25rem;">
+    <li><strong>Public:</strong> Website and interactive demo hosted on GitHub Pages. Static files only — no Python, no database.</li>
+    <li><strong>Local:</strong> Python SOC dashboard binds to 127.0.0.1:8080 only, backed by a local SQLite file. Never exposed publicly.</li>
+    <li><strong>Shared:</strong> The common Python detection engine (<code>sentinelforge/</code>) powers both the CLI and the local dashboard.</li>
+    <li><strong>No JavaScript detection engine:</strong> All detection runs in Python. The browser only renders exported, precomputed results.</li>
+  </ul>
+</div>
   </main>
   <footer>
     <div class="container">

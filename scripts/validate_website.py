@@ -15,8 +15,10 @@ required = [
     "public/architecture.html", "public/detection.html",
     "public/soc-workflows.html", "public/demo.html", "public/docs.html",
     "public/installation.html", "public/security.html",
-    "public/roadmap.html", "public/about.html", "public/demo/index.html",
+    "public/roadmap.html", "public/about.html",    "public/demo/index.html",
+    "public/detection-showcase.html",
     "public/css/main.css", "public/js/nav.js", "public/img/favicon.svg",
+    "public/img/architecture.svg",
     "public/local-dashboard.html", "public/.nojekyll",
     "public/robots.txt", "public/sitemap.xml",
 ]

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detection engineering showcase — SentinelForge</title>
+  <meta name="description" content="Real Python detection engine results exported from synthetic data — no live detection, no real logs.">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header>
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo" aria-label="SentinelForge home">
+        <img src="img/logo-mark.svg" alt="" width="32" height="32">
+        <span class="wordmark">Sentinel<span>Forge</span></span>
+      </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav-links" id="nav-links">
+        <a href="index.html">Home</a>
+        <a href="overview.html">Platform</a>
+        <a href="features.html">Features</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="detection.html">Detection</a>
+        <a href="soc-workflows.html">SOC Workflows</a>
+        <a href="demo.html">Demo</a>
+        <a href="docs.html">Docs</a>
+        <a href="installation.html">Installation</a>
+        <a href="security.html">Security</a>
+        <a href="roadmap.html">Roadmap</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main">
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h1>Detection engineering showcase</h1>
+          <p>Real results from the SentinelForge Python detection engine, exported from a synthetic dataset and presented as static, precomputed output. No live detection runs in the browser.</p>
+          <div class="card" style="border-left: 3px solid var(--forge-cyan); margin-top: var(--space-lg);">
+            <h3 style="margin-top: 0;">How this was generated</h3>
+            <ol style="color: var(--text-secondary); line-height: 1.7; margin: var(--space-sm) 0; padding-left: 1.25rem;">
+              <li>Generated 22 synthetic security events using the SentinelForge dataset generator.</li>
+              <li>Ingested and normalized the events through the real Python CLI (<code>sentinelforge ingest</code>).</li>
+              <li>Ran the Python detection engine (<code>sentinelforge detect</code>) producing 5 alerts.</li>
+              <li>Exported sanitized detection results to static JSON for public display.</li>
+              <li>The browser renders only the exported JSON — no detection logic runs client-side.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="section-header" style="margin-top: var(--space-xl);">
+          <h2>Detection results</h2>
+          <p>5 alerts from 2 detection rules evaluated against 22 synthetic events.</p>
+        </div>
+
+        <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-lg);">
+          <div class="card">
+            <h3>Password Spray — 203.0.113.45</h3>
+            <p><strong>Rule:</strong> PasswordSprayRule</p>
+            <p><strong>Severity:</strong> High</p>
+            <p><strong>MITRE ATT&amp;CK:</strong> T1110.003 (Credential Access)</p>
+            <p><strong>Evidence:</strong> 5 failed logins against 4 usernames</p>
+            <p><strong>Source:</strong> 203.0.113.45 → host 10.0.1.50</p>
+            <p style="font-size: 0.875rem; color: var(--dim-text);">Usernames: admin, root, test, guest</p>
+          </div>
+
+          <div class="card">
+            <h3>Password Spray — 198.51.100.77</h3>
+            <p><strong>Rule:</strong> PasswordSprayRule</p>
+            <p><strong>Severity:</strong> High</p>
+            <p><strong>MITRE ATT&amp;CK:</strong> T1110.003 (Credential Access)</p>
+            <p><strong>Evidence:</strong> 5 failed logins against 5 usernames</p>
+            <p><strong>Source:</strong> 198.51.100.77 → host 10.0.1.100</p>
+            <p style="font-size: 0.875rem; color: var(--dim-text);">Usernames: alice, bob, charlie, diana, eve</p>
+          </div>
+
+          <div class="card">
+            <h3>Suspicious PowerShell — encoded command</h3>
+            <p><strong>Rule:</strong> SuspiciousPowerShellRule</p>
+            <p><strong>Severity:</strong> High</p>
+            <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
+            <p><strong>Indicator:</strong> encoded_command</p>
+            <p><strong>Host:</strong> 10.0.1.200, user: svc_deploy</p>
+            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -EncodedCommand ...</p>
+          </div>
+
+          <div class="card">
+            <h3>Suspicious PowerShell — execution policy bypass</h3>
+            <p><strong>Rule:</strong> SuspiciousPowerShellRule</p>
+            <p><strong>Severity:</strong> High</p>
+            <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
+            <p><strong>Indicator:</strong> execution_policy_bypass</p>
+            <p><strong>Host:</strong> 10.0.1.200, user: svc_deploy</p>
+            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -ExecutionPolicy Bypass ...</p>
+          </div>
+
+          <div class="card">
+            <h3>Suspicious PowerShell — download and execute</h3>
+            <p><strong>Rule:</strong> SuspiciousPowerShellRule</p>
+            <p><strong>Severity:</strong> High</p>
+            <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
+            <p><strong>Indicator:</strong> download_and_execute</p>
+            <p><strong>Host:</strong> 10.0.1.75, user: jdoe</p>
+            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -nop -w hidden -c IEX(...)</p>
+          </div>
+        </div>
+
+        <div class="section-header" style="margin-top: var(--space-xl);">
+          <h2>Detection rule catalog</h2>
+          <p>All five deterministic Python detection rules implemented in <code>sentinelforge/detection/</code>.</p>
+        </div>
+
+        <table class="table-wrapper">
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Detects</th>
+              <th>MITRE ATT&amp;CK</th>
+              <th>Known limitation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>FailedLoginBurstRule</td>
+              <td>Rapid failed auth from a single source</td>
+              <td>T1110.001</td>
+              <td>Requires threshold tuning per environment</td>
+            </tr>
+            <tr>
+              <td>PasswordSprayRule</td>
+              <td>Auth attempts across many accounts from one source</td>
+              <td>T1110.003</td>
+              <td>Legitimate admin testing may look similar</td>
+            </tr>
+            <tr>
+              <td>SuspiciousPowerShellRule</td>
+              <td>Encoded commands, bypass flags, download-and-execute</td>
+              <td>T1059.001</td>
+              <td>Benign admin PowerShell can contain encoded commands</td>
+            </tr>
+            <tr>
+              <td>SuspiciousProcessTreeRule</td>
+              <td>Unusual parent-child process relations</td>
+              <td>T1059</td>
+              <td>Legitimate software installers may spawn child processes</td>
+            </tr>
+            <tr>
+              <td>C2BeaconRule</td>
+              <td>Periodic beacon-like network traffic</td>
+              <td>T1071</td>
+              <td>Benign periodic HTTPS traffic can trigger false positives</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-header" style="margin-top: var(--space-xl);">
+          <h2>Evaluation metrics</h2>
+          <p>Real evaluation results from the SentinelForge independent evaluation on 54 labeled synthetic events.</p>
+        </div>
+
+        <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-lg);">
+          <div class="card">
+            <h3 style="margin: 0 0 var(--space-sm); font-size: 0.875rem; color: var(--text-secondary);">Dataset size</h3>
+            <p style="font-size: 1.75rem; margin: 0; font-weight: 700; color: var(--forge-cyan);">54 events</p>
+          </div>
+          <div class="card">
+            <h3 style="margin: 0 0 var(--space-sm); font-size: 0.875rem; color: var(--text-secondary);">True positives</h3>
+            <p style="font-size: 1.75rem; margin: 0; font-weight: 700; color: var(--forge-cyan);">30</p>
+          </div>
+          <div class="card">
+            <h3 style="margin: 0 0 var(--space-sm); font-size: 0.875rem; color: var(--text-secondary);">False positives</h3>
+            <p style="font-size: 1.75rem; margin: 0; font-weight: 700; color: var(--alert-red);">18</p>
+          </div>
+          <div class="card">
+            <h3 style="margin: 0 0 var(--space-sm); font-size: 0.875rem; color: var(--text-secondary);">False negatives</h3>
+            <p style="font-size: 1.75rem; margin: 0; font-weight: 700; color: var(--forge-cyan);">0</p>
+          </div>
+        </div>
+
+        <table class="table-wrapper">
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>Definition</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Precision</td><td>0.6250</td><td>TP / (TP + FP) = 30 / 48</td></tr>
+            <tr><td>Recall</td><td>1.0000</td><td>TP / (TP + FN) = 30 / 30</td></tr>
+            <tr><td>F1 score</td><td>0.7692</td><td>Harmonic mean of precision and recall</td></tr>
+            <tr><td>False positive rate</td><td>0.7500</td><td>FP / (FP + TN) = 18 / 24</td></tr>
+            <tr><td>False negative rate</td><td>0.0000</td><td>FN / (FN + TP) = 0 / 30</td></tr>
+          </tbody>
+        </table>
+
+        <div class="card" style="margin-top: var(--space-lg); border-left: 3px solid var(--alert-red);">
+          <h3 style="margin-top: 0;">Known limitation — C2 beaconing vs benign traffic</h3>
+          <p style="color: var(--text-secondary); margin: var(--space-sm) 0;">
+            The C2BeaconRule flags benign periodic HTTPS traffic (software updates, EDR heartbeats, monitoring telemetry)
+            because it produces regular periodic connections identical to low-frequency C2 beaconing. Available telemetry
+            (interval, port, protocol, process, destination IP) cannot reliably distinguish them. Analyst investigation with
+            destination reputation and process context is required.
+          </p>
+        </div>
+
+        <div style="margin-top: var(--space-lg); color: var(--dim-text); font-size: 0.875rem;">
+          <p><strong>Export source:</strong> <code>public/demo/data/detection-showcase.json</code></p>
+          <p><strong>Pipeline:</strong> <code>sentinelforge ingest</code> → <code>sentinelforge detect</code> → static JSON export</p>
+          <p><strong>Data classification:</strong> Synthetic test data only. All IP addresses are RFC 5737 TEST-NET ranges. No real SOC data, no credentials, no production logs.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="container">
+      <div class="footer-bottom">
+        <p>&copy; 2026 SentinelForge. Open prototype — not a production SIEM.</p>
+        <p><a href="about.html">About</a> · <a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener">GitHub</a></p>
+      </div>
+    </div>
+  </footer>
+  <script src="js/nav.js"></script>
+</body>
+</html>

