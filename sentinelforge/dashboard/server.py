@@ -7,7 +7,6 @@ SQLite database used by the CLI. No state-changing endpoints.
 from __future__ import annotations
 
 import json
-import os
 import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, ClassVar
@@ -36,6 +35,8 @@ from sentinelforge.dashboard.views import (
     render_not_found,
     render_overview,
     render_rules,
+    render_static_css,
+    render_static_js,
 )
 
 DEFAULT_HOST = "127.0.0.1"
@@ -152,26 +153,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             self._send_html(render_error(str(exc)), 500)
 
-    def _serve_static(self, path: str, content_type: str) -> None:
-        safe_name = os.path.basename(path)
-        if not safe_name:
+    def _serve_static(self, name: str, content_type: str) -> None:
+        if name == "dashboard.css":
+            body = render_static_css().encode("utf-8")
+        elif name == "dashboard.js":
+            body = render_static_js().encode("utf-8")
+        else:
             self._send_html(render_not_found(), 404)
             return
 
-        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-        file_path = os.path.join(static_dir, safe_name)
-
-        try:
-            with open(file_path, "rb") as f:
-                body = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", f"{content_type}; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.end_headers()
-            self.wfile.write(body)
-        except FileNotFoundError:
-            self._send_html(render_not_found(), 404)
+        self.send_response(200)
+        self.send_header("Content-Type", f"{content_type}; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _handle_overview(self, conn) -> None:
         data = {
