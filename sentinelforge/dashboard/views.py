@@ -1,7 +1,12 @@
-"""SentinelForge local dashboard — HTML view generators."""
+"""SentinelForge local dashboard — HTML view generators.
+
+All dynamic text is HTML-escaped before rendering to prevent XSS from
+untrusted security log content.
+"""
 
 from __future__ import annotations
 
+from html import escape
 from typing import Any
 
 _NAV_LINKS = [
@@ -12,6 +17,17 @@ _NAV_LINKS = [
     ("ATT&CK", "/attacks"),
     ("Diagnostics", "/diagnostics"),
 ]
+
+
+def _e(value: Any) -> str:
+    """HTML-escape a dynamic value for safe rendering.
+
+    Returns an empty string for None values so table cells never render
+    as "None".
+    """
+    if value is None:
+        return ""
+    return escape(str(value))
 
 
 def _nav() -> str:
@@ -89,20 +105,20 @@ def render_overview(data: dict[str, Any]) -> str:
 def render_alerts(alerts, rules, *, rule=None, search=None, limit=50, offset=0) -> str:
     filter_chips = ""
     if rule:
-        filter_chips += f'<span class="dashboard-chip">Rule: {rule}</span> '
+        filter_chips += f'<span class="dashboard-chip">Rule: {_e(rule)}</span> '
     if search:
-        filter_chips += f'<span class="dashboard-chip">Search: {search}</span> '
+        filter_chips += f'<span class="dashboard-chip">Search: {_e(search)}</span> '
 
     headers = ["Rule", "Events", "Hosts", "First Seen", "Last Seen"]
     rows = []
     for a in alerts:
         rows.append(
             [
-                a.get("rule_id", "—"),
+                _e(a.get("rule_id", "—")),
                 str(a.get("event_count", 0)),
                 str(a.get("host_count", 0)),
-                a.get("first_seen", "—"),
-                a.get("last_seen", "—"),
+                _e(a.get("first_seen", "—")),
+                _e(a.get("last_seen", "—")),
             ]
         )
 
@@ -120,11 +136,11 @@ def render_events(
 ) -> str:
     filter_chips = ""
     if event_type:
-        filter_chips += f'<span class="dashboard-chip">Type: {event_type}</span> '
+        filter_chips += f'<span class="dashboard-chip">Type: {_e(event_type)}</span> '
     if search:
-        filter_chips += f'<span class="dashboard-chip">Search: {search}</span> '
+        filter_chips += f'<span class="dashboard-chip">Search: {_e(search)}</span> '
     if rule:
-        filter_chips += f'<span class="dashboard-chip">Rule: {rule}</span> '
+        filter_chips += f'<span class="dashboard-chip">Rule: {_e(rule)}</span> '
 
     headers = ["Time", "Type", "Source", "Target", "User", "Detection Rule", "Raw Log"]
     rows = []
@@ -134,13 +150,13 @@ def render_events(
             raw = raw[:77] + "..."
         rows.append(
             [
-                e.get("timestamp", "—"),
-                e.get("event_type", "—"),
-                e.get("source_address", "—"),
-                e.get("target_address", "—"),
-                e.get("user", "—"),
-                e.get("detection_rule", "—"),
-                raw,
+                _e(e.get("timestamp", "—")),
+                _e(e.get("event_type", "—")),
+                _e(e.get("source_address", "—")),
+                _e(e.get("target_address", "—")),
+                _e(e.get("user", "—")),
+                _e(e.get("detection_rule", "—")),
+                _e(raw),
             ]
         )
 
@@ -159,10 +175,10 @@ def render_rules(rules) -> str:
     for r in rules:
         rows.append(
             [
-                r.get("rule_id", "—"),
+                _e(r.get("rule_id", "—")),
                 str(r.get("detection_count", 0)),
                 str(r.get("host_count", 0)),
-                r.get("last_seen", "—"),
+                _e(r.get("last_seen", "—")),
             ]
         )
 
@@ -180,7 +196,7 @@ def render_attacks(coverage) -> str:
     for c in coverage:
         rows.append(
             [
-                c.get("rule_id", "—"),
+                _e(c.get("rule_id", "—")),
                 str(c.get("detection_count", 0)),
                 str(c.get("host_count", 0)),
             ]
@@ -200,29 +216,25 @@ def render_event_detail(detail) -> str:
     for d in detections:
         det_rows.append(
             [
-                d.get("rule_id", "—"),
-                d.get("detection_timestamp", "—"),
-                str(d.get("confidence", "—")),
-                str(d.get("risk_score", "—")),
+                _e(d.get("rule_id", "—")),
+                _e(d.get("detection_timestamp", "—")),
             ]
         )
 
     body = f"""
     <h1>Event Detail</h1>
     <table class="dashboard-table">
-      <tr><th>Event ID</th><td>{detail.get("event_id", "—")}</td></tr>
-      <tr><th>Timestamp</th><td>{detail.get("timestamp", "—")}</td></tr>
-      <tr><th>Type</th><td>{detail.get("event_type", "—")}</td></tr>
-      <tr><th>Source</th><td>{detail.get("source_address", "—")}</td></tr>
-      <tr><th>Target</th><td>{detail.get("target_address", "—")}</td></tr>
-      <tr><th>User</th><td>{detail.get("user", "—")}</td></tr>
-      <tr><th>Source File</th><td>{detail.get("source_file", "—")}</td></tr>
-      <tr><th>Position</th><td>{detail.get("position", "—")}</td></tr>
+      <tr><th>Event ID</th><td>{_e(detail.get("event_id", "—"))}</td></tr>
+      <tr><th>Timestamp</th><td>{_e(detail.get("timestamp", "—"))}</td></tr>
+      <tr><th>Type</th><td>{_e(detail.get("event_type", "—"))}</td></tr>
+      <tr><th>Source</th><td>{_e(detail.get("source_address", "—"))}</td></tr>
+      <tr><th>Target</th><td>{_e(detail.get("target_address", "—"))}</td></tr>
+      <tr><th>User</th><td>{_e(detail.get("user", "—"))}</td></tr>
     </table>
     <h3>Raw Log</h3>
-    <pre class="dashboard-rawlog">{detail.get("raw_log", "")}</pre>
+    <pre class="dashboard-rawlog">{_e(detail.get("raw_log", ""))}</pre>
     <h3>Detections ({len(detections)})</h3>
-    {_table(["Rule", "Detected At", "Confidence", "Risk Score"], det_rows) if det_rows else "<p>No detections associated with this event.</p>"}
+    {_table(["Rule", "Detected At"], det_rows) if det_rows else "<p>No detections associated with this event.</p>"}
     """
     return _page("Event Detail", _nav() + body)
 
@@ -233,8 +245,8 @@ def render_diagnostics(diag) -> str:
     <table class="dashboard-table">
       <tr><th>Total Events</th><td>{diag.get("total_events", 0):,}</td></tr>
       <tr><th>Total Detections</th><td>{diag.get("total_detections", 0):,}</td></tr>
-      <tr><th>Database File</th><td>{diag.get("database_file", "unknown")}</td></tr>
-      <tr><th>Tables</th><td>{", ".join(diag.get("tables", [])) or "none"}</td></tr>
+      <tr><th>Database File</th><td>{_e(diag.get("database_file", "unknown"))}</td></tr>
+      <tr><th>Tables</th><td>{_e(", ".join(diag.get("tables", [])) or "none")}</td></tr>
     </table>
     """
     return _page("Diagnostics", _nav() + body)
@@ -250,10 +262,9 @@ def render_not_found() -> str:
 
 
 def render_error(message: str) -> str:
-    safe = message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     body = f"""
     <h1>Error</h1>
-    <p>{safe}</p>
+    <p>{_e(message)}</p>
     <p><a href="/overview">Return to Overview</a></p>
     """
     return _page("Error", _nav() + body)

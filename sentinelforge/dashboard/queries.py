@@ -1,4 +1,9 @@
-"""SentinelForge local dashboard — SQLite read-only queries."""
+"""SentinelForge local dashboard — SQLite read-only queries.
+
+All queries use the canonical schema defined in ``sentinelforge.storage.schema``.
+Detections do not directly contain an ``event_id`` column; the relationship
+between detections and events goes through the ``evidence`` table.
+"""
 
 from __future__ import annotations
 
@@ -43,7 +48,7 @@ def list_detection_rules(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             SELECT rule_id,
                    COUNT(*) AS detection_count,
                    COUNT(DISTINCT COALESCE(host, '')) AS host_count,
-                   MAX(timestamp) AS last_seen
+                   MAX(triggered_at) AS last_seen
             FROM detections
             GROUP BY rule_id
             ORDER BY detection_count DESC
@@ -75,10 +80,10 @@ def list_alerts(
     try:
         query = """
             SELECT rule_id,
-                   COUNT(*) AS event_count,
+                   COUNT(*) AS detection_count,
                    COUNT(DISTINCT COALESCE(host, '')) AS host_count,
-                   MIN(timestamp) AS first_seen,
-                   MAX(timestamp) AS last_seen
+                   MIN(triggered_at) AS first_seen,
+                   MAX(triggered_at) AS last_seen
             FROM detections
 """
         if conditions:
@@ -100,6 +105,22 @@ def list_events(
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
+    """Return events with optional filtering and pagination.
+
+    Events are queried directly from the ``events`` table. When ``rule`` is
+    supplied, only events that have evidence linked to a detection with that
+    rule_id are returned (the event→detection relationship goes through the
+    ``evidence`` table).
+
+    Columns returned match the canonical ``events`` schema:
+    ``event_id``, ``timestamp``, ``event_type``, ``source_address``,
+    ``target_address``, ``user``, ``raw_log``.
+
+    ``source_address`` is derived from ``auth_source_address`` (auth events)
+    or ``network_remote_address`` (network events). ``target_address`` is
+    derived from ``network_local_address``. ``raw_log`` comes from the
+    ``raw`` column.
+    """
     conditions: list[str] = []
     params: list[Any] = []
 
@@ -107,29 +128,33 @@ def list_events(
         conditions.append("e.event_type = ?")
         params.append(event_type)
     if search:
-        conditions.append(
-            "(e.raw_log LIKE ? OR e.source_address LIKE ? OR e.target_address LIKE ?)"
-        )
+        conditions.append("(e.raw LIKE ? OR e.source LIKE ? OR e.host LIKE ?)")
         params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
 
-    join = ""
     if rule:
-        join = "JOIN detections d ON d.event_id = e.event_id"
-        conditions.append("d.rule_id = ?")
+        conditions.append(
+            "e.event_id IN ("
+            "SELECT ev.event_id FROM evidence ev "
+            "JOIN detections d ON d.detection_id = ev.detection_id "
+            "WHERE d.rule_id = ?"
+            ")"
+        )
         params.append(rule)
 
     try:
         query = """
-            SELECT e.event_id, e.timestamp, e.event_type, e.source_address,
-                   e.target_address, e.user, e.raw_log, e.source_file,
-                   e.position, d.rule_id AS detection_rule
+            SELECT e.event_id,
+                   e.timestamp,
+                   e.event_type,
+                   COALESCE(e.auth_source_address, e.network_remote_address) AS source_address,
+                   e.network_local_address AS target_address,
+                   e.user,
+                   e.raw AS raw_log
             FROM events e
-"""
-        if join:
-            query = query.rstrip() + "\n" + join + "\n"
+        """
         if conditions:
             query = query.rstrip() + "\nWHERE " + " AND ".join(conditions) + "\n"
-        query += "GROUP BY e.event_id ORDER BY e.timestamp DESC LIMIT ? OFFSET ?"
+        query += "ORDER BY e.timestamp DESC LIMIT ? OFFSET ?"
 
         rows = conn.execute(query, [*params, limit, offset]).fetchall()
         return [dict(r) for r in rows]
@@ -138,12 +163,21 @@ def list_events(
 
 
 def get_event_detail(conn: sqlite3.Connection, event_id: str) -> dict[str, Any] | None:
+    """Return a single event with its linked detections.
+
+    Detections are joined through the ``evidence`` table since detections do
+    not directly contain an ``event_id`` column. Detection timestamps use
+    ``triggered_at``. No confidence or risk_score values are returned — those
+    are not stored in the canonical detections schema.
+    """
     try:
         row = conn.execute(
             """
-            SELECT e.event_id, e.timestamp, e.event_type, e.source_address,
-                   e.target_address, e.user, e.raw_log, e.source_file,
-                   e.position
+            SELECT e.event_id, e.timestamp, e.event_type,
+                   COALESCE(e.auth_source_address, e.network_remote_address) AS source_address,
+                   e.network_local_address AS target_address,
+                   e.user,
+                   e.raw AS raw_log
             FROM events e
             WHERE e.event_id = ?
             """,
@@ -154,10 +188,10 @@ def get_event_detail(conn: sqlite3.Connection, event_id: str) -> dict[str, Any] 
 
         det_rows = conn.execute(
             """
-            SELECT d.rule_id, d.timestamp AS detection_timestamp,
-                   d.confidence, d.risk_score
+            SELECT d.rule_id, d.triggered_at AS detection_timestamp
             FROM detections d
-            WHERE d.event_id = ?
+            JOIN evidence ev ON ev.detection_id = d.detection_id
+            WHERE ev.event_id = ?
             """,
             (event_id,),
         ).fetchall()

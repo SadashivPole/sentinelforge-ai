@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
+from sentinelforge.config import settings
 from sentinelforge.dashboard.queries import (
     connect,
     count_alerts,
@@ -74,7 +75,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         (re.compile(r"^/static/js/(?P<capture>.+)$"), "static_js"),
     ]
 
-    db_path: str = ""
+    db_path: str = settings.db_path
 
     def log_message(self, format: str, *args: Any) -> None:
         return
@@ -238,7 +239,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_html(render_diagnostics(diag))
 
 
-def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, db_path: str = "") -> None:
+def run(
+    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, db_path: str = settings.db_path
+) -> None:
     """Start the dashboard HTTP server.
 
     Binds to 127.0.0.1 by default. Never binds to 0.0.0.0.
@@ -277,8 +280,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--db-path",
-        default="",
-        help="Path to SQLite database (default: from settings)",
+        default=settings.db_path,
+        help=f"Path to SQLite database (default: {settings.db_path})",
     )
     args = parser.parse_args()
 
