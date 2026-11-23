@@ -324,4 +324,10 @@ footer {
   .hero h1 { font-size: 1.75rem; }
   .hero-actions { flex-direction: column; align-items: stretch; }
   .hero-actions .btn { justify-content: center; }
+  .architecture-diagram {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
 }
