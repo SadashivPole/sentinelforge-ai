@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
   <rect width="1200" height="630" fill="#0B1220"/>
-  <path d="M220 80 C140 80 60 140 60 260 C60 380 140 480 220 540 C300 480 380 380 380 260 C380 140 300 80 220 80 Z" 
+  <path d="M220 80 C140 80 60 140 60 260 C60 380 140 480 220 540 C300 480 380 380 380 260 C380 140 300 80 220 80 Z"
         fill="#17263C" stroke="#35D6C3" stroke-width="8"/>
   <path d="M200 340 L400 340 L400 490 L200 490 Z" fill="#F1B64A" opacity="0.95"/>
   <text x="470" y="310" font-family="system-ui, sans-serif" font-size="96" font-weight="800" fill="#E8F0FA">Sentinel</text>

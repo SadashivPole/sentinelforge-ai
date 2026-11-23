@@ -1,8 +1,8 @@
 # SentinelForge AI — Release Plan
 
-**Branch:** feature/sentinelforge-public-platform  
-**Base commit:** 58534f3 (M10 remediation merge)  
-**Status:** Planning  
+**Branch:** feature/sentinelforge-public-platform
+**Base commit:** 58534f3 (M10 remediation merge)
+**Status:** Planning
 
 ## Release Strategy
 

@@ -19,6 +19,17 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+
+def _deterministic_rng(seed: int) -> random.Random:
+    """Create a seeded RNG for reproducible synthetic dataset generation.
+
+    Used exclusively for generating synthetic test datasets where seed
+    reproducibility is required for deterministic test output. NOT used
+    for any cryptographic or security-sensitive purpose.
+    """
+    return random.Random(seed)  # nosec B311
+
+
 # Reserved test IP ranges (RFC 5737) and .example domains (RFC 2606)
 TEST_IP_BLOCKS = ["192.0.2.", "198.51.100.", "203.0.113."]
 EXAMPLE_DOMAINS = ["example.com", "example.org", "example.net"]
@@ -256,7 +267,7 @@ def generate_native_sysmon_events(
     benign. Labels are NOT embedded in the events — they are stored
     separately in the ground truth manifest.
     """
-    rng = random.Random(seed)
+    rng = _deterministic_rng(seed)
     start = start_time or DEFAULT_START_TIME
     events: list[dict[str, Any]] = []
 

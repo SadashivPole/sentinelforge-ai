@@ -72,24 +72,20 @@ def list_alerts(
         conditions.append("(rule_id LIKE ? OR COALESCE(host, '') LIKE ?)")
         params.extend([f"%{search}%", f"%{search}%"])
 
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
-
     try:
-        rows = conn.execute(
-            f"""
+        query = """
             SELECT rule_id,
                    COUNT(*) AS event_count,
                    COUNT(DISTINCT COALESCE(host, '')) AS host_count,
                    MIN(timestamp) AS first_seen,
                    MAX(timestamp) AS last_seen
             FROM detections
-            {where}
-            GROUP BY rule_id
-            ORDER BY first_seen DESC
-            LIMIT ? OFFSET ?
-            """,
-            [*params, limit, offset],
-        ).fetchall()
+"""
+        if conditions:
+            query = query.rstrip() + "\nWHERE " + " AND ".join(conditions) + "\n"
+        query += "GROUP BY rule_id ORDER BY first_seen DESC LIMIT ? OFFSET ?"
+
+        rows = conn.execute(query, [*params, limit, offset]).fetchall()
         return [dict(r) for r in rows]
     except sqlite3.OperationalError:
         return []
@@ -122,23 +118,20 @@ def list_events(
         conditions.append("d.rule_id = ?")
         params.append(rule)
 
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
-
     try:
-        rows = conn.execute(
-            f"""
+        query = """
             SELECT e.event_id, e.timestamp, e.event_type, e.source_address,
                    e.target_address, e.user, e.raw_log, e.source_file,
                    e.position, d.rule_id AS detection_rule
             FROM events e
-            {join}
-            {where}
-            GROUP BY e.event_id
-            ORDER BY e.timestamp DESC
-            LIMIT ? OFFSET ?
-            """,
-            [*params, limit, offset],
-        ).fetchall()
+"""
+        if join:
+            query = query.rstrip() + "\n" + join + "\n"
+        if conditions:
+            query = query.rstrip() + "\nWHERE " + " AND ".join(conditions) + "\n"
+        query += "GROUP BY e.event_id ORDER BY e.timestamp DESC LIMIT ? OFFSET ?"
+
+        rows = conn.execute(query, [*params, limit, offset]).fetchall()
         return [dict(r) for r in rows]
     except sqlite3.OperationalError:
         return []

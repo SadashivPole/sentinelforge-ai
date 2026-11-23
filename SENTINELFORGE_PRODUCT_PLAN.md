@@ -1,10 +1,10 @@
 # SentinelForge AI — Product Plan
 
-**Project:** SentinelForge AI  
-**Branch:** feature/sentinelforge-public-platform  
-**Base commit:** 58534f3 (M10 remediation merge)  
-**Status:** Planning  
-**Python:** >=3.11  
+**Project:** SentinelForge AI
+**Branch:** feature/sentinelforge-public-platform
+**Base commit:** 58534f3 (M10 remediation merge)
+**Status:** Planning
+**Python:** >=3.11
 
 ## Product Vision
 

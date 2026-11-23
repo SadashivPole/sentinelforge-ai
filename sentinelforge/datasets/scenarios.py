@@ -16,6 +16,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
+def _deterministic_rng(seed: int) -> random.Random:
+    """Create a seeded RNG for reproducible synthetic dataset generation.
+
+    Used exclusively for generating synthetic test datasets where seed
+    reproducibility is required for deterministic test output. NOT used
+    for any cryptographic or security-sensitive purpose.
+    """
+    return random.Random(seed)  # nosec B311
+
+
 @dataclass
 class Scenario:
     """A scenario template that generates correlated events."""
@@ -135,9 +145,8 @@ class SysmonProcessTreeScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -247,9 +256,8 @@ class SmallBruteForceScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         target_user = rng.choice(users)
         source_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
@@ -306,9 +314,8 @@ class SmallPasswordSprayScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         source_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
         events: list[dict] = []
@@ -345,9 +352,8 @@ class SmallC2BeaconScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         dest_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
@@ -391,9 +397,8 @@ class EDRHeartbeatScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         events: list[dict] = []
 
@@ -433,9 +438,8 @@ class OfficeMacroScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -542,9 +546,8 @@ class MultiHostScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         source_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
         events: list[dict] = []
 
@@ -585,9 +588,8 @@ class BenignPowerShellAdminScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -639,9 +641,8 @@ class SoftwareUpdateScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = "system"
         events: list[dict] = []
@@ -686,9 +687,8 @@ class ScheduledTaskScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -757,9 +757,8 @@ class NormalDNSScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         events: list[dict] = []
 
@@ -800,9 +799,8 @@ class NormalOutboundHTTPSScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -847,9 +845,8 @@ class SuccessfulAuthScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         events: list[dict] = []
 
@@ -891,9 +888,8 @@ class BulkBenignActivityScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         events: list[dict] = []
 
         # 200 successful authentications (benign)
@@ -982,9 +978,8 @@ class BulkBruteForceScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         events: list[dict] = []
 
         source_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
@@ -1027,9 +1022,8 @@ class BulkPasswordSprayScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         events: list[dict] = []
 
         spray_source = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
@@ -1069,9 +1063,8 @@ class BulkC2BeaconScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         events: list[dict] = []
 
         beacon_ip = f"{rng.choice(TEST_IPS)}{rng.randint(1, 254)}"
@@ -1124,9 +1117,8 @@ class BenignPowerShellVariantsScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
@@ -1188,9 +1180,8 @@ class SuspiciousPowerShellExecutionScenario(Scenario):
     def generate(
         self, seed: int, start_time: datetime, hosts: list[str], users: list[str]
     ) -> tuple[list[dict], str, str]:
-        import random
 
-        rng = random.Random(seed)
+        rng = _deterministic_rng(seed)
         host = rng.choice(hosts)
         user = rng.choice(users)
         events: list[dict] = []
