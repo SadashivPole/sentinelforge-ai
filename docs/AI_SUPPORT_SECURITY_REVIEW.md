@@ -91,10 +91,30 @@ Denied: file_write, command_execute, path_access, github_modify,
 
 ## Review Status
 
-- ✅ Frontend XSS prevention implemented
-- ✅ No secrets in browser code
-- ✅ Chat widget uses text-only rendering
-- ✅ Hermes profile isolation documented
-- ✅ Tool restrictions documented
-- ✅ Backend security controls documented
-- ❌ Backend not yet deployed — deployment requirements documented
+### Implemented
+- Frontend XSS prevention (text-only rendering, `textContent`, no `innerHTML` for dynamic content)
+- No secrets in browser code (no API keys, tokens, or credentials in HTML/CSS/JS)
+- Chat widget uses safe DOM creation methods
+- ARIA labels, dialog semantics, Escape key handling, focus management
+- Hermes profile isolation documented (not implemented — backend not deployed)
+- Tool restrictions documented (not implemented — backend not deployed)
+
+### Not implemented (backend does not exist)
+- Backend authentication (`API_SERVER_KEY` not used — correctly absent from frontend)
+- Backend rate limiting (no backend to enforce limits)
+- Backend CORS configuration (no backend to configure)
+- Live SSE streaming responses
+- Production session management beyond browser-session lifetime
+- Secure backend hosting over HTTPS
+
+### Residual Risks
+1. **Backend not yet deployed** — The widget shows a preview notice stating the AI backend is not yet hosted. Visitors cannot interact with a live AI assistant until a secure backend is deployed.
+2. **Dependency on third-party model provider** — Model responses depend on the Hermes provider's safety filters. No backend exists yet to apply additional validation.
+
+### What the widget does NOT do
+- Does not connect to Hermes Agent API Server
+- Does not send visitor messages to any AI service
+- Does not simulate AI typing or responses
+- Does not expose any backend endpoint
+- Does not access real SOC data, local dashboard, or SQLite database
+

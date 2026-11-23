@@ -90,7 +90,23 @@ Implement and test the support backend locally, then document exact deployment r
 
 ## Status
 
-- ✅ Chat widget UI implemented (HTML/CSS/JS on all public pages)
-- ✅ Widget connects to a documented backend endpoint (`/api/support/chat`)
-- ✅ Backend not yet hosted — widget displays status message
-- ❌ Backend not deployed — awaiting secure hosting option and user approval
+### Implemented
+- Chat widget UI (HTML/CSS/JS) on all 15 public pages
+- Safe text-only DOM rendering (no `innerHTML` for dynamic content)
+- Accessible panel with Escape key handling, focus management, focus restoration
+- ARIA labels, dialog semantics, screen-reader support
+- Mobile-responsive layout
+- Preview notice clearly stating the AI backend is not hosted
+- No API keys or secrets in browser code
+
+### Not implemented
+- Actual Hermes Agent API Server connection
+- Public support backend (no `/api/support/chat` endpoint implemented)
+- Backend authentication (no `API_SERVER_KEY` usage in browser — correctly absent)
+- Backend rate limiting (not implemented — backend does not exist)
+- Live SSE streaming responses
+- Production session management (sessions are browser-session only, cleared on refresh)
+
+### Backend connection status
+The widget's `sendUserMessage()` does **not** make any API request. It displays a preview notice and does not simulate AI typing or responses. The code is structured for future backend integration but no backend endpoint is implemented or called.
+

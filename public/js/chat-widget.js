@@ -1,5 +1,6 @@
 // SentinelForge AI Support Assistant — Chat Widget UI
-// Connects to a secure server-side support backend.
+// Preview only. No AI backend is connected. Messages are not sent to any AI service.
+// Code is structured for future genuine backend integration.
 // No API keys or secrets are exposed in the browser.
 
 (function () {
@@ -7,9 +8,8 @@
 
   // Configuration
   const CONFIG = {
-    backendEndpoint: '/api/support/chat', // Relative path — deployed backend only
     welcomeMessage:
-      "Hello! I'm the SentinelForge AI Support Assistant. I can help you understand the project, explore detection capabilities, troubleshoot installation and navigate the documentation. What would you like to know?",
+      "Hello! I'm the SentinelForge AI Support Assistant (preview). The AI backend is not yet hosted, so I can't respond to messages right now. For help, see the documentation links in the footer or open a GitHub issue.",
     suggestedQuestions: [
       'What is SentinelForge AI?',
       'How do I install SentinelForge?',
@@ -20,26 +20,23 @@
       'What is the difference between the public demo and local dashboard?',
       'How can I contribute to the project?'
     ],
-    backendUnavailableMessage:
-      'The AI support backend is not yet hosted. This widget is ready to connect once a secure backend is deployed. For now, please refer to the documentation pages linked in the footer, or open a GitHub issue for help.',
-    maxHistory: 50,
-    typingDelay: 800
+    previewNotice:
+      'Preview only — AI backend not yet hosted. Messages are not sent to any AI service. Use the documentation links or GitHub issues for support.',
+    maxHistory: 50
   };
 
   // DOM elements
   let panel, floatBtn, messagesContainer, inputField, sendBtn, statusBar;
-  let suggestionsContainer;
+  let suggestionsContainer, previewNoticeEl;
   let isOpen = false;
   let isMinimized = false;
-  let isTyping = false;
+  let lastFocusedElement = null;
   let messageCount = 0;
 
   // Initialize when DOM is ready
   function init() {
-    // Wait for the widget HTML to be injected
     const widgetContainer = document.getElementById('sentinelforge-support');
     if (!widgetContainer) {
-      // Retry after short delay
       setTimeout(init, 100);
       return;
     }
@@ -51,13 +48,14 @@
     sendBtn = document.getElementById('support-send');
     statusBar = document.getElementById('support-status');
     suggestionsContainer = document.getElementById('support-suggestions');
+    previewNoticeEl = document.getElementById('support-preview-notice');
 
     if (!panel || !floatBtn || !messagesContainer) return;
 
     bindEvents();
     renderWelcome();
     renderSuggestions();
-    updateStatus('Backend not yet hosted — documentation only');
+    updateStatus('Preview — AI backend not yet hosted');
   }
 
   function bindEvents() {
@@ -87,8 +85,9 @@
 
     // Suggested questions
     document.addEventListener('click', function (e) {
-      if (e.target.closest('.suggestion-btn')) {
-        const question = e.target.closest('.suggestion-btn').textContent.trim();
+      const btn = e.target.closest('.suggestion-btn');
+      if (btn) {
+        const question = btn.textContent.trim();
         inputField.value = question;
         inputField.style.height = 'auto';
         inputField.style.height = Math.min(inputField.scrollHeight, 120) + 'px';
@@ -99,36 +98,68 @@
     // Clear conversation
     const clearBtn = document.getElementById('support-clear');
     if (clearBtn) clearBtn.addEventListener('click', clearConversation);
+
+    // Escape key closes panel when open
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && isOpen) {
+        e.preventDefault();
+        closePanel();
+      }
+    });
   }
 
+  // Panel state management
   function togglePanel() {
-    isOpen = !isOpen;
-    if (isOpen) {
+    if (isMinimized) {
+      // Restore from minimized state
+      isMinimized = false;
+      isOpen = true;
       panel.classList.add('open');
+      panel.setAttribute('aria-hidden', 'false');
       floatBtn.style.display = 'none';
+      const badge = floatBtn.querySelector('.badge');
+      if (badge) badge.style.display = 'none';
+      lastFocusedElement = floatBtn;
       inputField.focus();
+    } else if (isOpen) {
+      closePanel();
     } else {
-      panel.classList.remove('open');
-      floatBtn.style.display = 'flex';
+      isOpen = true;
+      panel.classList.add('open');
+      panel.setAttribute('aria-hidden', 'false');
+      floatBtn.style.display = 'none';
+      lastFocusedElement = floatBtn;
+      inputField.focus();
     }
   }
 
   function minimizePanel() {
     isMinimized = true;
+    isOpen = false;
     panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
     floatBtn.style.display = 'flex';
-    floatBtn.querySelector('.badge').style.display = 'flex';
+    const badge = floatBtn.querySelector('.badge');
+    if (badge) badge.style.display = 'flex';
   }
 
   function closePanel() {
     isOpen = false;
     isMinimized = false;
     panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
     floatBtn.style.display = 'flex';
-    floatBtn.querySelector('.badge').style.display = 'none';
+    const badge = floatBtn.querySelector('.badge');
+    if (badge) badge.style.display = 'none';
+    // Restore focus to the floating button
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
     clearConversation();
   }
 
+  // Rendering (safe DOM, no innerHTML for dynamic content)
   function renderWelcome() {
     addMessage(CONFIG.welcomeMessage, 'agent', true);
   }
@@ -137,6 +168,7 @@
     if (!suggestionsContainer) return;
     suggestionsContainer.innerHTML = '';
     const h4 = document.createElement('h4');
+    h4.id = 'support-suggestions-label';
     h4.textContent = 'Suggested questions';
     suggestionsContainer.appendChild(h4);
     const grid = document.createElement('div');
@@ -146,6 +178,7 @@
       btn.className = 'suggestion-btn';
       btn.type = 'button';
       btn.textContent = q;
+      btn.setAttribute('aria-describedby', 'support-suggestions-label');
       grid.appendChild(btn);
     });
     suggestionsContainer.appendChild(grid);
@@ -155,8 +188,6 @@
     if (statusBar) statusBar.textContent = text;
   }
 
-  // --- Messaging ---
-
   function addMessage(text, sender, isWelcome = false) {
     const wrapper = document.createElement('div');
     wrapper.className = 'message ' + sender;
@@ -164,6 +195,7 @@
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
     avatar.textContent = sender === 'user' ? 'You' : 'S';
+    avatar.setAttribute('aria-hidden', 'true');
 
     const content = document.createElement('div');
     content.className = 'message-content';
@@ -185,7 +217,6 @@
     scrollToBottom();
     messageCount++;
 
-    // Trim history
     const messages = messagesContainer.querySelectorAll('.message');
     if (messages.length > CONFIG.maxHistory) {
       messages[0].remove();
@@ -194,34 +225,61 @@
     return wrapper;
   }
 
-  function addTypingIndicator() {
-    if (isTyping) return;
-    isTyping = true;
-    const typing = document.createElement('div');
-    typing.className = 'typing';
-    typing.id = 'support-typing';
-    typing.textContent = 'Assistant is typing…';
-    messagesContainer.appendChild(typing);
-    scrollToBottom();
-  }
+  function addPreviewNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'message agent state-info';
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('aria-live', 'polite');
 
-  function removeTypingIndicator() {
-    isTyping = false;
-    const typing = document.getElementById('support-typing');
-    if (typing) typing.remove();
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = 'S';
+    avatar.setAttribute('aria-hidden', 'true');
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.textContent = CONFIG.previewNotice;
+
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    notice.appendChild(avatar);
+    notice.appendChild(content);
+    notice.appendChild(time);
+
+    messagesContainer.appendChild(notice);
+    scrollToBottom();
+    messageCount++;
+    return notice;
   }
 
   function addError(message) {
     const error = document.createElement('div');
     error.className = 'message agent state-error';
-    error.innerHTML =
-      '<div class="message-avatar">S</div>' +
-      '<div class="message-content">' + escapeHtml(message) + '</div>' +
-      '<div class="message-time">' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</div>' +
-      '<button id="support-retry" style="margin-top:var(--space-xs);background:none;border:none;color:var(--forge-cyan);cursor:pointer;font-size:0.8125rem;">Retry</button>';
-    messagesContainer.appendChild(error);
-    scrollToBottom();
-    document.getElementById('support-retry').addEventListener('click', function () {
+    error.setAttribute('role', 'alert');
+    error.setAttribute('aria-live', 'polite');
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = 'S';
+    avatar.setAttribute('aria-hidden', 'true');
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
+    content.textContent = message;
+
+    const time = document.createElement('div');
+    time.className = 'message-time';
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const retryBtn = document.createElement('button');
+    retryBtn.id = 'support-retry';
+    retryBtn.type = 'button';
+    retryBtn.textContent = 'Retry';
+    retryBtn.style.cssText =
+      'margin-top:var(--space-xs);background:none;border:none;color:var(--forge-cyan);cursor:pointer;font-size:0.8125rem;';
+    retryBtn.addEventListener('click', function () {
       error.remove();
       const lastUser = document.querySelector('.message.user:last-child .message-content');
       if (lastUser) {
@@ -229,6 +287,14 @@
         sendUserMessage();
       }
     });
+
+    error.appendChild(avatar);
+    error.appendChild(content);
+    error.appendChild(time);
+    error.appendChild(retryBtn);
+
+    messagesContainer.appendChild(error);
+    scrollToBottom();
   }
 
   function setInputLoading(loading) {
@@ -241,22 +307,17 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
   function clearConversation() {
     messagesContainer.innerHTML = '';
     messageCount = 0;
     renderWelcome();
     renderSuggestions();
+    addPreviewNotice();
   }
 
-  async function sendUserMessage() {
+  function sendUserMessage() {
     const text = inputField.value.trim();
-    if (!text || isTyping) return;
+    if (!text) return;
 
     // Clear any error state
     const errors = messagesContainer.querySelectorAll('.state-error');
@@ -266,20 +327,11 @@
     addMessage(text, 'user');
     inputField.value = '';
     inputField.style.height = 'auto';
-    setInputLoading(true);
 
-    // Simulate backend unavailability — show status
-    // In production, this would fetch(CONFIG.backendEndpoint, ...)
-    await new Promise(resolve => setTimeout(resolve, CONFIG.typingDelay));
-
-    addTypingIndicator();
-
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    removeTypingIndicator();
-
-    addMessage(CONFIG.backendUnavailableMessage, 'agent');
-    updateStatus('Backend not yet hosted — documentation only');
-    setInputLoading(false);
+    // Preview notice — backend not available, do not simulate AI typing or response
+    addPreviewNotice();
+    updateStatus('Preview — AI backend not yet hosted');
+    inputField.focus();
   }
 
   // Start
@@ -288,5 +340,4 @@
   } else {
     init();
   }
-
 })();

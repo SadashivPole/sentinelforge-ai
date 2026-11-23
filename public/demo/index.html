@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="../img/favicon.svg">
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="css/demo.css">
+  <link rel="stylesheet" href="../css/chat-widget.css">
   <meta property="og:title" content="Interactive Demo — SentinelForge">
   <meta property="og:image" content="../img/social-preview.svg">
 </head>
@@ -72,7 +73,31 @@
       </div>
     </div>
   </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Preview — AI backend not yet hosted</div>
+    </div>
+  </div>
   <script src="../js/nav.js"></script>
   <script src="js/demo.js"></script>
+  <script src="../js/chat-widget.js"></script>
 </body>
 </html>

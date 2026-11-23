@@ -7,6 +7,7 @@
   <meta name="description" content="Real Python detection engine results exported from synthetic data — no live detection, no real logs.">
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/chat-widget.css">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
@@ -66,7 +67,7 @@
             <p><strong>MITRE ATT&amp;CK:</strong> T1110.003 (Credential Access)</p>
             <p><strong>Evidence:</strong> 5 failed logins against 4 usernames</p>
             <p><strong>Source:</strong> 203.0.113.45 → host 10.0.1.50</p>
-            <p style="font-size: 0.875rem; color: var(--dim-text);">Usernames: admin, root, test, guest</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">Usernames: admin, root, test, guest</p>
           </div>
 
           <div class="card">
@@ -76,7 +77,7 @@
             <p><strong>MITRE ATT&amp;CK:</strong> T1110.003 (Credential Access)</p>
             <p><strong>Evidence:</strong> 5 failed logins against 5 usernames</p>
             <p><strong>Source:</strong> 198.51.100.77 → host 10.0.1.100</p>
-            <p style="font-size: 0.875rem; color: var(--dim-text);">Usernames: alice, bob, charlie, diana, eve</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">Usernames: alice, bob, charlie, diana, eve</p>
           </div>
 
           <div class="card">
@@ -86,7 +87,7 @@
             <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
             <p><strong>Indicator:</strong> encoded_command</p>
             <p><strong>Host:</strong> 10.0.1.200, user: svc_deploy</p>
-            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -EncodedCommand ...</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">powershell.exe -EncodedCommand ...</p>
           </div>
 
           <div class="card">
@@ -96,7 +97,7 @@
             <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
             <p><strong>Indicator:</strong> execution_policy_bypass</p>
             <p><strong>Host:</strong> 10.0.1.200, user: svc_deploy</p>
-            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -ExecutionPolicy Bypass ...</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">powershell.exe -ExecutionPolicy Bypass ...</p>
           </div>
 
           <div class="card">
@@ -106,7 +107,7 @@
             <p><strong>MITRE ATT&amp;CK:</strong> T1059.001 (Execution)</p>
             <p><strong>Indicator:</strong> download_and_execute</p>
             <p><strong>Host:</strong> 10.0.1.75, user: jdoe</p>
-            <p style="font-size: 0.875rem; color: var(--dim-text);">powershell.exe -nop -w hidden -c IEX(...)</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted);">powershell.exe -nop -w hidden -c IEX(...)</p>
           </div>
         </div>
 
@@ -202,7 +203,7 @@
           </p>
         </div>
 
-        <div style="margin-top: var(--space-lg); color: var(--dim-text); font-size: 0.875rem;">
+        <div style="margin-top: var(--space-lg); color: var(--text-muted); font-size: 0.875rem;">
           <p><strong>Export source:</strong> <code>public/demo/data/detection-showcase.json</code></p>
           <p><strong>Pipeline:</strong> <code>sentinelforge ingest</code> → <code>sentinelforge detect</code> → static JSON export</p>
           <p><strong>Data classification:</strong> Synthetic test data only. External source IPs use RFC 5737 TEST-NET ranges (203.0.113.45, 198.51.100.77). Internal host IPs use RFC 1918 private ranges (10.0.1.x). No real SOC data, no credentials, no production logs.</p>
@@ -218,6 +219,30 @@
       </div>
     </div>
   </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Preview — AI backend not yet hosted</div>
+    </div>
+  </div>
   <script src="js/nav.js"></script>
+  <script src="js/chat-widget.js"></script>
 </body>
 </html>
