@@ -275,7 +275,15 @@ class TestQueries:
             os.unlink(path)
 
     def test_sql_injection_filter_values(self):
-        """SQL injection payloads as filter values must not break queries."""
+        """SQL injection payloads as filter values must not break queries or bypass filtering.
+
+        Verifies that:
+        - Search filters do not return unrelated records.
+        - Rule filters do not bypass filtering.
+        - Injection attempts do not modify or delete database tables.
+        - Existing sentinel records remain accessible afterward.
+        - Database record counts remain unchanged.
+        """
         path = _make_temp_db()
         try:
             conn = connect(path)
@@ -288,17 +296,56 @@ class TestQueries:
                 '" OR "1"="1',
             ]
 
+            # Capture baseline counts and records before injection attempts
+            baseline_events = count_events(conn)
+            baseline_detections = count_detections(conn)
+            baseline_alerts = count_alerts(conn)
+            baseline_all_events = list_events(conn)
+            baseline_all_alerts = list_alerts(conn)
+
             for payload in injection_payloads:
-                # These should not raise exceptions
+                # Search filters must not return unrelated records
                 events = list_events(conn, search=payload)
                 assert isinstance(events, list)
+                assert events == [], (
+                    f"search={payload!r} returned {len(events)} events (expected 0)"
+                )
 
                 alerts = list_alerts(conn, search=payload)
                 assert isinstance(alerts, list)
+                assert alerts == [], (
+                    f"alerts search={payload!r} returned {len(alerts)} alerts (expected 0)"
+                )
 
-                # Filter by rule with injection payload
-                events = list_events(conn, rule=payload)
-                assert isinstance(events, list)
+                # Rule filters must not bypass filtering
+                events_by_rule = list_events(conn, rule=payload)
+                assert isinstance(events_by_rule, list)
+                assert events_by_rule == [], (
+                    f"events rule={payload!r} returned {len(events_by_rule)} events (expected 0)"
+                )
+
+                # list_alerts with rule filter must not bypass filtering
+                alerts_by_rule = list_alerts(conn, rule=payload)
+                assert isinstance(alerts_by_rule, list)
+                assert alerts_by_rule == [], (
+                    f"alerts rule={payload!r} returned {len(alerts_by_rule)} alerts (expected 0)"
+                )
+
+            # Database tables must not be modified or deleted
+            assert count_events(conn) == baseline_events, (
+                "event count changed after injection attempts"
+            )
+            assert count_detections(conn) == baseline_detections, (
+                "detection count changed after injection attempts"
+            )
+            assert count_alerts(conn) == baseline_alerts, (
+                "alert count changed after injection attempts"
+            )
+
+            # Existing sentinel records remain accessible
+            assert list_events(conn) == baseline_all_events
+            assert list_alerts(conn) == baseline_all_alerts
+            assert list_detection_rules(conn) is not None
 
             conn.close()
         finally:

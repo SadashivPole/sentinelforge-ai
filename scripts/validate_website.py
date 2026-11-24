@@ -90,7 +90,7 @@ for hf in html_files:
     content = hf.read_text()
     for m in re.finditer(r'(?:href|src)=["]([^"]+)["]', content):
         t = m.group(1)
-        if t.startswith("http://") or t.startswith("https://"):
+        if t.startswith(("http://", "https://")):
             continue
         if t.startswith("#"):
             continue
@@ -122,7 +122,7 @@ for hf in html_files:
         sm = re.search(r'src=["]([^"]+)["]', img_tag)
         if sm:
             t = sm.group(1)
-            if t.startswith("http://") or t.startswith("https://"):
+            if t.startswith(("http://", "https://")):
                 continue
             tp = (hf.parent / t).resolve()
             try:
