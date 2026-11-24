@@ -577,6 +577,193 @@ def test_event_search():
         os.unlink(path)
 
 
+# ---------------------------------------------------------------------------#
+# SQL injection regression tests
+# ---------------------------------------------------------------------------#
+
+INJECTION_PAYLOADS = [
+    "' OR '1'='1",
+    "'; DROP TABLE events; --",
+    "' UNION SELECT * FROM detections --",
+    "<script>alert('xss')</script>",
+    '" OR "1"="1',
+]
+
+
+def test_event_get_events_sql_injection():
+    """Malicious filter values to get_events() must not broaden results or modify data."""
+    path = _tmp_db_path()
+    try:
+        db = Database(path)
+        db.initialize()
+        repo = EventRepository(db)
+
+        events = [
+            _make_event(
+                event_id=f"evt-{i}",
+                host=f"host-{i % 2}",
+                source="json" if i % 2 == 0 else "jsonl",
+                event_type="authentication" if i < 3 else "network.connection",
+            )
+            for i in range(6)
+        ]
+        repo.insert_events(events)
+
+        baseline_count = repo.count_events()
+        baseline_all = repo.get_events()
+
+        for payload in INJECTION_PAYLOADS:
+            # Malicious host filter must not return unrelated records
+            results = repo.get_events(host=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_events(host={payload!r}) returned {len(results)} events"
+            )
+
+            # Malicious source filter must not bypass filtering
+            results = repo.get_events(source=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_events(source={payload!r}) returned {len(results)} events"
+            )
+
+            # Malicious event_type filter must not bypass filtering
+            results = repo.get_events(event_type=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_events(event_type={payload!r}) returned {len(results)} events"
+            )
+
+        # Data must not be modified or deleted
+        assert repo.count_events() == baseline_count
+        assert repo.get_events() == baseline_all
+
+    finally:
+        os.unlink(path)
+
+
+def test_event_search_sql_injection():
+    """Malicious search queries to search_events() must not return unrelated records."""
+    path = _tmp_db_path()
+    try:
+        db = Database(path)
+        db.initialize()
+        repo = EventRepository(db)
+
+        event = _make_event(raw_extra={"unique_marker": "find-me-12345"})
+        repo.insert_event(event)
+
+        baseline_count = repo.count_events()
+
+        for payload in INJECTION_PAYLOADS:
+            results = repo.search_events(payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"search_events({payload!r}) returned {len(results)} results"
+            )
+
+        # Data must not be modified or deleted
+        assert repo.count_events() == baseline_count
+
+    finally:
+        os.unlink(path)
+
+
+def test_detection_get_detections_sql_injection():
+    """Malicious filter values to get_detections() must not broaden results."""
+    path = _tmp_db_path()
+    try:
+        db = Database(path)
+        db.initialize()
+        repo = DetectionRepository(db)
+
+        det_high = _make_detection(
+            rule_id="rule-high", host="host-a", severity=Severity.HIGH
+        )
+        det_low = _make_detection(
+            rule_id="rule-low", host="host-b", severity=Severity.LOW
+        )
+        repo.insert_detection(det_high)
+        repo.insert_detection(det_low)
+
+        baseline_count = repo.count_detections()
+        baseline_all = repo.get_detections()
+
+        for payload in INJECTION_PAYLOADS:
+            results = repo.get_detections(host=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_detections(host={payload!r}) returned {len(results)}"
+            )
+
+            results = repo.get_detections(severity=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_detections(severity={payload!r}) returned {len(results)}"
+            )
+
+            results = repo.get_detections(rule_id=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_detections(rule_id={payload!r}) returned {len(results)}"
+            )
+
+        # Data must not be modified or deleted
+        assert repo.count_detections() == baseline_count
+        assert repo.get_detections() == baseline_all
+
+    finally:
+        os.unlink(path)
+
+
+def test_risk_assessment_sql_injection():
+    """Malicious filter values to get_risk_assessments() must not broaden results."""
+    path = _tmp_db_path()
+    try:
+        db = Database(path)
+        db.initialize()
+        repo = RiskAssessmentRepository(db)
+
+        # Insert detections first so risk assessment FK links succeed
+        det_repo = DetectionRepository(db)
+        det_repo.insert_detection(_make_detection(rule_id="rule-a", host="host-a"))
+        det_repo.insert_detection(_make_detection(rule_id="rule-b", host="host-b"))
+
+        assess_high = _make_assessment(
+            assessment_id="assess-high", host="host-a", risk_score=90
+        )
+        assess_low = _make_assessment(
+            assessment_id="assess-low", host="host-b", risk_score=30
+        )
+        repo.insert_risk_assessment(assess_high)
+        repo.insert_risk_assessment(assess_low)
+
+        baseline_all = repo.get_risk_assessments()
+        baseline_count = len(baseline_all)
+
+        for payload in INJECTION_PAYLOADS:
+            # Malicious host filter must not return unrelated records
+            results = repo.get_risk_assessments(host=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_risk_assessments(host={payload!r}) returned {len(results)}"
+            )
+
+            # Malicious min_score filter must not bypass filtering (parameterized)
+            results = repo.get_risk_assessments(min_score=payload)
+            assert isinstance(results, list)
+            assert results == [], (
+                f"get_risk_assessments(min_score={payload!r}) returned {len(results)}"
+            )
+
+        # Data must not be modified or deleted
+        assert len(repo.get_risk_assessments()) == baseline_count
+        assert repo.get_risk_assessments() == baseline_all
+
+    finally:
+        os.unlink(path)
+
+
 def test_detection_search():
     path = _tmp_db_path()
     try:

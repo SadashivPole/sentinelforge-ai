@@ -1,11 +1,45 @@
-# SentinelForge AI
+![SentinelForge README banner](public/img/readme-banner.svg)
 
-**Python-based SOC security log analysis and detection prototype featuring event normalization, explainable detection, evidence correlation, risk scoring and evaluation.**
+# SentinelForge
+
+**Evidence-first Python SOC detection engineering prototype with normalized log ingestion, explainable detections, ATT&CK context, SQLite evidence storage, and synthetic security datasets.**
 
 **Version:** 0.1.0 (prototype)  
-**Classification:** Demonstrable SOC Prototype — not production-ready  
-**License:** MIT (proposed)  
-**Python:** 3.12+
+**Classification:** Demonstrable SOC prototype — not production-ready  
+**License:** MIT  
+**Python:** 3.12+  
+**Tests:** 363 passed, 1 skipped (pytest)  
+**Live website:** https://sadashivpole.github.io/sentinelforge-ai/
+
+## Project Status
+
+| Area | Status |
+|------|--------|
+| Core detection engine | Implemented |
+| Log ingestion & normalization | Implemented |
+| SQLite evidence storage | Implemented |
+| Synthetic dataset generation | Implemented |
+| Detection evaluation | Implemented |
+| Local SOC dashboard | Implemented (localhost only) |
+| Public website | Deployed (GitHub Pages) |
+| AI support assistant | Preview only (no backend) |
+| Production deployment | Not planned |
+
+The AI support chat widget on the public website is a **UI preview**. No backend is connected, no AI responses are generated, and no visitor messages are sent to any AI service.
+
+## Local SOC Dashboard Screenshots
+
+Genuine screenshots from the local dashboard (`sentinelforge dashboard`, bound to `127.0.0.1:8080`, read-only, SQLite-backed):
+
+| View | Screenshot |
+|------|------------|
+| Dashboard overview | ![Dashboard overview](public/img/showcase/dashboard-overview.png) |
+| Alerts | ![Alerts](public/img/showcase/dashboard-alerts.png) |
+| Events | ![Events](public/img/showcase/dashboard-events.png) |
+| Detection rules | ![Detection rules](public/img/showcase/dashboard-rules.png) |
+| Diagnostics | ![Diagnostics](public/img/showcase/dashboard-diagnostics.png) |
+
+*All screenshots are unmodified captures from the local dashboard running against synthetic data. The dashboard is not exposed publicly and does not connect to the public website.*
 
 ## Design principles
 
@@ -59,7 +93,7 @@ sentinelforge-ai/
 │   │   ├── evaluation.py   # alert-level + event-level metrics
 │   │   └── native_sysmon.py  # native Sysmon EVTX-converted JSON generator
 │   └── __init__.py
-├── tests/                    # pytest suite (350 tests)
+├── tests/                    # pytest suite (363 tests)
 ├── data/generated/           # synthetic datasets (11,298 events)
 ├── validate_*.py             # standalone validation scripts
 ├── benchmark_replay.py       # replay benchmark
@@ -105,6 +139,7 @@ Every incoming event is mapped to `NormalizedEvent`:
 ## Detection rules
 
 - **FailedLoginBurstRule** (MITRE T1110 / T1110.001): Multiple failed authentications within a configurable window, grouped by (source IP, username, host)
+- **PasswordSprayRule** (MITRE T1110.003): Authentication attempts across many usernames from a common source, excluding events with missing source addresses
 - **SuspiciousPowerShellRule** (MITRE T1059.001): Encoded commands, hidden execution, execution policy bypass, download-and-execute, obfuscation — weighted scoring with configurable threshold
 - **SuspiciousProcessTreeRule** (MITRE T1204 / T1204.002): Suspicious parent-child relationships (Office → PowerShell, etc.). T1204.002 requires cross-event correlation: file activity + process execution on same host/user within configurable time window
 - **C2BeaconRule** (MITRE T1071): Statistical beaconing on connection intervals (mean, median, std dev, CV, regularity score). T1071 requires app-layer protocol + non-standard port + additional suspicious context (abnormal process, raw IP destination)
@@ -141,8 +176,8 @@ enterprise SOC environments. Datasets are written to `data/generated/`.
 | `firewall.jsonl` | 2,000 | Inbound/outbound, allowed/denied, unusual ports |
 | `dns.jsonl` | 2,000 | Normal queries, unusual domains, suspicious bursts |
 | `network.jsonl` | 2,000 | Periodic connections, beacons, heartbeats, updates |
-| `correlated_attacks.jsonl` | 32 | 7 correlated attack scenarios |
-| `benign_activity.jsonl` | 52 | 6 benign activity scenarios |
+| `correlated_attacks.jsonl` | 641 | 7 correlated attack scenarios |
+| `benign_activity.jsonl` | 657 | 6 benign activity scenarios |
 
 Total: **11,298 events** across 7 output files.
 
@@ -185,9 +220,9 @@ Running the generated dataset through the full pipeline (ingest → normalize �
 | Metric | Value |
 |---|---|
 | Total events ingested | 11,298 |
-| Detections produced | 166 |
+| Detections produced | 172 |
 | Risk assessments | 7 |
-| Detections persisted | 166 |
+| Detections persisted | 172 |
 | Risk assessments persisted | 7 |
 | `PRAGMA integrity_check` | ok |
 | `PRAGMA foreign_key_check` | 0 violations |
@@ -215,7 +250,7 @@ An independently authored holdout dataset (69 events, NOT generated by the scena
 
 - SQLite does not provide encryption — database file access must be restricted at the OS level
 - Real security logs may contain sensitive information (PII, credentials, IP addresses)
-- No `streamlit`/`pandas` installed (dashboard milestone pending); C: drive at 98% (~5.5 GB free)
+- No `streamlit`/`pandas` installed — the local dashboard uses the built-in Python HTTP server with no external data libraries
 - ATT&CK mappings are optional and only attributed when evidence supports them — absence of a mapping does not mean a detection is benign
 - Risk score (0-100) is not a probability of compromise
 
@@ -229,8 +264,8 @@ An independently authored holdout dataset (69 events, NOT generated by the scena
 6. Explainable risk scoring — DONE
 7. SQLite storage — DONE
 8. Synthetic benign + suspicious datasets — DONE
-9. Streamlit SOC dashboard — DEFERRED (not implemented; Streamlit/Pandas not installed)
-10. Pytest test suite (all detection logic tested) — DONE (308 tests)
+9. Local SOC dashboard — DONE (sentinelforge/dashboard/, binds to 127.0.0.1:8080, read-only, SQLite-backed, no Streamlit/Pandas)
+10. Pytest test suite (all detection logic tested) — DONE (363 passed, 1 skipped)
 
 ### Hardening pass (post-Milestone 7)
 
@@ -243,7 +278,6 @@ An independently authored holdout dataset (69 events, NOT generated by the scena
 - Schema migration v1 → v2 → v3 implemented
 - 18 new regression tests added
 
-10. Pytest test suite (all detection logic tested) — DONE (350 tests)
 
 ### Hardening pass (post-Milestone 7) — M10 + M10.1
 
@@ -258,10 +292,10 @@ An independently authored holdout dataset (69 events, NOT generated by the scena
 ### Milestone 8: Synthetic enterprise SOC datasets
 
 - `sentinelforge/datasets/` package with generator, ground truth, scenarios, validators
-- 10,038 events generated across 7 categories with reproducible random seed
+- 11,298 events generated across 7 categories with reproducible random seed
 - Ground truth stored separately (no labels in raw events)
 - 7 correlated attack scenarios + benign EDR heartbeat traffic
-- Full pipeline evaluation: 287 detections, 7 risk assessments, all persisted to SQLite
+- Full pipeline evaluation (dataset sentinelforge-ds-001, seed 42): 172 detections, 7 risk assessments, all persisted to SQLite (see `data/generated/m8_1_evaluation_report.json`)
 - 6 new pytest tests for dataset generation and validation
 
 ### Future enhancements (not yet implemented)
@@ -276,10 +310,22 @@ An independently authored holdout dataset (69 events, NOT generated by the scena
 ## Quick start
 
 ```bash
-cd C:/Users/legen/Projects/sentinelforge-ai
-python -m venv .venv          # or use existing python
+git clone https://github.com/SadashivPole/sentinelforge-ai.git
+cd sentinelforge-ai
+
+# Create and activate a virtual environment
+python -m venv .venv
+
+# Windows PowerShell:
+#   .venv\Scripts\Activate.ps1
+# Linux/macOS:
+#   source .venv/bin/activate
+
 pip install -r requirements.txt
-python -m pytest              # run the test suite (350 tests)
+pip install .
+python -m pytest              # run the test suite (363 passed, 1 skipped)
+python -m sentinelforge --help
+sentinelforge dashboard --help   # local SOC dashboard on 127.0.0.1:8080
 ```
 
 External API credentials are never stored in source. Set `SENTINELFORGE_AI_PROVIDER=mock`

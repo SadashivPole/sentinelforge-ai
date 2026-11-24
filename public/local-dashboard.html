@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local dashboard guide — SentinelForge</title>
+  <meta name="description" content="Run the SentinelForge local SOC dashboard on localhost backed by Python and SQLite.">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/chat-widget.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <header>
+    <div class="nav-container">
+      <a href="index.html" class="nav-logo" aria-label="SentinelForge home">
+        <img src="img/logo-mark.svg" alt="" width="32" height="32">
+        <span class="wordmark">Sentinel<span>Forge</span></span>
+      </a>
+      <nav class="nav-links" id="nav-links">
+        <a href="index.html">Home</a>
+        <a href="overview.html">Platform</a>
+        <a href="features.html">Features</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="detection.html">Detection</a>
+        <a href="soc-workflows.html">SOC Workflows</a>
+        <a href="demo.html">Demo</a>
+        <a href="docs.html">Docs</a>
+        <a href="installation.html">Installation</a>
+        <a href="security.html">Security</a>
+        <a href="roadmap.html">Roadmap</a>
+        <a href="about.html">About</a>
+        <a href="local-dashboard.html" class="active">Local Dashboard</a>
+      </nav>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-actions">
+        <button class="btn-support" id="support-btn" aria-label="Open AI support assistant">
+          <span>Support</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:var(--forge-cyan);color:var(--text-on-cyan);display:flex;align-items:center;justify-content:center;font-size:0.625rem;font-weight:700;">?</span>
+        </button>
+      </div>
+    </div>
+  </header>
+  <main id="main">
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h1>Local SOC dashboard</h1>
+          <p>Run the SentinelForge dashboard locally on localhost, backed by the Python detection engine and SQLite storage.</p>
+        </div>
+
+        <div class="two-col">
+          <div class="content">
+            <h2>What the dashboard is</h2>
+            <p>The SentinelForge local dashboard is a read-only HTTP server written in Python. It binds to <code>127.0.0.1</code> only and serves a simple web interface over SQLite data produced by the CLI detection engine. It is <strong>not</strong> a hosted service, not exposed to the internet, and not part of the public website.</p>
+
+            <h2>Prerequisites</h2>
+            <ul style="color: var(--text-secondary); line-height: 1.8; margin: var(--space-md) 0; padding-left: 1.25rem;">
+              <li>Python 3.12 or newer</li>
+              <li>SentinelForge installed from source (<code>pip install .</code>)</li>
+              <li>A SQLite database produced by the CLI (<code>sentinelforge ingest ...</code>)</li>
+            </ul>
+
+            <h2>Start the dashboard</h2>
+            <pre><code># Start on the default address (127.0.0.1:8080)
+sentinelforge dashboard
+
+# Or specify a custom database path
+sentinelforge dashboard --db-path /path/to/your/sentinelforge.db
+
+# Custom host/port (localhost only)
+sentinelforge dashboard --host 127.0.0.1 --port 9090</code></pre>
+
+            <h2>Available routes</h2>
+            <table class="table-wrapper">
+              <thead><tr><th>Route</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>/</code></td><td>Redirects to <code>/overview</code></td></tr>
+                <tr><td><code>/overview</code></td><td>Event, detection, and alert counts</td></tr>
+                <tr><td><code>/alerts</code></td><td>Grouped detections by rule with filtering</td></tr>
+                <tr><td><code>/events</code></td><td>Raw events with type, rule, and pagination</td></tr>
+                <tr><td><code>/rules</code></td><td>Detection rule inventory</td></tr>
+                <tr><td><code>/attacks</code></td><td>ATT&CK coverage by detection rule</td></tr>
+                <tr><td><code>/event/{event_id}</code></td><td>Single event detail with linked detections</td></tr>
+                <tr><td><code>/diagnostics</code></td><td>Database and table diagnostics</td></tr>
+                <tr><td><code>/static/css/dashboard.css</code></td><td>Dashboard stylesheet</td></tr>
+                <tr><td><code>/static/js/dashboard.js</code></td><td>Dashboard client script</td></tr>
+              </tbody>
+            </table>
+
+            <div class="card" style="border-left: 3px solid var(--forge-cyan); margin-top: var(--space-lg);">
+              <h3 style="margin-top: 0;">Security defaults</h3>
+              <ul style="color: var(--text-secondary); line-height: 1.7; margin: var(--space-sm) 0; padding-left: 1.25rem;">
+                <li>Binds to <code>127.0.0.1</code> only — never <code>0.0.0.0</code></li>
+                <li>Read-only endpoints only — no state-changing operations</li>
+                <li>No wildcard CORS — same-origin access only</li>
+                <li>Error messages exclude raw event data</li>
+                <li>All filter values use parameterized SQL queries</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="visual">
+            <div class="card">
+              <h3 style="margin-top: 0;">CLI vs dashboard</h3>
+              <p style="color: var(--text-muted); font-size: 0.9375rem;">The dashboard shares the same SQLite database and Python detection engine as the CLI. Events ingested via <code>sentinelforge ingest</code> appear in the dashboard immediately.</p>
+              <p style="color: var(--text-muted); font-size: 0.9375rem; margin-top: var(--space-md);"><strong>Not a production SIEM.</strong> This is a local-first prototype for demonstration and development use.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>Sentinel<span style="color: var(--forge-cyan);">Forge</span></h3>
+          <p>Evidence-first detection engineering platform for SOC analysts. Open prototype — not a production SIEM.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="overview.html">Platform overview</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="detection.html">Detection rules</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Get started</h4>
+          <ul>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="docs.html">Documentation</a></li>
+            <li><a href="demo.html">Interactive demo</a></li>
+            <li><a href="security.html">Security &amp; privacy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 SentinelForge. Open prototype — not a production SIEM.</p>
+        <p><a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener">GitHub</a> · <a href="roadmap.html">Roadmap</a> · <a href="about.html">About</a></p>
+      </div>
+    </div>
+  </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Backend not yet hosted — documentation only</div>
+    </div>
+  </div>
+  <script src="js/nav.js"></script>
+  <script src="js/chat-widget.js"></script>
+</body>
+</html>

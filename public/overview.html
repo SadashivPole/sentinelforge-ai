@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Platform overview — SentinelForge</title>
-  <meta name="description" content="SentinelForge AI platform overview.">
+  <meta name="description" content="SentinelForge AI platform overview. Evidence-first detection engineering for SOC teams.">
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/chat-widget.css">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
@@ -16,12 +17,9 @@
         <img src="img/logo-mark.svg" alt="" width="32" height="32">
         <span class="wordmark">Sentinel<span>Forge</span></span>
       </a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-    <nav class="nav-links" id="nav-links">
+      <nav class="nav-links" id="nav-links">
         <a href="index.html">Home</a>
-        <a href="overview.html">Platform</a>
+        <a href="overview.html" class="active">Platform</a>
         <a href="features.html">Features</a>
         <a href="architecture.html">Architecture</a>
         <a href="detection.html">Detection</a>
@@ -32,20 +30,100 @@
         <a href="security.html">Security</a>
         <a href="roadmap.html">Roadmap</a>
         <a href="about.html">About</a>
-    </nav>
+      </nav>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-actions">
+        <button class="btn-support" id="support-btn" aria-label="Open AI support assistant">
+          <span>Support</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:var(--forge-cyan);color:var(--text-on-cyan);display:flex;align-items:center;justify-content:center;font-size:0.625rem;font-weight:700;">?</span>
+        </button>
+      </div>
     </div>
   </header>
   <main id="main">
-<section class="section"><div class="container"><div class="section-header"><h1>Platform overview</h1><p>SentinelForge AI is a demonstrable SOC detection engineering platform for analysts, detection engineers, threat hunters, and blue-team learners.</p></div><div class="two-col"><div class="content"><h2>A local-first detection engineering platform</h2><p>SentinelForge is not a production SIEM, not a hosted service.</p><ul style="color: var(--text-secondary); line-height: 1.8; margin: var(--space-md) 0; padding-left: 1.25rem;"><li><strong>Ingest</strong> raw log files (JSON, JSONL, Sysmon) into a local SQLite database.</li><li><strong>Detect</strong> using deterministic Python rules.</li><li><strong>Evaluate</strong> detection performance with alert-level and event-level metrics.</li><li><strong>Investigate</strong> alerts with full evidence citation.</li></ul></div><div class="visual"><img src="img/social-preview.svg" alt="Platform overview" width="560" height="294"></div></div></div></section>
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h1>Platform overview</h1>
+          <p>SentinelForge AI is a demonstrable SOC detection engineering platform for analysts, detection engineers, threat hunters, and blue-team learners.</p>
+        </div>
+        <div class="two-col">
+          <div class="content">
+            <h2>A local-first detection engineering platform</h2>
+            <p>SentinelForge is not a production SIEM, not a hosted service. It is an open-source prototype for building, testing, and evaluating detection rules locally.</p>
+            <ul style="color: var(--text-secondary); line-height: 1.8; margin: var(--space-md) 0; padding-left: 1.25rem;">
+              <li><strong>Ingest</strong> raw log files (JSON, JSONL, Sysmon) into a local SQLite database.</li>
+              <li><strong>Detect</strong> using deterministic Python rules.</li>
+              <li><strong>Evaluate</strong> detection performance with alert-level and event-level metrics.</li>
+              <li><strong>Investigate</strong> alerts with full evidence citation.</li>
+            </ul>
+            <a href="installation.html" class="btn btn-primary" style="display: inline-block; margin-top: var(--space-md);">Get Started</a>
+          </div>
+          <div class="visual">
+            <img src="img/social-preview.svg" alt="Platform overview" width="560" height="294">
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   <footer>
     <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>Sentinel<span style="color: var(--forge-cyan);">Forge</span></h3>
+          <p>Evidence-first detection engineering platform for SOC analysts. Open prototype — not a production SIEM.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="overview.html">Platform overview</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="detection.html">Detection rules</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Get started</h4>
+          <ul>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="docs.html">Documentation</a></li>
+            <li><a href="demo.html">Interactive demo</a></li>
+            <li><a href="security.html">Security &amp; privacy</a></li>
+          </ul>
+        </div>
+      </div>
       <div class="footer-bottom">
         <p>&copy; 2026 SentinelForge. Open prototype — not a production SIEM.</p>
         <p><a href="about.html">About</a> · <a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener">GitHub</a></p>
       </div>
     </div>
   </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Backend not yet hosted — documentation only</div>
+    </div>
+  </div>
   <script src="js/nav.js"></script>
+  <script src="js/chat-widget.js"></script>
 </body>
 </html>

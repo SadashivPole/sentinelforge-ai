@@ -4,9 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SentinelForge — SOC Detection Engineering Platform</title>
-  <meta name="description" content="Evidence-first detection engineering platform for SOC analysts.">
+  <meta name="description" content="Evidence-first detection engineering platform for SOC analysts. Synthetic data only — not a production SIEM.">
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/chat-widget.css">
+  <meta property="og:title" content="SentinelForge — SOC Detection Engineering Platform">
+  <meta property="og:description" content="Evidence-first detection engineering platform for SOC analysts.">
+  <meta property="og:image" content="img/social-preview.svg">
+  <meta property="og:type" content="website">
 </head>
 <body>
   <a href="#main" class="skip-link">Skip to main content</a>
@@ -16,9 +21,6 @@
         <img src="img/logo-mark.svg" alt="" width="32" height="32">
         <span class="wordmark">Sentinel<span>Forge</span></span>
       </a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
       <nav class="nav-links" id="nav-links">
         <a href="index.html">Home</a>
         <a href="overview.html">Platform</a>
@@ -33,32 +35,277 @@
         <a href="roadmap.html">Roadmap</a>
         <a href="about.html">About</a>
       </nav>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-actions">
+        <button class="btn-support" id="support-btn" aria-label="Open AI support assistant">
+          <span>Support</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:var(--forge-cyan);color:var(--text-on-cyan);display:flex;align-items:center;justify-content:center;font-size:0.625rem;font-weight:700;">?</span>
+        </button>
+      </div>
     </div>
   </header>
   <main id="main">
-    <section class="hero">
+    <section class="section hero">
       <div class="container">
-        <div class="hero-badge">Open prototype · Local-first</div>
-        <h1>Evidence-first detection engineering, built for <span class="brand">SOC</span> teams</h1>
-        <p>A local-first Python platform for building, testing, and evaluating detection rules. Every alert cites the exact raw log line it was derived from. No telemetry upload. No credentials in source.</p>
+        <div class="hero-badge">Open prototype · Local-first · Synthetic data only</div>
+        <h1>Evidence-first detection engineering, built for <span style="color: var(--forge-cyan);">SOC</span> teams</h1>
+        <p>A local-first Python platform for building, testing, and evaluating detection rules. Every alert cites the exact raw log line it was derived from. No telemetry upload. No credentials in source. No JavaScript detection engine — all detection runs in Python.</p>
         <div class="hero-actions">
-          <a href="installation.html" class="btn btn-primary">Get Started</a>
-          <a href="demo.html" class="btn btn-ghost">Try the Demo</a>
-          <a href="docs.html" class="btn btn-secondary">Documentation</a>
+          <a href="demo.html" class="btn btn-primary">Explore Interactive Demo</a>
+          <a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener" class="btn btn-ghost">View GitHub Repository</a>
+          <a href="installation.html" class="btn btn-secondary">Get Started</a>
         </div>
         <div class="hero-visual">
           <img src="img/social-preview.svg" alt="SentinelForge brand preview" width="800" height="420">
         </div>
       </div>
     </section>
+    <section class="section tight">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Local SOC Dashboard</span>
+          <h2>Real local dashboard, running on your machine</h2>
+          <p>Seven genuine screenshots of the SentinelForge local SOC dashboard — a Python HTTP server bound to 127.0.0.1:8080, backed by SQLite. Captured from a real run against synthetic data.</p>
+        </div>
+        <div class="screenshot-gallery">
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-overview.png" alt="Dashboard overview — event, detection, and alert counts">
+            <div class="screenshot-caption">Overview — counts and stats</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-alerts.png" alt="Dashboard alerts — detection alerts grouped by rule">
+            <div class="screenshot-caption">Alerts — detection alerts</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-events.png" alt="Dashboard events — event list with filtering">
+            <div class="screenshot-caption">Events — event list</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-rules.png" alt="Dashboard rules — detection rule catalog">
+            <div class="screenshot-caption">Rules — rule catalog</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-attacks.png" alt="Dashboard attacks — MITRE ATT&CK coverage">
+            <div class="screenshot-caption">Attacks — MITRE coverage</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-diagnostics.png" alt="Dashboard diagnostics — database and table diagnostics">
+            <div class="screenshot-caption">Diagnostics — database health</div>
+          </div>
+          <div class="screenshot-item fade-in">
+            <img src="img/showcase/dashboard-event-detail.png" alt="Dashboard event detail — single event investigation">
+            <div class="screenshot-caption">Event detail — investigation view</div>
+          </div>
+        </div>
+        <div class="callout callout-info">
+          <h3>Local-only by design</h3>
+          <p>The dashboard binds to 127.0.0.1 only, serves read-only endpoints, and never exposes data publicly. It is a local-first prototype — not a hosted SOC.</p>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Detection Rules</span>
+          <h2>Five deterministic Python detection rules</h2>
+          <p>All detection logic runs in Python. Each alert cites its source event with full evidence correlation.</p>
+        </div>
+        <div class="cards-grid">
+          <div class="card card-feature">
+            <div class="card-icon">🔐</div>
+            <div>
+              <h3>FailedLoginBurstRule</h3>
+              <p>Detects rapid failed authentication attempts from a single source.</p>
+              <span class="badge badge-cyan">MITRE T1110.001</span>
+            </div>
+          </div>
+          <div class="card card-feature">
+            <div class="card-icon">🌐</div>
+            <div>
+              <h3>PasswordSprayRule</h3>
+              <p>Detects authentication attempts across many accounts from one source IP.</p>
+              <span class="badge badge-cyan">MITRE T1110.003</span>
+            </div>
+          </div>
+          <div class="card card-feature">
+            <div class="card-icon">⚡</div>
+            <div>
+              <h3>SuspiciousPowerShellRule</h3>
+              <p>Flags encoded commands, execution policy bypass, and download-and-execute patterns.</p>
+              <span class="badge badge-cyan">MITRE T1059.001</span>
+            </div>
+          </div>
+          <div class="card card-feature">
+            <div class="card-icon">🌳</div>
+            <div>
+              <h3>SuspiciousProcessTreeRule</h3>
+              <p>Identifies unusual parent-child process relationships.</p>
+              <span class="badge badge-cyan">MITRE T1059</span>
+            </div>
+          </div>
+          <div class="card card-feature">
+            <div class="card-icon">📡</div>
+            <div>
+              <h3>C2BeaconRule</h3>
+              <p>Statistical beaconing on connection intervals — with known false-positive limitations.</p>
+              <span class="badge badge-amber">MITRE T1071</span>
+            </div>
+          </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; margin-top: var(--space-lg);">See the <a href="detection-showcase.html" style="color: var(--forge-cyan);">detection engineering showcase</a> for real exported results, rule catalog, and evaluation metrics.</p>
+      </div>
+    </section>
+    <section class="section tight">
+      <div class="container">
+        <div class="two-col">
+          <div class="content">
+            <h2>Evidence-first investigation</h2>
+            <p>Every SentinelForge alert is derived from preserved raw logs. The detection engine does not invent indicators — it surfaces findings that analysts can trace back to the exact source line. Humans act; the agent only surfaces.</p>
+            <ul style="color: var(--text-secondary); line-height: 1.8; margin: var(--space-md) 0; padding-left: 1.25rem;">
+              <li><strong>Raw log preservation:</strong> Original payloads stored verbatim alongside normalized events.</li>
+              <li><strong>Evidence correlation:</strong> Detections linked to source events via the evidence table.</li>
+              <li><strong>No automatic remediation:</strong> The agent surfaces findings; humans decide.</li>
+              <li><strong>No execution of log content:</strong> Command strings are inspected as text, never executed.</li>
+            </ul>
+          </div>
+          <div class="visual">
+            <img src="img/architecture.svg" alt="Architecture diagram" width="600" height="348">
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Evaluation</span>
+          <h2>Real evaluation results, honestly reported</h2>
+          <p>Independent evaluation on 54 labeled synthetic events. All 18 false positives originated from C2BeaconRule flagging benign periodic HTTPS traffic.</p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Dataset size</div>
+            <div class="stat-value">54 events</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Precision</div>
+            <div class="stat-value">0.6250</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Recall</div>
+            <div class="stat-value">1.0000</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">F1 score</div>
+            <div class="stat-value">0.7692</div>
+          </div>
+        </div>
+        <div class="callout callout-warning">
+          <h3>Known limitation — C2 beaconing vs benign traffic</h3>
+          <p>C2BeaconRule cannot reliably distinguish benign periodic HTTPS traffic (software updates, EDR heartbeats) from low-frequency C2 beaconing. All other detection rules produced zero false positives. Analyst investigation with destination reputation and process context is required.</p>
+        </div>
+      </div>
+    </section>
+    <section class="section tight">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">Installation</span>
+          <h2>Get started in minutes</h2>
+          <p>Python 3.12 or newer required. No Streamlit, no Pandas, no cloud account.</p>
+        </div>
+        <div class="two-col">
+          <div class="content">
+            <pre><code>git clone https://github.com/SadashivPole/sentinelforge-ai.git
+cd sentinelforge-ai
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install .
+sentinelforge --help</code></pre>
+          </div>
+          <div class="visual">
+            <div class="card" style="border-left: 3px solid var(--forge-cyan);">
+              <h3 style="margin-top: 0;">Local dashboard</h3>
+              <p style="color: var(--text-secondary); font-size: 0.875rem; margin: var(--space-sm) 0;">After ingesting data, start the read-only local dashboard:</p>
+              <pre style="font-size: 0.85rem; background: var(--bg); padding: var(--space-sm); border-radius: var(--radius); margin: var(--space-sm) 0;">sentinelforge dashboard --db-path data/sentinelforge.db</pre>
+              <p style="color: var(--text-muted); font-size: 0.8125rem; margin-top: var(--space-sm);">Binds to 127.0.0.1:8080 only. Never exposed publicly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-label">AI Support Assistant</span>
+          <h2>Questions? Ask the SentinelForge AI Support Assistant</h2>
+          <p>Get help with installation, detection rules, the local dashboard, and project documentation — powered by a secure, read-only Hermes Agent backend.</p>
+        </div>
+        <div class="callout callout-info">
+          <h3>How it works</h3>
+          <p>The support assistant runs through a secure server-side backend connected to a dedicated, isolated Hermes Agent profile with read-only documentation access only. No API keys are exposed in the browser. No real SOC data is accessed. No shell or filesystem access is provided to visitors.</p>
+          <p style="margin-top: var(--space-sm);"><strong>Note:</strong> The AI backend is documented but not yet hosted. Click the <strong>Support</strong> button in the top-right to see the current status and deployment requirements.</p>
+        </div>
+      </div>
+    </section>
   </main>
   <footer>
     <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>Sentinel<span style="color: var(--forge-cyan);">Forge</span></h3>
+          <p>Evidence-first detection engineering platform for SOC analysts. Open prototype — not a production SIEM.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="overview.html">Platform overview</a></li>
+            <li><a href="features.html">Features</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="detection.html">Detection rules</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Get started</h4>
+          <ul>
+            <li><a href="installation.html">Installation</a></li>
+            <li><a href="docs.html">Documentation</a></li>
+            <li><a href="demo.html">Interactive demo</a></li>
+            <li><a href="security.html">Security &amp; privacy</a></li>
+          </ul>
+        </div>
+      </div>
       <div class="footer-bottom">
         <p>&copy; 2026 SentinelForge. Open prototype — not a production SIEM.</p>
+        <p><a href="https://github.com/SadashivPole/sentinelforge-ai" target="_blank" rel="noopener">GitHub</a> · <a href="roadmap.html">Roadmap</a> · <a href="about.html">About</a></p>
       </div>
     </div>
   </footer>
+  <div id="sentinelforge-support" aria-label="SentinelForge AI Support Assistant">
+    <button id="support-float-btn" aria-label="Open SentinelForge AI Support Assistant" title="Support">
+      <span style="font-size: 1.5rem;">?</span>
+      <div class="badge" style="display:none;">!</div>
+    </button>
+    <div id="support-panel" role="dialog" aria-modal="true" aria-labelledby="support-title">
+      <div id="support-header">
+        <h3 id="support-title"><span class="icon">?</span> SentinelForge AI Support</h3>
+        <div id="support-actions">
+          <button id="support-minimize" aria-label="Minimize chat">−</button>
+          <button id="support-close" aria-label="Close chat">×</button>
+        </div>
+      </div>
+      <div id="support-messages" aria-live="polite"></div>
+      <div id="support-suggestions"></div>
+      <div id="support-input-area">
+        <button id="support-clear" aria-label="Clear conversation">Clear</button>
+        <textarea id="support-input" rows="1" placeholder="Type your question…" aria-label="Your message"></textarea>
+        <button id="support-send" aria-label="Send message">→</button>
+      </div>
+      <div id="support-status">Backend not yet hosted — documentation only</div>
+    </div>
+  </div>
   <script src="js/nav.js"></script>
+  <script src="js/chat-widget.js"></script>
 </body>
 </html>

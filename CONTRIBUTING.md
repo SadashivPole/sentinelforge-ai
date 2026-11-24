@@ -16,7 +16,7 @@ Create your own fork of the SentinelForge AI repository on GitHub.
 
 ```bash
 git clone https://github.com/your-username/sentinelforge-ai.git
-cd SentinelForge-AI
+cd sentinelforge-ai
 ```
 
 ### Step 3: Create a feature branch
@@ -35,7 +35,7 @@ Implement your feature, fix a bug, or improve documentation. Add tests for any n
 python -m pytest
 ```
 
-**Expected:** `303 passed, 0 failed`
+**Expected:** `363 passed, 1 skipped`
 
 ### Step 6: Run validation scripts
 
@@ -106,4 +106,4 @@ See [SECURITY.md](SECURITY.md) for details.
 
 ## 5. Recognition
 
-Contributors are acknowledged in release notes. All contributions are made under the project's MIT License (proposed).
+Contributors are acknowledged in release notes. All contributions are made under the project's MIT License.
