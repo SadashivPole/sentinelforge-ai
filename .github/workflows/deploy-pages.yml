@@ -2,7 +2,7 @@ name: Deploy SentinelForge public website
 
 on:
   push:
-    branches: [ main, feature/publish-pages-showcase ]
+    branches: [ main, feature/publish-pages-showcase, feature/website-redesign-hermes-support ]
     paths:
       - 'public/**'
       - '.github/workflows/deploy-pages.yml'

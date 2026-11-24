@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" fill="none">
+  <!-- SentinelForge README Banner -->
+  <rect width="800" height="200" fill="#0B1220"/>
+  
+  <!-- Subtle telemetry lines -->
+  <path d="M40 100 L800 100" stroke="#17263C" stroke-width="2"/>
+  <path d="M40 140 L400 140 L440 100 L440 160" stroke="#35D6C3" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M440 100 L600 100" stroke="#17263C" stroke-width="2"/>
+  
+  <!-- Logo mark -->
+  <g transform="translate(40, 30) scale(1.4)">
+    <path d="M20 64 A 44 44 0 0 1 108 64" stroke="#17263C" stroke-width="6" stroke-linecap="round"/>
+    <path d="M34 64 A 30 30 0 0 1 94 64" stroke="#35D6C3" stroke-width="4" stroke-linecap="round"/>
+    <path d="M42 42 L42 86 L66 86 L66 42" stroke="#F1B64A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M66 64 L88 64 L94 52 L94 76" stroke="#F1B64A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="64" cy="64" r="6" fill="#35D6C3"/>
+    <circle cx="64" cy="64" r="2.5" fill="#FFFFFF"/>
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="220" y="130" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="48" font-weight="700" fill="#E8F0FA" letter-spacing="-0.5px">Sentinel</text>
+  <text x="420" y="130" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="48" font-weight="700" fill="#35D6C3" letter-spacing="-0.5px">Forge</text>
+  
+  <!-- Descriptor -->
+  <text x="220" y="170" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="18" fill="#9FD8D3">Evidence-first SOC detection engineering prototype</text>
+</svg>
