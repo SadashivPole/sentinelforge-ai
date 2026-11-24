@@ -17,22 +17,28 @@ import logging
 import sys
 from typing import Any
 
-from mcp.server import Server
-from mcp.server.context import ServerRequestContext
-from mcp.server.models import InitializationOptions
-from mcp.server.stdio import stdio_server
-from mcp.types import (
-    CallToolRequest,
-    CallToolRequestParams,
-    CallToolResult,
-    ListToolsRequest,
-    PaginatedRequestParams,
-    ServerCapabilities,
-    TextContent,
-    Tool,
-    ToolAnnotations,
-    ToolsCapability,
-)
+try:
+    from mcp.server import Server
+    from mcp.server.context import ServerRequestContext
+    from mcp.server.models import InitializationOptions
+    from mcp.server.stdio import stdio_server
+    from mcp.types import (
+        CallToolRequest,
+        CallToolRequestParams,
+        CallToolResult,
+        ListToolsRequest,
+        ListToolsResult,
+        PaginatedRequestParams,
+        ServerCapabilities,
+        TextContent,
+        Tool,
+        ToolAnnotations,
+        ToolsCapability,
+    )
+
+    _MCP_AVAILABLE = True
+except ImportError:
+    _MCP_AVAILABLE = False
 
 from sentinelforge.analyst.database import (
     DatabaseMissingError,
@@ -294,8 +300,8 @@ class AnalystMCPServer:
         async def handle_list_tools(
             _context: ServerRequestContext,
             _request: PaginatedRequestParams | None = None,
-        ) -> list[Tool]:
-            return _make_tools()
+        ) -> ListToolsResult:
+            return ListToolsResult(tools=_make_tools())
 
         async def handle_call_tool(
             _context: ServerRequestContext,
@@ -791,6 +797,15 @@ class AnalystMCPServer:
 def main() -> None:
     """Entry point for the sentinelforge-mcp console script."""
     import os
+
+    if not _MCP_AVAILABLE:
+        print(
+            "ERROR: The MCP SDK is not installed. "
+            "Install SentinelForge with the analyst-mcp extra:\n"
+            "  pip install sentinelforge[analyst-mcp]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     db_path = os.environ.get("SENTINELFORGE_DB_PATH", "data/sentinelforge.db")
     logging.basicConfig(
