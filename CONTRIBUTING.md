@@ -16,7 +16,7 @@ Create your own fork of the SentinelForge AI repository on GitHub.
 
 ```bash
 git clone https://github.com/your-username/sentinelforge-ai.git
-cd SentinelForge-AI
+cd sentinelforge-ai
 ```
 
 ### Step 3: Create a feature branch
