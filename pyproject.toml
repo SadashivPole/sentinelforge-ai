@@ -12,6 +12,10 @@ dependencies = []
 [project.scripts]
 sentinelforge = "sentinelforge.cli.main:main"
 sentinelforge-dashboard = "sentinelforge.dashboard.server:main"
+sentinelforge-mcp = "sentinelforge.analyst.mcp_server:main"
+
+[project.optional-dependencies]
+analyst-mcp = ["mcp==2.3.0"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["sentinelforge", "sentinelforge.dashboard"]
+packages = ["sentinelforge", "sentinelforge.analyst", "sentinelforge.dashboard"]

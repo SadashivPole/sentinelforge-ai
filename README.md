@@ -4,11 +4,11 @@
 
 **Evidence-first Python SOC detection engineering prototype with normalized log ingestion, explainable detections, ATT&CK context, SQLite evidence storage, and synthetic security datasets.**
 
-**Version:** 0.1.0 (prototype)  
-**Classification:** Demonstrable SOC prototype — not production-ready  
-**License:** MIT  
-**Python:** 3.12+  
-**Tests:** 363 passed, 1 skipped (pytest)  
+**Version:** 0.1.0 (prototype)
+**Classification:** Demonstrable SOC prototype — not production-ready
+**License:** MIT
+**Python:** >=3.11
+**Tests:** 460 pass in CI on Python 3.12 and 3.13
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Project Status
@@ -41,273 +41,104 @@ Genuine screenshots from the local dashboard (`sentinelforge dashboard`, bound t
 
 *All screenshots are unmodified captures from the local dashboard running against synthetic data. The dashboard is not exposed publicly and does not connect to the public website.*
 
-## Design principles
+## Key features
 
-- **Evidence-first detection.** Every alert cites the exact raw log line(s) it
-  was derived from. No invented indicators, no detection evidence fabricated.
-- **Preserve original raw logs.** The raw payload is stored verbatim alongside
-  the normalized event.
+- **Evidence-first detection.** Every alert cites the exact raw log line(s) it was derived from. No invented indicators, no detection evidence fabricated.
+- **Preserve original raw logs.** The raw payload is stored verbatim alongside the normalized event.
 - **No automatic remediation.** The agent surfaces findings; humans act.
-- **No execution of log content.** Command strings in logs are never executed,
-  only inspected as text.
-- **LLM calls optional.** Starts with a mock AI provider; real providers are
-  pluggable and disabled by default.
-- **No credentials in source code.** All configuration comes from environment
-  variables or a local `config.env` (never committed).
+- **No execution of log content.** Command strings in logs are never executed, only inspected as text.
+- **LLM calls optional.** Starts with a mock AI provider; real providers are pluggable and disabled by default.
+- **No credentials in source code.** All configuration comes from environment variables or a local `config.env` (never committed).
 
-## Architecture
+## Architecture overview
 
 ```
-sentinelforge-ai/
-├── sentinelforge/            # Python package
-│   ├── __init__.py
-│   ├── config.py             # env-driven settings, no secrets
-│   ├── ingestion/
-│   │   ├── __init__.py
-│   │   ├── reader.py         # JSON / JSONL / Sysmon-style readers
-│   │   └── normalizer.py     # common event schema + raw preservation
-│   ├── detection/
-│   │   ├── __init__.py
-│   │   ├── base.py           # Rule interface + Evidence/Detection models
-│   │   ├── failed_logins.py  # failed-login burst detection
-│   │   ├── password_spray.py # password spraying detection
-│   │   ├── powershell.py     # suspicious PowerShell command lines
-│   │   ├── processtree.py    # suspicious parent-child relationships
-│   │   └── beacon.py         # statistical beaconing on connection intervals
-│   ├── risk/
-│   │   ├── __init__.py
-│   │   ├── scorer.py         # explainable risk scoring (0-100)
-│   │   └── correlator.py     # detection correlation by host + time window
-│   ├── storage/
-│   │   ├── __init__.py
-│   │   ├── database.py       # SQLite connection management
-│   │   ├── schema.py         # versioned schema (v3) + migrations
-│   │   └── repositories.py   # CRUD + analytics for events/detections/risk
-│   ├── datasets/
-│   │   ├── __init__.py
-│   │   ├── generator.py    # synthetic dataset generation
-│   │   ├── ground_truth.py # separate label manifest
-│   │   ├── ground_truth_labels.py  # per-event ground truth labels
-│   │   ├── scenarios.py    # attack/benign scenario templates
-│   │   ├── validators.py   # dataset validation checks
-│   │   ├── evaluation.py   # alert-level + event-level metrics
-│   │   └── native_sysmon.py  # native Sysmon EVTX-converted JSON generator
-│   └── __init__.py
-├── tests/                    # pytest suite (363 tests)
-├── data/generated/           # synthetic datasets (11,298 events)
-├── validate_*.py             # standalone validation scripts
-├── benchmark_replay.py       # replay benchmark
-├── run_pipeline_eval.py      # pipeline evaluation script
-├── run_m8_1_evaluation.py    # M8.1 evaluation script
-├── requirements.txt
-├── .gitignore
-├── LICENSE
-├── CONTRIBUTING.md
-├── SECURITY.md
-└── README.md
+sentinelforge/
+├── cli/                  # CLI: ingest, detect, evaluate, dashboard
+├── ingestion/            # JSON / JSONL / Sysmon readers + normalizer
+├── detection/            # 5 detection rules + rule registry
+├── risk/                 # Explainable risk scoring + correlator
+├── storage/              # SQLite schema (v3) + repositories
+├── datasets/             # Synthetic dataset generation + evaluation
+├── dashboard/            # Local read-only HTTP dashboard (127.0.0.1:8080)
+└── analyst/              # Optional MCP server (7 read-only tools)
 ```
 
-## Common normalized event schema
+## Detection capabilities
 
-Every incoming event is mapped to `NormalizedEvent`:
+SentinelForge normalizes JSON, JSONL, and Sysmon-style logs into a common event schema while preserving the original raw payload. Five detection rules are implemented:
 
-| Field | Type | Notes |
-|---|---|---|
-| `event_id` | str | Stable id; from raw log if present, else derived |
-| `timestamp` | str | ISO-8601 UTC (optional, absent when unparseable) |
-| `source` | str | `json` / `jsonl` / `sysmon` |
-| `raw` | dict | Original log payload, preserved verbatim |
-| `event_type` | str | `authentication`, `process.create`, `network.connection`, ... |
-| `user` | str | |
-| `host` | str | |
-| `process` | dict | pid, ppid, name, path, command_line, user, hash |
-| `network` | dict | direction, local/remote address+port, protocol |
-| `authentication` | dict | outcome, method, username, source_address |
-| `ingested_at` | str | Ingestion time, ISO-8601 UTC |
+| Rule | MITRE technique | What it detects |
+|------|-----------------|-----------------|
+| FailedLoginBurstRule | T1110 / T1110.001 | Multiple failed authentications within a window, grouped by (source IP, username, host) |
+| PasswordSprayRule | T1110.003 | Auth attempts across many usernames from a common source |
+| SuspiciousPowerShellRule | T1059.001 | Encoded commands, hidden execution, bypass, download-and-execute, obfuscation |
+| SuspiciousProcessTreeRule | T1204 / T1204.002 | Suspicious parent-child relationships (e.g., Office → PowerShell) |
+| C2BeaconRule | T1071 | Statistical beaconing on connection intervals |
 
-## SQLite storage schema (v3)
+Explainable risk scoring (0–100) combines severity, evidence quality, event frequency, correlation, and optional asset criticality. Risk score, evidence confidence, and detection severity are kept separate — a score is not a probability of compromise.
 
-| Table | Description |
-|---|---|
-| `events` | Normalized events with flattened process/network/auth columns + raw JSON |
-| `detections` | Detection results with metadata JSON |
-| `evidence` | Evidence records linked to detections; `event_id` nullable with FK to `events(event_id) ON DELETE RESTRICT` + `external_event_ref` for unpersisted events |
-| `risk_assessments` | Risk assessments with scoring factors JSON |
-| `risk_assessment_detections` | Links assessments to detections (FK enforced both directions) |
-| `schema_metadata` | Version tracking (current: v3) |
+## SOC Analyst MCP and Hermes integration
 
-## Detection rules
+SentinelForge includes an optional SOC Analyst MCP integration built on MCP SDK v2 (`mcp==2.3.0`). It is **optional**: the core installation works without it, and default installation does not pull in the MCP dependency.
 
-- **FailedLoginBurstRule** (MITRE T1110 / T1110.001): Multiple failed authentications within a configurable window, grouped by (source IP, username, host)
-- **PasswordSprayRule** (MITRE T1110.003): Authentication attempts across many usernames from a common source, excluding events with missing source addresses
-- **SuspiciousPowerShellRule** (MITRE T1059.001): Encoded commands, hidden execution, execution policy bypass, download-and-execute, obfuscation — weighted scoring with configurable threshold
-- **SuspiciousProcessTreeRule** (MITRE T1204 / T1204.002): Suspicious parent-child relationships (Office → PowerShell, etc.). T1204.002 requires cross-event correlation: file activity + process execution on same host/user within configurable time window
-- **C2BeaconRule** (MITRE T1071): Statistical beaconing on connection intervals (mean, median, std dev, CV, regularity score). T1071 requires app-layer protocol + non-standard port + additional suspicious context (abnormal process, raw IP destination)
+The MCP server exposes **seven read-only tools** over local stdio (JSON-RPC 2.0):
 
-## Risk scoring
+| Tool | Purpose |
+|------|---------|
+| `sentinelforge_get_status` | Database/schema status, counts, latest timestamps |
+| `sentinelforge_list_alerts` | Detection alerts with pagination and filters |
+| `sentinelforge_get_alert` | Single alert by detection ID, with evidence references |
+| `sentinelforge_get_alert_evidence` | Evidence for an alert, bounded pagination |
+| `sentinelforge_search_events` | Parameterized event search with disclosed filters |
+| `sentinelforge_build_investigation_brief` | Deterministic event/alert timeline for a host or alert |
+| `sentinelforge_list_risk_assessments` | Risk assessments with filters |
 
-Deterministic, reproducible risk score (0-100) per host from detection results.
-Five weighted factors: severity (30%), evidence quality (20%), event frequency (20%), correlation (20%), asset criticality (10% — optional, never invented). Three concepts kept separate: risk score, evidence confidence, detection severity.
+All tools carry MCP annotations (`readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`). Read-only enforcement is at the SQLite connection level (`mode=ro` URI plus `PRAGMA query_only=ON`), not merely a tool annotation. Queries are bounded (LIMIT capped at 500, OFFSET capped at 10,000), responses enforce a 1 MiB size budget, and evidence counts come from exact `COUNT(*)` queries — never from loading raw payloads just to count rows.
 
-## Storage integrity
+The MCP server communicates over stdio only — no network, no HTTP, no shell execution, no arbitrary SQL. It integrates with Hermes as a local SOC analyst capability (`integrations/hermes/skills/`).
 
-- Versioned schema migrations (v1 → v2 → v3)
-- Foreign key enforcement on all relationships including `evidence.event_id → events(event_id) ON DELETE RESTRICT`
-- Immutable events and detections (INSERT with collision detection → DuplicateIdCollisionError on conflicting content)
-- Immutable evidence (INSERT with collision detection, never deleted or replaced)
-- Mutable risk assessments (explicit UPSERT — the only table using INSERT OR REPLACE)
-- Parameterized queries throughout; transaction rollback on failure
-- `PRAGMA integrity_check` and `PRAGMA foreign_key_check` pass cleanly
-- No `INSERT OR REPLACE` on events, detections, or evidence
-- No `INSERT OR IGNORE` on events, detections, or evidence (only on the junction table where duplicate links are harmless)
+**Correlation does not imply causation.** Host/time-window grouping separates same-host detections from detections within a configured correlation window. Proximity alone never establishes an attack chain.
 
-## Synthetic enterprise SOC datasets (Milestone 8)
+## Dataset and evaluation summary
 
-The `sentinelforge/datasets/` package generates reproducible synthetic
-enterprise SOC environments. Datasets are written to `data/generated/`.
+SentinelForge generates reproducible synthetic enterprise SOC datasets (11,298 events across 19 scenarios, seed 42) written to `data/generated/`. Ground truth labels are stored separately from raw events to prevent data leakage.
 
-### Generator
-`DatasetGenerator(seed=42)` produces 11,298 events across 19 scenarios with reproducible random seed:
+Running the generated dataset through the full pipeline (ingest → normalize → detect → correlate → risk score → SQLite) produces 172 detections and 7 risk assessments, with `PRAGMA integrity_check` returning `ok` and zero foreign-key violations.
 
-| Category | Events | Description |
-|---|---|---|
-| `windows_sysmon.jsonl` | 2,000 | Process creation, parent-child, PowerShell, file activity, network |
-| `linux_auth.jsonl` | 2,000 | Successful/failed logins, brute-force, password spraying |
-| `firewall.jsonl` | 2,000 | Inbound/outbound, allowed/denied, unusual ports |
-| `dns.jsonl` | 2,000 | Normal queries, unusual domains, suspicious bursts |
-| `network.jsonl` | 2,000 | Periodic connections, beacons, heartbeats, updates |
-| `correlated_attacks.jsonl` | 641 | 7 correlated attack scenarios |
-| `benign_activity.jsonl` | 657 | 6 benign activity scenarios |
+Detection quality is evaluated against an independently authored holdout dataset (69 events, not generated by the scenario code). Alert-level and event-level metrics are computed separately — F1 is reported only when the unit and population match. These are synthetic evaluation results, not real-world production performance.
 
-Total: **11,298 events** across 7 output files.
+## Security model and important limitations
 
-### Ground truth
-Labels are stored **separately** from raw events in two files:
+- SQLite does not provide encryption — restrict database file access at the OS level.
+- Real security logs may contain sensitive information (PII, credentials, IP addresses).
+- The local dashboard binds to `127.0.0.1` only and exposes no state-changing endpoints.
+- SentinelForge is a prototype, not a production SIEM or autonomous SOC.
+- Real-time collection, threat-intelligence integrations, case management, and autonomous response are not implemented.
+- The public demo uses synthetic, precomputed data and performs no live detection.
 
-- `data/generated/ground_truth.json` — scenario-level manifest (19 scenarios)
-- `data/generated/event_ground_truth.json` — per-event labels (1,298 labeled entries)
+## Recent improvements
 
-No raw event contains classification labels, preventing data leakage. Each event is classified as `benign`, `suspicious`, or `unlabeled` — unknown events are never silently classified as benign.
+- SOC Analyst MCP server with seven read-only tools and Hermes integration.
+- Read-only database enforcement (`mode=ro` + `PRAGMA query_only=ON`) with SQL injection regression coverage.
+- Exact evidence counts and pagination for MCP evidence retrieval.
+- Investigation scope validation, preventing mixed-host investigations.
+- Bounded MCP responses with a 1 MiB size budget and explicit truncation metadata.
+- Timezone-aware timestamp filtering and chronological ordering across mixed UTC offsets.
+- Regression tests and Python 3.12/3.13 CI validation.
+- Default installation and optional MCP installation verified on clean virtual environments.
 
-### Scenarios (19 total)
+## Documentation, contribution, and license
 
-| ID | Classification | Detection category | ATT&CK |
-|---|---|---|---|
-| scenario-st-001 | suspicious | processtree, beacon, powershell | T1204.002, T1059.001, T1071 |
-| scenario-st-002 | suspicious | failed_login_burst | T1110 |
-| scenario-st-003 | suspicious | password_spray | T1110.003 |
-| scenario-st-004 | suspicious | c2_beacon | T1071 |
-| scenario-st-005 | benign | none (allowlisted) | — |
-| scenario-st-006 | suspicious | processtree, powershell | T1204.002, T1059.001 |
-| scenario-st-007 | suspicious | failed_login_burst | T1110 |
-| scenario-st-008 | benign | none | — |
-| scenario-st-009 | benign | none | — |
-| scenario-st-010 | benign | none | — |
-| scenario-st-011 | benign | none | — |
-| scenario-st-012 | benign | none | — |
-| scenario-st-013 | benign | none | — |
-| scenario-st-014 | benign | none | — |
-| scenario-st-015-bf | suspicious | failed_login_burst | T1110 |
-| scenario-st-015-c2 | suspicious | c2_beacon | T1071 |
-| scenario-st-015-ps | suspicious | password_spray | T1110.003 |
-| scenario-st-016 | benign | none | — |
-| scenario-st-017 | suspicious | powershell | T1059.001 |
+- [Installation](docs/INSTALLATION.md) — step-by-step setup, configuration, quick start
+- [Local Dashboard](docs/LOCAL_DASHBOARD.md) — running the localhost SOC dashboard
+- [Public Demo](docs/PUBLIC_DEMO.md) — synthetic demo details and access
+- [Security & Privacy](docs/SECURITY_AND_PRIVACY.md) — security model, data handling, limitations
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute
+- [SECURITY.md](SECURITY.md) — vulnerability reporting and security policy
+- [LICENSE](LICENSE) — MIT license
 
-### Pipeline evaluation results
-
-Running the generated dataset through the full pipeline (ingest → normalize → detect → correlate → risk score → SQLite):
-
-| Metric | Value |
-|---|---|
-| Total events ingested | 11,298 |
-| Detections produced | 172 |
-| Risk assessments | 7 |
-| Detections persisted | 172 |
-| Risk assessments persisted | 7 |
-| `PRAGMA integrity_check` | ok |
-| `PRAGMA foreign_key_check` | 0 violations |
-
-### Detection evaluation (against holdout ground truth)
-
-An independently authored holdout dataset (69 events, NOT generated by the scenario code) was used to evaluate detection quality:
-
-| Rule | TP | FP | FN | Precision | Recall |
-|---|---|---|---|---|---|
-| FailedLoginBurstRule | 15 | 0 | 0 | 1.0000 | 1.0000 |
-| PasswordSprayRule | 15 | 0 | 0 | 1.0000 | 1.0000 |
-| SuspiciousPowerShellRule | 1 | 0 | 0 | 1.0000 | 1.0000 |
-| SuspiciousProcessTreeRule | 2 | 0 | 0 | 1.0000 | 1.0000 |
-| C2BeaconRule | 12 | 10 | 0 | 0.5455 | 1.0000 |
-
-**Overall**: precision=0.8182, recall=1.0000, F1=0.9000 (event-level)
-
-**C2BeaconRule false positives:** 10 legitimate periodic HTTPS connections to a known software update server (port 443, 30-minute intervals) were flagged as beaconing. This is a known limitation requiring destination reputation and port filtering.
-
-**No alert-level metrics cross-contaminated:** Alert-level precision and event-level recall are independent models. Attribution errors are tracked separately from false positives.
-
-
-## Known limitations
-
-- SQLite does not provide encryption — database file access must be restricted at the OS level
-- Real security logs may contain sensitive information (PII, credentials, IP addresses)
-- No `streamlit`/`pandas` installed — the local dashboard uses the built-in Python HTTP server with no external data libraries
-- ATT&CK mappings are optional and only attributed when evidence supports them — absence of a mapping does not mean a detection is benign
-- Risk score (0-100) is not a probability of compromise
-
-## Development milestones
-
-1. **Environment & workspace verification** — DONE
-2. **Project scaffold + log ingestion & normalization** (JSON, JSONL, Sysmon) — DONE
-3. Common event schema validation + raw-log preservation — DONE
-4. Detection rules: failed-login bursts, suspicious PowerShell, parent-child anomalies — DONE
-5. Statistical C2 beacon detection (intervals + regularity) — DONE
-6. Explainable risk scoring — DONE
-7. SQLite storage — DONE
-8. Synthetic benign + suspicious datasets — DONE
-9. Local SOC dashboard — DONE (sentinelforge/dashboard/, binds to 127.0.0.1:8080, read-only, SQLite-backed, no Streamlit/Pandas)
-10. Pytest test suite (all detection logic tested) — DONE (363 passed, 1 skipped)
-
-### Hardening pass (post-Milestone 7)
-
-- Restored foreign-key integrity: `risk_assessment_detections.detection_id → detections.detection_id`
-- `evidence.event_id` made nullable with `external_event_ref` for external/unpersisted references
-- Immutable events/detections/evidence with collision detection on re-insert
-- `DetectionResult` gained a unique `detection_id` (UUID) separate from `rule_id`
-- T1204.002 requires cross-event correlation (file activity + process execution)
-- T1071 requires additional suspicious context beyond port/protocol deviation
-- Schema migration v1 → v2 → v3 implemented
-- 18 new regression tests added
-
-
-### Hardening pass (post-Milestone 7) — M10 + M10.1
-
-- Readers record skipped (non-dict) records instead of silently dropping them; CLI reports accepted/stored/rejected counts
-- Sysmon input normalized using Sysmon field mapping regardless of file extension
-- PasswordSprayRule excludes events with missing source_address from grouping — prevents unrelated events from different hosts being combined into one alert
-- Detection loads ALL events from database (no arbitrary 100k limit); configurable `SENTINELFORGE_MAX_DETECTION_EVENTS` safety guard refuses over-limit datasets with a clear error instead of silent truncation or OOM
-- Deterministic event ID generation from source_file + position + content hash — identical records at different positions or in different files receive distinct IDs (no false deduplication); source-supplied IDs preserved verbatim
-- Config validation: invalid threshold/window values raise ValueError instead of silently misconfiguring
-- Ingest → detect → evaluate CLI end-to-end works from outside the repository
-
-### Milestone 8: Synthetic enterprise SOC datasets
-
-- `sentinelforge/datasets/` package with generator, ground truth, scenarios, validators
-- 11,298 events generated across 7 categories with reproducible random seed
-- Ground truth stored separately (no labels in raw events)
-- 7 correlated attack scenarios + benign EDR heartbeat traffic
-- Full pipeline evaluation (dataset sentinelforge-ds-001, seed 42): 172 detections, 7 risk assessments, all persisted to SQLite (see `data/generated/m8_1_evaluation_report.json`)
-- 6 new pytest tests for dataset generation and validation
-
-### Future enhancements (not yet implemented)
-
-- **Authentication and authorization** — user login, RBAC, session management
-- **Encryption at rest** — SQLite database file encryption
-- **C2BeaconRule FP reduction** — destination reputation filtering, port allowlisting
-- **Threat intelligence integration** — IP/domain reputation lookup
-- **Minimal analyst dashboard** — Streamlit/Pandas (currently deferred)
-- **Controlled SOC pilot execution** — real-world feedback collection
-
-## Quick start
+## Installation and quick start
 
 ```bash
 git clone https://github.com/SadashivPole/sentinelforge-ai.git
@@ -321,12 +152,39 @@ python -m venv .venv
 # Linux/macOS:
 #   source .venv/bin/activate
 
+# Install core application (no MCP dependency)
 pip install -r requirements.txt
 pip install .
-python -m pytest              # run the test suite (363 passed, 1 skipped)
-python -m sentinelforge --help
-sentinelforge dashboard --help   # local SOC dashboard on 127.0.0.1:8080
+
+# Verify installation
+sentinelforge --help
+sentinelforge dashboard --help
+
+# Run the test suite
+python -m pytest
 ```
 
-External API credentials are never stored in source. Set `SENTINELFORGE_AI_PROVIDER=mock`
-(the default) so no network calls are ever made.
+Quick workflow:
+
+```bash
+# Ingest log files (JSON, JSONL, or Sysmon-converted JSON)
+sentinelforge ingest data/sample.jsonl
+
+# Run detection rules on stored events
+sentinelforge detect
+
+# Evaluate detection quality
+sentinelforge evaluate
+
+# Start the local dashboard (localhost only, http://127.0.0.1:8080)
+sentinelforge dashboard
+```
+
+### Optional MCP installation
+
+```bash
+pip install "sentinelforge[analyst-mcp]"
+sentinelforge-mcp
+```
+
+The MCP server reads `SENTINELFORGE_DB_PATH` (default: `data/sentinelforge.db`) and runs over stdio.
