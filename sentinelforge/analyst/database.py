@@ -245,13 +245,21 @@ class ReadOnlyDatabase:
     def latest_timestamps(self) -> dict[str, str | None]:
         out: dict[str, str | None] = {}
         try:
-            cur = self.conn.execute("SELECT MAX(timestamp) AS t FROM events")
+            cur = self.conn.execute(
+                "SELECT timestamp AS t FROM events "
+                "WHERE timestamp IS NOT NULL AND julianday(timestamp) IS NOT NULL "
+                "ORDER BY julianday(timestamp) DESC, event_id DESC LIMIT 1"
+            )
             row = cur.fetchone()
             out["latest_event"] = row[0] if row else None
         except sqlite3.OperationalError:
             out["latest_event"] = None
         try:
-            cur = self.conn.execute("SELECT MAX(triggered_at) AS t FROM detections")
+            cur = self.conn.execute(
+                "SELECT triggered_at AS t FROM detections "
+                "WHERE triggered_at IS NOT NULL AND julianday(triggered_at) IS NOT NULL "
+                "ORDER BY julianday(triggered_at) DESC, detection_id DESC LIMIT 1"
+            )
             row = cur.fetchone()
             out["latest_detection"] = row[0] if row else None
         except sqlite3.OperationalError:
@@ -326,7 +334,7 @@ class ReadOnlyDatabase:
             "SELECT evidence_id, detection_id, event_id, external_event_ref, "
             "timestamp, source, event_type, user, host, source_address, raw "
             "FROM evidence WHERE detection_id = ? "
-            "ORDER BY timestamp ASC LIMIT ? OFFSET ?",
+            "ORDER BY julianday(timestamp) IS NULL, julianday(timestamp) ASC, evidence_id ASC LIMIT ? OFFSET ?",
             (detection_id, pagination.limit, pagination.offset),
         )
         rows = cur.fetchall()
@@ -441,7 +449,7 @@ class ReadOnlyDatabase:
             sql += " AND risk_score >= ?"
             params.append(min_score)
 
-        sql += " ORDER BY risk_score DESC, created_at DESC LIMIT ? OFFSET ?"
+        sql += " ORDER BY risk_score DESC, julianday(created_at) DESC, assessment_id DESC LIMIT ? OFFSET ?"
         params.extend([pagination.limit, pagination.offset])
 
         cur = self.conn.execute(sql, params)

@@ -2216,6 +2216,293 @@ class TestChronologicalOrdering:
             assert "evt-early" in valid_ids
 
 
-# --- end of file ---
+class TestTimestampConsistency:
+    """Absolute-time ordering for evidence, latest timestamps, and risk assessments."""
 
-# --- end of file ---
+    @pytest.fixture
+    def db_path(self):
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            path = os.path.join(tmp, "test.db")
+            _create_synthetic_db(path)
+            conn = sqlite3.connect(path)
+            try:
+                # Evidence rows across UTC, +05:30, -05:00 offsets for det-1
+                evidence_rows = [
+                    (
+                        "ev-utc",
+                        "det-1",
+                        None,
+                        None,
+                        "2025-01-15T03:00:00Z",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        "10.0.0.1",
+                        '{"raw":"utc"}',
+                    ),
+                    (
+                        "ev-pos",
+                        "det-1",
+                        None,
+                        None,
+                        "2025-01-15T08:30:00+05:30",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        "10.0.0.1",
+                        '{"raw":"pos"}',
+                    ),
+                    (
+                        "ev-neg",
+                        "det-1",
+                        None,
+                        None,
+                        "2025-01-15T22:00:00-05:00",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        "10.0.0.1",
+                        '{"raw":"neg"}',
+                    ),
+                    (
+                        "ev-invalid",
+                        "det-1",
+                        None,
+                        None,
+                        "not-a-timestamp",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        "10.0.0.1",
+                        '{"raw":"invalid"}',
+                    ),
+                    (
+                        "ev-null",
+                        "det-1",
+                        None,
+                        None,
+                        None,
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        "10.0.0.1",
+                        '{"raw":"null"}',
+                    ),
+                ]
+                for ev in evidence_rows:
+                    conn.execute(
+                        """INSERT INTO evidence VALUES (?,?,?,?,?,?,?,?,?,?,?)""", ev
+                    )
+
+                # Additional detection for the new evidence
+                conn.execute(
+                    """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                    (
+                        "det-1",
+                        "rule-1",
+                        "Rule 1",
+                        "high",
+                        "Test detection",
+                        "2025-01-15T03:00:00Z",
+                        "{}",
+                        "host-a",
+                    ),
+                )
+
+                # Events for latest_timestamp tests — use explicit columns
+                conn.execute(
+                    "INSERT INTO events (event_id, timestamp, source, raw, ingested_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (
+                        "evt-pos",
+                        "2025-01-15T08:30:00+05:30",
+                        "sysmon",
+                        '{"raw":"pos"}',
+                        "2025-01-15T03:00:00Z",
+                    ),
+                )
+                conn.execute(
+                    "INSERT INTO events (event_id, timestamp, source, raw, ingested_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (
+                        "evt-invalid",
+                        "not-a-timestamp",
+                        "sysmon",
+                        '{"raw":"invalid"}',
+                        "2025-01-15T01:00:00Z",
+                    ),
+                )
+                conn.execute(
+                    "INSERT INTO events (event_id, timestamp, source, raw, ingested_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (
+                        "evt-null",
+                        None,
+                        "sysmon",
+                        '{"raw":"null"}',
+                        "2025-01-15T01:00:00Z",
+                    ),
+                )
+
+                # Risk assessments — equal score, different creation timestamps
+                conn.execute(
+                    """INSERT INTO risk_assessments VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "risk-a",
+                        "host-a",
+                        85,
+                        "high",
+                        "desc-a",
+                        "high",
+                        "high",
+                        0,
+                        3,
+                        "2025-01-15T08:30:00+05:30",
+                        "[]",
+                        "[]",
+                        "{}",
+                        "[]",
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO risk_assessments VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "risk-b",
+                        "host-b",
+                        85,
+                        "high",
+                        "desc-b",
+                        "high",
+                        "high",
+                        0,
+                        3,
+                        "2025-01-15T03:00:00Z",
+                        "[]",
+                        "[]",
+                        "{}",
+                        "[]",
+                    ),
+                )
+                conn.execute(
+                    """INSERT INTO risk_assessments VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        "risk-c",
+                        "host-c",
+                        70,
+                        "medium",
+                        "desc-c",
+                        "high",
+                        "high",
+                        0,
+                        1,
+                        "2025-01-15T01:00:00Z",
+                        "[]",
+                        "[]",
+                        "{}",
+                        "[]",
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            yield path
+
+    # --- Evidence ordering ---
+
+    def test_evidence_ordering_utc_offsets(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.get_alert_evidence("det-1", Pagination(limit=10, offset=0))
+            ids = [r["evidence_id"] for r in results]
+            # ev-pos = 03:00Z Jan 15, ev-utc = 03:00Z Jan 15 (tie → evidence_id ASC: "pos" < "utc"),
+            # ev-neg = 03:00Z Jan 16 (later)
+            assert ids[:3] == ["ev-pos", "ev-utc", "ev-neg"]
+            assert "ev-invalid" in ids[3:]
+            assert "ev-null" in ids[3:]
+
+    def test_evidence_invalid_null_sort_last(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.get_alert_evidence("det-1", Pagination(limit=10, offset=0))
+            ids = [r["evidence_id"] for r in results]
+            last_two = set(ids[-2:])
+            assert last_two == {"ev-invalid", "ev-null"}
+            valid_ids = ids[:-2]
+            assert "ev-neg" in valid_ids
+            assert "ev-utc" in valid_ids
+            assert "ev-pos" in valid_ids
+
+    def test_evidence_preserves_raw_records(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.get_alert_evidence("det-1", Pagination(limit=10, offset=0))
+            ev_map = {r["evidence_id"]: r for r in results}
+            assert ev_map["ev-utc"]["timestamp"] == "2025-01-15T03:00:00Z"
+            assert ev_map["ev-pos"]["timestamp"] == "2025-01-15T08:30:00+05:30"
+            assert ev_map["ev-neg"]["timestamp"] == "2025-01-15T22:00:00-05:00"
+            assert ev_map["ev-invalid"]["timestamp"] == "not-a-timestamp"
+            assert ev_map["ev-null"]["timestamp"] is None
+            assert ev_map["ev-utc"]["raw"] == '{"raw":"utc"}'
+
+    def test_evidence_pagination_consistency(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            page1 = db.get_alert_evidence("det-1", Pagination(limit=3, offset=0))
+            page2 = db.get_alert_evidence("det-1", Pagination(limit=3, offset=3))
+            ids1 = [r["evidence_id"] for r in page1]
+            ids2 = [r["evidence_id"] for r in page2]
+            assert ids1 == ["ev-pos", "ev-utc", "ev-neg"]
+            assert set(ids2) == {"ev-invalid", "ev-null"}
+            assert set(ids1) | set(ids2) == {
+                "ev-neg",
+                "ev-pos",
+                "ev-utc",
+                "ev-invalid",
+                "ev-null",
+            }
+            assert len(set(ids1) & set(ids2)) == 0
+
+    # --- Latest timestamps ---
+
+    def test_latest_event_timestamp_absolute_time(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            latest = db.latest_timestamps()["latest_event"]
+            # evt-pos (08:30+05:30 = 03:00Z) is later than evt-early (01:00Z)
+            assert latest == "2025-01-15T08:30:00+05:30"
+
+    def test_latest_detection_timestamp_absolute_time(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            latest = db.latest_timestamps()["latest_detection"]
+            assert latest == "2025-01-15T03:00:00Z"
+
+    def test_latest_timestamp_only_invalid_null(self):
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            path = os.path.join(tmp, "test.db")
+            _create_synthetic_db(path)
+            conn = sqlite3.connect(path)
+            try:
+                # Override all event timestamps with invalid/NULL values
+                conn.execute("UPDATE events SET timestamp = 'not-a-timestamp'")
+                conn.execute("UPDATE detections SET triggered_at = 'not-a-timestamp'")
+                conn.commit()
+            finally:
+                conn.close()
+
+            with ReadOnlyDatabase(path) as db:
+                latest = db.latest_timestamps()
+                assert latest["latest_event"] is None
+                assert latest["latest_detection"] is None
+
+    # --- Risk assessment ordering ---
+
+    def test_risk_assessments_equal_score_mixed_offsets(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.list_risk_assessments(Pagination(limit=10, offset=0))
+            ids = [r["assessment_id"] for r in results]
+            # risk-a and risk-b both score 85; risk-a created at 08:30+05:30 (=03:00Z),
+            # risk-b created at 03:00Z → tie, assessment_id DESC: "b" > "a"
+            score85_ids = [i for i in ids if i in ("risk-a", "risk-b")]
+            assert score85_ids == ["risk-b", "risk-a"]
+            # risk-c score 70 comes after
+            assert ids.index("risk-c") > ids.index("risk-b")
