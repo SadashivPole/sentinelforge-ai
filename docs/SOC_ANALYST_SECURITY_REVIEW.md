@@ -42,7 +42,11 @@ Read-only access is enforced at **two independent layers**:
 - Pagination: `LIMIT` ≤ 500, `OFFSET` ≤ 10,000
 - String length limits: host ≤ 256, severity ≤ 32, rule_id/detection_id ≤ 128,
   query ≤ 10,000, event_type/source/user ≤ 128
-- Time range: start ≤ end, max 365 days
+- Time range: start ≤ end, max 365 days; timestamps must be timezone-aware
+  (naive or mixed aware/naive timestamps are rejected with `bad_input`)
+- Response budget: maximum 1 MiB serialized per MCP tool response; oversize
+  responses are truncated with explicit `truncated` metadata, never silently
+  producing invalid JSON
 - All values parameterized via `?` placeholders — no string interpolation
   in query values
 - Table names in `table_counts()` come from a hardcoded allowlist
@@ -50,10 +54,14 @@ Read-only access is enforced at **two independent layers**:
 
 ## Error Handling
 
-- Errors never leak internal file paths or credentials
+- Errors never leak internal file paths or credentials. The database path
+  is not included in `database_missing` or `database_not_initialized` error
+  messages, nor in `sentinelforge_get_status` output.
 - Database missing → `database_missing` error with remediation
 - Database not initialized → `database_not_initialized` error
+- Scope conflict (host/alert_id mismatch) → `scope_conflict` error
 - Read-only violation → `internal` error (should never happen)
+- Response too large → `response_too_large` error with truncation guidance
 - All errors return `is_error: true` with safe messages
 
 ## Credentials and Secrets

@@ -27,12 +27,12 @@ class ReadOnlyDatabaseError(Exception):
         self.remediation = remediation
 
 
-class DatabaseNotInitializedError(ReadOnlyDatabaseError):
-    """The database file exists but has not been initialized (no schema_metadata)."""
-
-
 class DatabaseMissingError(ReadOnlyDatabaseError):
     """The database file does not exist at the configured path."""
+
+
+class DatabaseNotInitializedError(ReadOnlyDatabaseError):
+    """The database file exists but has not been initialized (no schema_metadata)."""
 
 
 # --- safety limits ---
@@ -74,9 +74,23 @@ class TimeRange:
         if self.start is None and self.end is None:
             return
         if self.start is not None:
-            _parse_ts(self.start, "start")
+            s = _parse_ts(self.start, "start")
+            if s.tzinfo is None:
+                raise ReadOnlyDatabaseError(
+                    "bad_input",
+                    "timestamps must be timezone-aware (include UTC offset or Z).",
+                    "Use ISO 8601 with explicit timezone, e.g. "
+                    "2024-01-15T09:30:00Z or 2024-01-15T09:30:00+00:00.",
+                )
         if self.end is not None:
-            _parse_ts(self.end, "end")
+            e = _parse_ts(self.end, "end")
+            if e.tzinfo is None:
+                raise ReadOnlyDatabaseError(
+                    "bad_input",
+                    "timestamps must be timezone-aware (include UTC offset or Z).",
+                    "Use ISO 8601 with explicit timezone, e.g. "
+                    "2024-01-15T09:30:00Z or 2024-01-15T09:30:00+00:00.",
+                )
         if self.start is not None and self.end is not None:
             s = _parse_ts(self.start, "start")
             e = _parse_ts(self.end, "end")
@@ -86,8 +100,8 @@ class TimeRange:
                     "time range end must be after start",
                     "Provide start before end.",
                 )
-            delta = (e - s).days
-            if delta > MAX_TIME_RANGE_DAYS:
+            delta_seconds = (e - s).total_seconds()
+            if delta_seconds > MAX_TIME_RANGE_DAYS * 86_400:
                 raise ReadOnlyDatabaseError(
                     "bad_input",
                     f"time range must not exceed {MAX_TIME_RANGE_DAYS} days",
@@ -147,7 +161,7 @@ class ReadOnlyDatabase:
         if not os.path.exists(self.db_path):
             raise DatabaseMissingError(
                 "database_missing",
-                f"Database not found: {self.db_path}",
+                "Database not found at the configured path.",
                 "Run SentinelForge ingestion first to create the database, "
                 "or set SENTINELFORGE_DB_PATH to an existing database file.",
             )
@@ -167,7 +181,7 @@ class ReadOnlyDatabase:
             self.close()
             raise DatabaseNotInitializedError(
                 "database_not_initialized",
-                f"Database exists but has no schema: {self.db_path}",
+                "Database exists but has no schema_metadata.",
                 "Initialize the database with SentinelForge before querying via MCP.",
             )
 
@@ -315,6 +329,19 @@ class ReadOnlyDatabase:
         )
         rows = cur.fetchall()
         return [dict(r) for r in rows]
+
+    def evidence_count(self, detection_id: str) -> int:
+        """Return the exact number of evidence rows for a detection.
+
+        Uses a single parameterized COUNT(*) query — no rows are loaded,
+        so this avoids N+1 connection churn and never returns raw payloads.
+        """
+        _validate_string(detection_id, "detection_id", MAX_RULE_ID_LEN)
+        cur = self.conn.execute(
+            "SELECT COUNT(*) AS c FROM evidence WHERE detection_id = ?",
+            (detection_id,),
+        )
+        return int(cur.fetchone()[0])
 
     # --- events ---
 
