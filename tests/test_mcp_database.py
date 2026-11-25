@@ -1793,4 +1793,429 @@ class TestCrossTimezoneFilters:
             assert "evt-04z" in ids
 
 
+class TestChronologicalOrdering:
+    """Events and detections order by absolute instant (julianday), not text."""
+
+    @pytest.fixture
+    def db_path(self):
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            path = os.path.join(tmp, "test.db")
+            conn = sqlite3.connect(path)
+            try:
+                conn.execute(
+                    """CREATE TABLE schema_metadata (
+                        key   TEXT PRIMARY KEY,
+                        value TEXT NOT NULL
+                    )"""
+                )
+                conn.execute(
+                    """INSERT INTO schema_metadata (key, value) VALUES (
+                        'schema_version', '3'
+                    )"""
+                )
+                conn.execute(
+                    """CREATE TABLE events (
+                        event_id TEXT PRIMARY KEY,
+                        timestamp TEXT,
+                        source TEXT NOT NULL,
+                        raw TEXT NOT NULL,
+                        event_type TEXT,
+                        user TEXT,
+                        host TEXT,
+                        process_pid INTEGER,
+                        process_ppid INTEGER,
+                        process_name TEXT,
+                        process_path TEXT,
+                        process_command_line TEXT,
+                        process_user TEXT,
+                        process_hash_sha256 TEXT,
+                        network_direction TEXT,
+                        network_local_address TEXT,
+                        network_remote_address TEXT,
+                        network_local_port INTEGER,
+                        network_remote_port INTEGER,
+                        network_protocol TEXT,
+                        auth_outcome TEXT,
+                        auth_method TEXT,
+                        auth_username TEXT,
+                        auth_source_address TEXT,
+                        ingested_at TEXT NOT NULL
+                    )"""
+                )
+                conn.execute(
+                    """CREATE TABLE detections (
+                        detection_id TEXT PRIMARY KEY,
+                        rule_id TEXT NOT NULL,
+                        rule_name TEXT NOT NULL,
+                        severity TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        triggered_at TEXT NOT NULL,
+                        metadata TEXT NOT NULL,
+                        host TEXT
+                    )"""
+                )
+                conn.execute(
+                    """CREATE TABLE evidence (
+                        evidence_id TEXT PRIMARY KEY,
+                        detection_id TEXT NOT NULL,
+                        event_id TEXT,
+                        external_event_ref TEXT,
+                        timestamp TEXT,
+                        source TEXT,
+                        event_type TEXT,
+                        user TEXT,
+                        host TEXT,
+                        source_address TEXT,
+                        raw TEXT NOT NULL,
+                        FOREIGN KEY (detection_id) REFERENCES detections(detection_id)
+                    )"""
+                )
+            finally:
+                conn.commit()
+                conn.close()
+
+            conn = sqlite3.connect(path)
+            # Records at distinct absolute instants:
+            #   01:00Z  (earliest)
+            #   03:00Z  (two records: UTC and +05:30 equivalent instant)
+            #   03:00Z next day (via -05:00 offset)
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-early",
+                    "2025-01-15T01:00:00Z",
+                    "sysmon",
+                    '{"raw": "early"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1001,
+                    1,
+                    "process-a",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-15T01:00:00Z",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-utc-tied",
+                    "2025-01-15T03:00:00Z",
+                    "sysmon",
+                    '{"raw": "utc tied"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1002,
+                    1,
+                    "process-b",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-15T03:00:00Z",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-pos-tied",
+                    "2025-01-15T08:30:00+05:30",
+                    "sysmon",
+                    '{"raw": "pos tied"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1003,
+                    1,
+                    "process-c",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-15T03:00:00Z",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-neg-later",
+                    "2025-01-15T22:00:00-05:00",
+                    "sysmon",
+                    '{"raw": "neg later"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1004,
+                    1,
+                    "process-d",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-16T03:00:00Z",
+                ),
+            )
+            # Invalid timestamp — sorts last (NULL julianday)
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-invalid",
+                    "not-a-timestamp",
+                    "sysmon",
+                    '{"raw": "invalid"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1005,
+                    1,
+                    "process-e",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-15T10:00:00Z",
+                ),
+            )
+            # NULL timestamp — sorts last (NULL julianday)
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-null-ts",
+                    None,
+                    "sysmon",
+                    '{"raw": "null ts"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1006,
+                    1,
+                    "process-f",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "2025-01-15T10:00:00Z",
+                ),
+            )
+            # Detections at equivalent instants with different offsets
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-utc-tied",
+                    "host-a",
+                    "test-rule-utc-tied",
+                    "UTC tied detection",
+                    "high",
+                    "2025-01-15T03:00:00Z",
+                    1,
+                    "{}",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-pos-tied",
+                    "host-a",
+                    "test-rule-pos-tied",
+                    "Positive offset tied detection",
+                    "high",
+                    "2025-01-15T08:30:00+05:30",
+                    1,
+                    "{}",
+                ),
+            )
+            conn.commit()
+            yield path
+
+    def test_event_ordering_absolute_instant(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.search_events(Pagination(limit=10, offset=0))
+            ids = [r["event_id"] for r in results]
+            # DESC by absolute instant; NULLs last; ties broken by event_id DESC
+            assert ids[:4] == [
+                "evt-neg-later",  # 2025-01-16T03:00Z (latest)
+                "evt-utc-tied",  # 2025-01-15T03:00Z, "u" > "p"
+                "evt-pos-tied",  # 2025-01-15T03:00Z (== 08:30+05:30)
+                "evt-early",  # 2025-01-15T01:00Z
+            ]
+            # Invalid and NULL timestamps sort last (order between them unspecified)
+            assert set(ids[4:]) == {"evt-invalid", "evt-null-ts"}
+
+    def test_alert_ordering_absolute_instant(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.list_alerts(Pagination(limit=10, offset=0))
+            ids = [r["detection_id"] for r in results]
+            # det-utc-tied and det-pos-tied are at the same absolute instant;
+            # tie broken by detection_id DESC ("u" > "p")
+            assert "det-utc-tied" in ids
+            assert "det-pos-tied" in ids
+            utc_idx = ids.index("det-utc-tied")
+            pos_idx = ids.index("det-pos-tied")
+            assert utc_idx < pos_idx  # detection_id DESC tie-breaker
+
+    def test_event_ordering_pagination(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            page1 = db.search_events(Pagination(limit=3, offset=0))
+            page2 = db.search_events(Pagination(limit=3, offset=3))
+            ids1 = [r["event_id"] for r in page1]
+            ids2 = [r["event_id"] for r in page2]
+            assert ids1 == ["evt-neg-later", "evt-utc-tied", "evt-pos-tied"]
+            assert set(ids2) == {"evt-early", "evt-invalid", "evt-null-ts"}
+            # No duplicates or gaps across pages
+            assert set(ids1) | set(ids2) == {
+                "evt-neg-later",
+                "evt-utc-tied",
+                "evt-pos-tied",
+                "evt-early",
+                "evt-invalid",
+                "evt-null-ts",
+            }
+            assert len(set(ids1) & set(ids2)) == 0
+
+    def test_equivalent_instants_different_offsets_adjacent(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.search_events(Pagination(limit=10, offset=0))
+            ids = [r["event_id"] for r in results]
+            utc_idx = ids.index("evt-utc-tied")
+            pos_idx = ids.index("evt-pos-tied")
+            # Equivalent instants (03:00Z) must be adjacent
+            assert abs(utc_idx - pos_idx) == 1
+            # Both must come after the later instant and before the earlier one
+            assert ids.index("evt-neg-later") < utc_idx
+            assert ids.index("evt-early") > pos_idx
+
+    def test_null_and_invalid_timestamps_sort_last(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            results = db.search_events(Pagination(limit=10, offset=0))
+            ids = [r["event_id"] for r in results]
+            last_two = set(ids[-2:])
+            assert last_two == {"evt-invalid", "evt-null-ts"}
+            # All valid timestamps come before invalid/NULL
+            valid_ids = ids[:-2]
+            assert "evt-neg-later" in valid_ids
+            assert "evt-utc-tied" in valid_ids
+            assert "evt-pos-tied" in valid_ids
+            assert "evt-early" in valid_ids
+
+
+# --- end of file ---
+
 # --- end of file ---

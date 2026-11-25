@@ -299,7 +299,9 @@ class ReadOnlyDatabase:
                 sql += " AND julianday(triggered_at) <= julianday(?)"
                 params.append(time_range.end)
 
-        sql += " ORDER BY triggered_at DESC LIMIT ? OFFSET ?"
+        sql += (
+            " ORDER BY julianday(triggered_at) DESC, detection_id DESC LIMIT ? OFFSET ?"
+        )
         params.extend([pagination.limit, pagination.offset])
 
         cur = self.conn.execute(sql, params)
@@ -401,7 +403,7 @@ class ReadOnlyDatabase:
                 sql += " AND julianday(timestamp) <= julianday(?)"
                 params.append(time_range.end)
 
-        sql += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        sql += " ORDER BY julianday(timestamp) DESC, event_id DESC LIMIT ? OFFSET ?"
         params.extend([pagination.limit, pagination.offset])
 
         cur = self.conn.execute(sql, params)
