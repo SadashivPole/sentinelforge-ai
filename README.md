@@ -78,7 +78,7 @@ SentinelForge normalizes JSON, JSONL, and Sysmon-style logs into a common event 
 
 Explainable risk scoring (0–100) combines severity, evidence quality, event frequency, correlation, and optional asset criticality. Risk score, evidence confidence, and detection severity are kept separate — a score is not a probability of compromise.
 
-## SOC Analyst MCP and Hermes integration
+## SOC Analyst MCP Integration
 
 SentinelForge includes an optional SOC Analyst MCP integration built on MCP SDK v2 (`mcp==2.3.0`). It is **optional**: the core installation works without it, and default installation does not pull in the MCP dependency.
 
