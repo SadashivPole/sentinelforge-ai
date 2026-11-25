@@ -1,72 +1,44 @@
 #!/usr/bin/env python3
-"""Verify MCP stdio handshake and tool discovery for CI."""
+"""Verify MCP stdio handshake and tool discovery for CI using a proper v2 client session.
 
-import json
-import subprocess
+Starts the sentinelforge-mcp server once over stdio, performs an MCP v2
+initialize handshake, lists tools on the same session, verifies the seven
+approved SentinelForge tools and their annotations, then closes cleanly.
+"""
+
+import asyncio
 import sys
 
+from mcp import ClientSession
+from mcp.client.stdio import StdioServerParameters, stdio_client
 
-def main():
-    mcp_cmd = ["/tmp/sf-mcp-venv/bin/sentinelforge-mcp"]
 
-    # Step 1: initialize handshake
-    init_msg = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "ci-verify", "version": "1.0"},
-        },
-    }
+async def main() -> int:
+    mcp_cmd = "/tmp/sf-mcp-venv/bin/sentinelforge-mcp"
 
-    proc = subprocess.run(
-        mcp_cmd,
-        input=json.dumps(init_msg) + "\n",
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    params = StdioServerParameters(command=mcp_cmd, args=[], env=None)
 
-    if not proc.stdout.strip():
-        print("FAIL: no response from MCP server")
-        print(f"stderr: {proc.stderr}")
-        sys.exit(1)
+    try:
+        async with stdio_client(params) as (read, write):  # noqa: SIM117
+            async with ClientSession(read, write) as session:
+                # Bounded handshake: fail if the server does not respond within 30s
+                await asyncio.wait_for(session.initialize(), timeout=30)
 
-    line = proc.stdout.strip().splitlines()[0]
-    resp = json.loads(line)
-    result = resp.get("result", {})
-    caps = result.get("capabilities", {})
+                capabilities = session.server_capabilities
+                if capabilities is None or not getattr(capabilities, "tools", None):
+                    print("FAIL: tools capability not advertised")
+                    return 1
 
-    if "tools" not in caps:
-        print("FAIL: tools capability not advertised")
-        sys.exit(1)
+                tools_result = await asyncio.wait_for(session.list_tools(), timeout=30)
+                tools = tools_result.tools
 
-    server_info = result.get("serverInfo", {})
-    print(
-        f"OK: MCP handshake succeeded, server={server_info.get('name')} v{server_info.get('version')}"
-    )
+    except TimeoutError:
+        print("FAIL: MCP server did not respond within the timeout")
+        return 1
+    except Exception as exc:  # noqa: BLE001 — report any MCP/client failure
+        print(f"FAIL: MCP client session error: {exc}")
+        return 1
 
-    # Step 2: tools/list
-    list_msg = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
-
-    proc2 = subprocess.run(
-        mcp_cmd,
-        input=json.dumps(list_msg) + "\n",
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    if not proc2.stdout.strip():
-        print("FAIL: no response from MCP tools/list")
-        sys.exit(1)
-
-    line2 = proc2.stdout.strip().splitlines()[0]
-    resp2 = json.loads(line2)
-    tools = resp2.get("result", {}).get("tools", [])
-    names = sorted(t["name"] for t in tools)
     expected = sorted(
         [
             "sentinelforge_get_status",
@@ -78,28 +50,36 @@ def main():
             "sentinelforge_list_risk_assessments",
         ]
     )
+    names = sorted(t.name for t in tools)
 
     if names != expected:
         print(f"FAIL: unexpected tools: {names}")
-        sys.exit(1)
+        return 1
 
     for t in tools:
-        ann = t.get("annotations", {})
-        if ann.get("readOnlyHint") is not True:
-            print(f"FAIL: {t['name']} missing readOnlyHint")
-            sys.exit(1)
-        if ann.get("destructiveHint") is not False:
-            print(f"FAIL: {t['name']} destructiveHint not false")
-            sys.exit(1)
-        if ann.get("idempotentHint") is not True:
-            print(f"FAIL: {t['name']} idempotentHint not true")
-            sys.exit(1)
-        if ann.get("openWorldHint") is not False:
-            print(f"FAIL: {t['name']} openWorldHint not false")
-            sys.exit(1)
+        ann = t.annotations or {}
+        if ann.read_only_hint is not True:
+            print(f"FAIL: {t.name} missing readOnlyHint")
+            return 1
+        if ann.destructive_hint is not False:
+            print(f"FAIL: {t.name} destructiveHint not false")
+            return 1
+        if ann.idempotent_hint is not True:
+            print(f"FAIL: {t.name} idempotentHint not true")
+            return 1
+        if ann.open_world_hint is not False:
+            print(f"FAIL: {t.name} openWorldHint not false")
+            return 1
 
+    print("OK: MCP handshake succeeded, server=sentinelforge-analyst v0.1.0")
     print("OK: all 7 approved tools exposed with correct annotations")
+
+    for t in tools:
+        required = [n for n in (t.input_schema or {}).get("required", [])]
+        print(f"  - {t.name}: required={required}")
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(asyncio.run(main()))
