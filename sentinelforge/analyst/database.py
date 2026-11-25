@@ -293,10 +293,10 @@ class ReadOnlyDatabase:
             params.append(rule_id)
         if time_range is not None:
             if time_range.start is not None:
-                sql += " AND triggered_at >= ?"
+                sql += " AND julianday(triggered_at) >= julianday(?)"
                 params.append(time_range.start)
             if time_range.end is not None:
-                sql += " AND triggered_at <= ?"
+                sql += " AND julianday(triggered_at) <= julianday(?)"
                 params.append(time_range.end)
 
         sql += " ORDER BY triggered_at DESC LIMIT ? OFFSET ?"
@@ -395,10 +395,10 @@ class ReadOnlyDatabase:
             params.append(user)
         if time_range is not None:
             if time_range.start is not None:
-                sql += " AND timestamp >= ?"
+                sql += " AND julianday(timestamp) >= julianday(?)"
                 params.append(time_range.start)
             if time_range.end is not None:
-                sql += " AND timestamp <= ?"
+                sql += " AND julianday(timestamp) <= julianday(?)"
                 params.append(time_range.end)
 
         sql += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"

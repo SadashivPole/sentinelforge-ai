@@ -1261,3 +1261,536 @@ class TestMaliciousLogContent:
             )
             assert len(results) == 1
             assert results[0]["event_id"] == "evt-malicious"
+
+
+class TestGetAlertEvidenceCount:
+    """Exact evidence counts via db.evidence_count(), not len(loaded rows)."""
+
+    @pytest.fixture
+    def server(self):
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            path = os.path.join(tmp, "test.db")
+            _create_synthetic_db(path)
+            conn = sqlite3.connect(path)
+            # det-empty exists but has zero evidence rows
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-empty",
+                    "host-a",
+                    "test-rule-empty",
+                    "Test rule with no evidence",
+                    "low",
+                    "2024-01-15T10:00:00Z",
+                    1,
+                    "{}",
+                ),
+            )
+
+            # det-003 already has 1 evidence row (ev-003); add 499 more = 500 total
+            for i in range(2, 501):
+                conn.execute(
+                    """INSERT INTO evidence VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        f"ev-003-extra-{i}",
+                        "det-003",
+                        None,
+                        None,
+                        "2024-01-15T09:00:00Z",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        None,
+                        f"extra evidence {i}",
+                    ),
+                )
+            # det-501 has exactly 501 evidence rows
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-501",
+                    "host-a",
+                    "test-rule-501",
+                    "Detection with 501 evidence rows",
+                    "high",
+                    "2024-01-15T10:00:00Z",
+                    1,
+                    "{}",
+                ),
+            )
+            for i in range(501):
+                conn.execute(
+                    """INSERT INTO evidence VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        f"ev-501-{i}",
+                        "det-501",
+                        None,
+                        None,
+                        f"2024-01-15T10:{i // 60:02d}:{i % 60:02d}Z",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-a",
+                        None,
+                        f"evidence row {i}",
+                    ),
+                )
+            # det-800 has exactly 800 evidence rows
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-800",
+                    "host-b",
+                    "test-rule-800",
+                    "Detection with 800 evidence rows",
+                    "critical",
+                    "2024-01-15T11:00:00Z",
+                    1,
+                    "{}",
+                ),
+            )
+            for i in range(800):
+                conn.execute(
+                    """INSERT INTO evidence VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        f"ev-800-{i}",
+                        "det-800",
+                        None,
+                        None,
+                        f"2024-01-15T11:{i // 60:02d}:{i % 60:02d}Z",
+                        "sysmon",
+                        "auth",
+                        "admin",
+                        "host-b",
+                        None,
+                        f"evidence row {i}",
+                    ),
+                )
+            conn.commit()
+            conn.close()
+            from sentinelforge.analyst.mcp_server import AnalystMCPServer
+
+            yield AnalystMCPServer(path)
+
+    def test_zero_evidence_count(self, server):
+        result = server._get_alert({"detection_id": "det-empty"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+        assert refs["evidence_count"] == 0
+        assert refs["evidence_count_exact"] is True
+        assert refs["evidence_ids"] == []
+        assert refs["has_more"] is False
+        assert refs["next_offset"] is None
+        # No raw payloads in get_alert
+        assert "raw" not in result.content[0].text
+
+    def test_one_evidence_count(self, server):
+        result = server._get_alert({"detection_id": "det-003"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+        assert refs["evidence_count"] == 500  # 1 original + 499 extra
+        assert refs["evidence_count_exact"] is True
+        assert len(refs["evidence_ids"]) == 500  # bounded to first page
+        assert refs["has_more"] is False
+        assert refs["next_offset"] is None
+
+    def test_exactly_500_evidence_records(self, server):
+        result = server._get_alert({"detection_id": "det-003"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+        assert refs["evidence_count"] == 500
+        assert refs["evidence_count_exact"] is True
+        assert len(refs["evidence_ids"]) == 500
+        assert refs["has_more"] is False
+
+    def test_501_evidence_records(self, server):
+        result = server._get_alert({"detection_id": "det-501"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+        assert refs["evidence_count"] == 501
+        assert refs["evidence_count_exact"] is True
+        assert len(refs["evidence_ids"]) == 500  # bounded to first page
+        assert refs["has_more"] is True
+        assert refs["next_offset"] == 500
+
+    def test_800_evidence_records(self, server):
+        result = server._get_alert({"detection_id": "det-800"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+        assert refs["evidence_count"] == 800
+        assert refs["evidence_count_exact"] is True
+        assert len(refs["evidence_ids"]) == 500  # bounded to first page
+        assert refs["has_more"] is True
+        assert refs["next_offset"] == 500
+
+    def test_evidence_ids_match_actual_rows(self, server):
+        result = server._get_alert({"detection_id": "det-003"})
+        assert result.is_error is False
+        payload = json.loads(result.content[0].text)
+        refs = payload["evidence_references"]
+
+        # Cross-check with get_alert_evidence
+        ev_result = server._get_alert_evidence(
+            {"detection_id": "det-003", "limit": 10, "offset": 0}
+        )
+        ev_payload = json.loads(ev_result.content[0].text)
+        assert refs["evidence_ids"][:10] == [
+            r["evidence_id"] for r in ev_payload["evidence"]
+        ]
+
+    def test_no_raw_payloads_in_get_alert(self, server):
+        result = server._get_alert({"detection_id": "det-003"})
+        assert result.is_error is False
+        payload_text = result.content[0].text
+        assert "raw" not in payload_text
+        payload = json.loads(payload_text)
+        assert "raw" not in payload
+        assert "raw" not in payload.get("alert", {})
+
+
+class TestCrossTimezoneFilters:
+    """Timezone-aware SQL comparisons using julianday() for absolute instants."""
+
+    @pytest.fixture
+    def db_path(self):
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            path = os.path.join(tmp, "test.db")
+            _create_synthetic_db(path)
+            conn = sqlite3.connect(path)
+            # Add events with different timezone offsets at equivalent instants
+            # 2025-01-15T09:00:00+05:30 == 2025-01-15T03:30:00Z
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-utc",
+                    "2025-01-15T03:30:00Z",
+                    "sysmon",
+                    '{"raw": "utc event"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1001,
+                    1,
+                    "process-a",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "host-a",
+                    None,
+                    None,
+                    None,
+                    "success",
+                    "kerberos",
+                    "admin",
+                    None,
+                    "2025-01-15T03:30:00Z",
+                ),
+            )
+            # 2025-01-15T09:00:00-05:00 == 2025-01-15T14:00:00Z
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-neg-offset",
+                    "2025-01-15T09:00:00-05:00",
+                    "sysmon",
+                    '{"raw": "negative offset event"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1002,
+                    1,
+                    "process-b",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "host-a",
+                    None,
+                    None,
+                    None,
+                    "success",
+                    "kerberos",
+                    "admin",
+                    None,
+                    "2025-01-15T09:00:00-05:00",
+                ),
+            )
+            # 2025-01-15T04:00:00Z — later than 2025-01-15T09:00:00+05:30 (03:30Z)
+            # but textually sorts earlier than the +05:30 query boundary
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-04z",
+                    "2025-01-15T04:00:00Z",
+                    "sysmon",
+                    '{"raw": "04:00Z event"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1003,
+                    1,
+                    "process-c",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "host-a",
+                    None,
+                    None,
+                    None,
+                    "success",
+                    "kerberos",
+                    "admin",
+                    None,
+                    "2025-01-15T04:00:00Z",
+                ),
+            )
+            # Invalid timestamp — should be safely excluded
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-invalid",
+                    "not-a-timestamp",
+                    "sysmon",
+                    '{"raw": "invalid timestamp event"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1004,
+                    1,
+                    "process-d",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "host-a",
+                    None,
+                    None,
+                    None,
+                    "success",
+                    "kerberos",
+                    "admin",
+                    None,
+                    "2025-01-15T10:00:00Z",
+                ),
+            )
+            # NULL timestamp — should be safely excluded
+            conn.execute(
+                """INSERT INTO events
+                   (event_id, timestamp, source, raw, event_type, user, host,
+                    process_pid, process_ppid, process_name, process_path,
+                    process_command_line, process_user, process_hash_sha256,
+                    network_direction, network_local_address,
+                    network_remote_address, network_local_port,
+                    network_remote_port, network_protocol, auth_outcome,
+                    auth_method, auth_username, auth_source_address,
+                    ingested_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    "evt-null-ts",
+                    None,
+                    "sysmon",
+                    '{"raw": "null timestamp event"}',
+                    "auth",
+                    "admin",
+                    "host-a",
+                    1005,
+                    1,
+                    "process-e",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "host-a",
+                    None,
+                    None,
+                    None,
+                    "success",
+                    "kerberos",
+                    "admin",
+                    None,
+                    "2025-01-15T10:00:00Z",
+                ),
+            )
+            # Add detections with different timezone offsets
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-utc",
+                    "test-rule-utc",
+                    "UTC detection",
+                    "high",
+                    "UTC detection",
+                    "2025-01-15T03:30:00Z",
+                    "{}",
+                    "host-a",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO detections VALUES (?,?,?,?,?,?,?,?)""",
+                (
+                    "det-pos-offset",
+                    "test-rule-pos",
+                    "Positive offset detection",
+                    "high",
+                    "Positive offset detection",
+                    "2025-01-15T09:00:00+05:30",
+                    "{}",
+                    "host-a",
+                ),
+            )
+            conn.commit()
+            conn.close()
+            yield path
+
+    def test_utc_query_against_utc_stored(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            tr = TimeRange(start="2025-01-15T03:00:00Z", end="2025-01-15T03:59:00Z")
+            results = db.search_events(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["event_id"] for r in results}
+            assert "evt-utc" in ids
+            assert "evt-04z" not in ids  # 04:00Z is after end boundary
+
+    def test_positive_offset_query_against_utc_stored(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            # Query start: 2025-01-15T09:00:00+05:30 == 03:30Z
+            # Event: evt-utc at 03:30Z — should be included
+            tr = TimeRange(
+                start="2025-01-15T09:00:00+05:30", end="2025-01-15T10:00:00+05:30"
+            )
+            results = db.search_events(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["event_id"] for r in results}
+            assert "evt-utc" in ids  # 03:30Z == 09:00+05:30, included
+
+    def test_negative_offset_query_against_utc_stored(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            # Query start: 2025-01-15T09:00:00-05:00 == 14:00Z
+            # Event: evt-neg-offset at 09:00-05:00 == 14:00Z — should be included
+            tr = TimeRange(
+                start="2025-01-15T09:00:00-05:00",
+                end="2025-01-15T15:00:00-05:00",
+            )
+            results = db.search_events(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["event_id"] for r in results}
+            assert "evt-neg-offset" in ids
+
+    def test_utc_query_against_positive_offset_stored(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            # Event: det-pos-offset stored as 2025-01-15T09:00:00+05:30 == 03:30Z
+            # Query: 2025-01-15T03:00:00Z to 04:00:00Z — should include it
+            tr = TimeRange(start="2025-01-15T03:00:00Z", end="2025-01-15T04:00:00Z")
+            results = db.list_alerts(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["detection_id"] for r in results}
+            assert "det-pos-offset" in ids
+
+    def test_equivalent_instants_different_offsets(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            # 2025-01-15T09:00:00+05:30 == 2025-01-15T03:30:00Z
+            # Query with Z boundary should match +05:30 stored detection
+            tr = TimeRange(start="2025-01-15T03:30:00Z", end="2025-01-15T03:30:01Z")
+            results = db.list_alerts(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["detection_id"] for r in results}
+            assert "det-pos-offset" in ids
+
+    def test_start_and_end_bounds(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            # Exact start boundary — inclusive
+            tr = TimeRange(start="2025-01-15T03:30:00Z", end="2025-01-15T05:00:00Z")
+            results = db.search_events(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["event_id"] for r in results}
+            assert "evt-utc" in ids  # 03:30Z == start boundary, included
+
+            # Exact end boundary — inclusive
+            tr2 = TimeRange(start="2025-01-15T03:00:00Z", end="2025-01-15T03:30:00Z")
+            results2 = db.search_events(Pagination(limit=10, offset=0), time_range=tr2)
+            ids2 = {r["event_id"] for r in results2}
+            assert "evt-utc" in ids2  # 03:30Z == end boundary, included
+
+    def test_event_search_time_filters(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            tr = TimeRange(start="2025-01-15T03:00:00Z", end="2025-01-15T05:00:00Z")
+            results = db.search_events(
+                Pagination(limit=10, offset=0), host="host-a", time_range=tr
+            )
+            ids = {r["event_id"] for r in results}
+            assert "evt-utc" in ids
+            assert "evt-invalid" not in ids
+            assert "evt-null-ts" not in ids
+
+    def test_alert_search_time_filters(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            tr = TimeRange(start="2025-01-15T03:00:00Z", end="2025-01-15T05:00:00Z")
+            results = db.list_alerts(
+                Pagination(limit=10, offset=0), host="host-a", time_range=tr
+            )
+            ids = {r["detection_id"] for r in results}
+            assert "det-utc" in ids
+            assert "det-pos-offset" in ids  # 09:00+05:30 == 03:30Z
+
+    def test_invalid_and_missing_timestamps_safely_excluded(self, db_path):
+        with ReadOnlyDatabase(db_path) as db:
+            tr = TimeRange(start="2025-01-15T00:00:00Z", end="2025-01-16T00:00:00Z")
+            results = db.search_events(Pagination(limit=10, offset=0), time_range=tr)
+            ids = {r["event_id"] for r in results}
+            assert "evt-invalid" not in ids
+            assert "evt-null-ts" not in ids
+            # Valid events still included
+            assert "evt-utc" in ids
+            assert "evt-neg-offset" in ids
+            assert "evt-04z" in ids
+
+
+# --- end of file ---

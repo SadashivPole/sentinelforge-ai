@@ -526,7 +526,11 @@ class AnalystMCPServer:
         # Include evidence references (IDs and count) without raw payloads
         # so analysts can navigate to related evidence.
         evidence_refs: list[str] = []
-        evidence_count = 0
+        evidence_count: int | None = None
+        evidence_count_exact = False
+        has_more = False
+        next_offset: int | None = None
+        evidence_lookup_error: str | None = None
         try:
             with ReadOnlyDatabase(self.db_path) as db:
                 ev_rows = db.get_alert_evidence(
@@ -535,10 +539,16 @@ class AnalystMCPServer:
                 evidence_refs = [
                     r["evidence_id"] for r in ev_rows if r.get("evidence_id")
                 ]
-                evidence_count = len(evidence_refs)
-        except ReadOnlyDatabaseError:
-            # Evidence lookup failure must not hide the alert itself.
-            pass
+                evidence_count = db.evidence_count(detection_id)
+                evidence_count_exact = True
+                has_more = evidence_count > len(evidence_refs)
+                next_offset = 500 if has_more else None
+        except ReadOnlyDatabaseError as exc:
+            # Evidence lookup failure must not hide the alert itself, but we
+            # must not silently present an incomplete list as complete.
+            evidence_count = None
+            evidence_count_exact = False
+            evidence_lookup_error = exc.message
 
         return _ok_result(
             {
@@ -547,6 +557,10 @@ class AnalystMCPServer:
                 "evidence_references": {
                     "evidence_ids": evidence_refs,
                     "evidence_count": evidence_count,
+                    "evidence_count_exact": evidence_count_exact,
+                    "has_more": has_more,
+                    "next_offset": next_offset,
+                    "evidence_lookup_error": evidence_lookup_error,
                 },
             }
         )
