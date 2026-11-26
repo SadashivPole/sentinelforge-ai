@@ -167,6 +167,74 @@ def _safe_divide(numerator: float, denominator: float) -> float:
     return numerator / denominator
 
 
+def _parse_expected_categories(expected_cats_raw: Any) -> list[str]:
+    """Parse a ground-truth expected-detection-category field into a list of
+    lowercase category strings.
+
+    Accepts a comma-separated string or an already-parsed list. Returns an
+    empty list when no categories are recorded.
+    """
+    if isinstance(expected_cats_raw, str):
+        return [c.strip().lower() for c in expected_cats_raw.split(",") if c.strip()]
+    if isinstance(expected_cats_raw, (list, tuple)):
+        return [str(c).strip().lower() for c in expected_cats_raw if str(c).strip()]
+    return []
+
+
+def alert_categories_match(alert_categories: set[str], expected_cats_raw: Any) -> bool:
+    """Return True when an alert's categories satisfy an event's expected
+    detection categories.
+
+    An alert matches when at least one of its categories overlaps the event's
+    expected categories, OR when the event records no expected categories at
+    all (untyped suspicious events are counted as detected by any relevant
+    alert). This single definition is shared by the alert-level and
+    event-level evaluation paths so that both always agree on what counts as
+    a detected suspicious event.
+    """
+    expected_cats = _parse_expected_categories(expected_cats_raw)
+    if not expected_cats:
+        return True
+    return bool(alert_categories & set(expected_cats))
+
+
+# Mapping from rule IDs / MITRE techniques to short category names
+# used in scenario expected_detection_categories.
+# Each short name maps to exactly ONE primary rule to avoid double counting.
+# Module-level so the alert-level and event-level evaluation paths share a
+# single alias table and can never drift out of sync.
+CATEGORY_ALIASES: dict[str, set[str]] = {
+    "sentinelforge.detection.suspicious_powershell": {
+        "powershell",
+        "t1059.001",
+    },
+    "sentinelforge.detection.failed_login_burst": {
+        "failed_login_burst",
+        "t1110",
+        "t1110.001",
+    },
+    "sentinelforge.detection.password_spray": {
+        "password_spray",
+        "t1110.003",
+    },
+    "sentinelforge.detection.suspicious_processtree": {
+        "suspicious_processtree",
+        "t1204.002",
+        "t1204",
+    },
+    "sentinelforge.detection.c2_beacon": {
+        "c2_beacon",
+        "t1071",
+    },
+}
+
+# Reverse mapping: short category name -> set of rule IDs that produce it.
+RULES_BY_CATEGORY: dict[str, set[str]] = {}
+for _rule_id, _aliases in CATEGORY_ALIASES.items():
+    for _alias in _aliases:
+        RULES_BY_CATEGORY.setdefault(_alias, set()).add(_rule_id)
+
+
 def evaluate_detections(
     dataset_id: str,
     detection_results: list[Any],
@@ -183,40 +251,6 @@ def evaluate_detections(
     F1 is reported separately for each model, but only marked valid
     when precision and recall share the same unit and population.
     """
-    # Mapping from rule IDs / MITRE techniques to short category names
-    # used in scenario expected_detection_categories.
-    # Each short name maps to exactly ONE primary rule to avoid double counting.
-    CATEGORY_ALIASES: dict[str, set[str]] = {
-        "sentinelforge.detection.suspicious_powershell": {
-            "powershell",
-            "t1059.001",
-        },
-        "sentinelforge.detection.failed_login_burst": {
-            "failed_login_burst",
-            "t1110",
-            "t1110.001",
-        },
-        "sentinelforge.detection.password_spray": {
-            "password_spray",
-            "t1110.003",
-        },
-        "sentinelforge.detection.suspicious_processtree": {
-            "suspicious_processtree",
-            "t1204.002",
-            "t1204",
-        },
-        "sentinelforge.detection.c2_beacon": {
-            "c2_beacon",
-            "t1071",
-        },
-    }
-
-    # Reverse mapping: short category name -> set of rule IDs that produce it.
-    RULES_BY_CATEGORY: dict[str, set[str]] = {}
-    for rule_id, aliases in CATEGORY_ALIASES.items():
-        for alias in aliases:
-            RULES_BY_CATEGORY.setdefault(alias, set()).add(rule_id)
-
     # Build event_id -> ground truth entry lookup.
     gt_entries = event_ground_truth.get("entries", [])
     gt_by_event: dict[str, dict[str, Any]] = {}
@@ -287,19 +321,11 @@ def evaluate_detections(
                     continue
                 if gt_entry["classification"] == "suspicious":
                     has_suspicious_evidence = True
-                    expected_cats = gt_entry.get(
+                    expected_cats_raw = gt_entry.get(
                         "expected_detection_categories",
                         gt_entry.get("expected_detection_category", ""),
                     )
-                    if isinstance(expected_cats, str):
-                        expected_cats = [
-                            c.strip().lower()
-                            for c in expected_cats.split(",")
-                            if c.strip()
-                        ]
-                    else:
-                        expected_cats = [c.strip().lower() for c in expected_cats]
-                    if alert_cats & set(expected_cats) or not expected_cats:
+                    if alert_categories_match(alert_cats, expected_cats_raw):
                         is_tp = True
                         detected_suspicious_event_ids.add(eid)
                 elif gt_entry["classification"] == "benign":

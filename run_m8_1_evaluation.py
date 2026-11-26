@@ -24,7 +24,11 @@ from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from sentinelforge.datasets.evaluation import evaluate_detections
+from sentinelforge.datasets.evaluation import (
+    CATEGORY_ALIASES,
+    alert_categories_match,
+    evaluate_detections,
+)
 from sentinelforge.datasets.generator import DatasetGenerator
 from sentinelforge.datasets.ground_truth_labels import EventGroundTruthManifest
 from sentinelforge.datasets.validators import validate_dataset
@@ -234,12 +238,35 @@ def generate_confusion_matrix(
     for result in detection_results:
         evidence_ids = [ev.event_id for ev in result.evidence]
         classifications = set()
+
+        # Build this alert's categories using the same alias table as
+        # evaluate_detections() so both event-level paths agree on what
+        # counts as a detected suspicious event.
+        rule_id = getattr(result, "rule_id", "unknown")
+        metadata = getattr(result, "metadata", {}) or {}
+        mitre_technique = metadata.get("mitre_attack_technique", "")
+        alert_categories: set[str] = set()
+        if mitre_technique:
+            alert_categories.add(mitre_technique.lower())
+        alert_categories.update(CATEGORY_ALIASES.get(rule_id, set()))
+        alert_categories.add(rule_id)
+
         for eid in evidence_ids:
             gt_entry = gt_by_event.get(eid)
             if gt_entry:
                 classifications.add(gt_entry["classification"])
                 if gt_entry["classification"] == "suspicious":
-                    detected_suspicious_ids.add(eid)
+                    expected_cats_raw = gt_entry.get(
+                        "expected_detection_categories",
+                        gt_entry.get("expected_detection_category", ""),
+                    )
+                    # Count the event as detected only when at least one
+                    # alert matches its expected detection category. Alerts
+                    # on suspicious evidence with the wrong category are
+                    # attribution errors, not true detections — consistent
+                    # with evaluate_detections().
+                    if alert_categories_match(alert_categories, expected_cats_raw):
+                        detected_suspicious_ids.add(eid)
 
         if "suspicious" in classifications:
             alerts_on_suspicious += 1
