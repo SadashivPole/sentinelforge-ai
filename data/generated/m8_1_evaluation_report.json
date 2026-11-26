@@ -73,10 +73,10 @@
     "errors": []
   },
   "pipeline_timing": {
-    "normalization": 0.7278466999996454,
-    "detection": 0.16706529998918995,
-    "risk_scoring": 0.004471899999771267,
-    "total": 0.8993838999886066
+    "normalization": 0.2303403999976581,
+    "detection": 0.04875289999472443,
+    "risk_scoring": 0.0016810999950394034,
+    "total": 0.28077439998742193
   },
   "db_verification": {
     "integrity": "ok",

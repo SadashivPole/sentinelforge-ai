@@ -67,7 +67,7 @@ Open a pull request against the main branch. Describe your changes and any test 
 ### Do Not
 
 - Add credentials, API keys, tokens, or secrets to source code
-- Modify detection thresholds without updating validation scripts
+- Modify detection thresholds without also updating relevant tests, evaluation fixtures, and documentation
 - Claim production readiness or real-time capabilities
 - Fabricate benchmark or detection metrics
 - Describe batch replay as live streaming or real-time
