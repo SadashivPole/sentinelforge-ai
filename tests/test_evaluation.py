@@ -988,3 +988,111 @@ def test_assessment_coverage_exact_numerator_denominator():
     assert result.alert_level.assessed_alerts == 3  # 1 + 1 + 1
     assert result.alert_level.unassessed_alerts == 5
     assert result.alert_level.assessment_coverage == round(3 / 8, 4)
+
+
+# ---------------------------------------------------------------------------
+# Regression test: M8.1 metric discrepancy
+# ---------------------------------------------------------------------------
+#
+# The M8.1 report's event-level evaluation (evaluate_detections) and its
+# confusion matrix (generate_confusion_matrix) disagreed: 498 vs 501 detected
+# suspicious events. Root cause: generate_confusion_matrix() counted ANY
+# alert touching a suspicious event as "detected", while evaluate_detections()
+# required the alert's category to match the event's expected detection
+# category. A wrong-category alert on suspicious evidence is an attribution
+# error, not a true detection.
+#
+# Both paths now share alert_categories_match() + CATEGORY_ALIASES so they can
+# never diverge again. This test reproduces the discrepancy scenario at small
+# scale and asserts both report the same detected count.
+
+
+def test_event_level_detected_requires_category_match():
+    """Wrong-category detection on a suspicious event is not event-level TP.
+
+    Reproduces the M8.1 divergence: a password_spray alert firing on an event
+    whose ground truth expects failed_login_burst. Before the fix,
+    generate_confusion_matrix() counted it as detected; evaluate_detections()
+    did not. Both must now agree (counted once = category match only).
+    """
+    from run_m8_1_evaluation import generate_confusion_matrix
+
+    gt_entries = [
+        make_gt_entry(
+            "evt-wrong-cat-1",
+            "suspicious",
+            "scenario-st-002",
+            "failed_login_burst",
+            "high",
+            "brute force",
+        ),
+        make_gt_entry(
+            "evt-right-cat-1",
+            "suspicious",
+            "scenario-st-003",
+            "password_spray",
+            "high",
+            "password spraying",
+        ),
+    ]
+    gt = {
+        "dataset_id": "test-ds",
+        "total_events": len(gt_entries),
+        "entries": gt_entries,
+    }
+
+    # password_spray alert on the failed_login_burst event -> WRONG category.
+    wrong_cat_det = make_detection_result(
+        rule_id="sentinelforge.detection.password_spray",
+        rule_name="Password Spray",
+        evidence_event_ids=["evt-wrong-cat-1"],
+        mitre_technique="T1110.003",
+    )
+    # password_spray alert on the password_spray event -> correct category.
+    right_cat_det = make_detection_result(
+        rule_id="sentinelforge.detection.password_spray",
+        rule_name="Password Spray",
+        evidence_event_ids=["evt-right-cat-1"],
+        mitre_technique="T1110.003",
+    )
+
+    detection_results = [wrong_cat_det, right_cat_det]
+
+    # evaluate_detections() event-level path.
+    result = evaluate_with_gt(detection_results, gt_entries, [])
+    assert result.event_level.total_suspicious_events == 2
+    assert result.event_level.detected_suspicious_events == 1
+    assert result.event_level.undetected_suspicious_events == 1
+    assert result.event_level.recall == 0.5
+
+    # generate_confusion_matrix() must agree exactly.
+    confusion = generate_confusion_matrix(detection_results, gt)
+    assert confusion["suspicious_events_detected"] == 1
+    assert confusion["suspicious_events_missed"] == 1
+    assert (
+        confusion["suspicious_events_detected"]
+        == result.event_level.detected_suspicious_events
+    )
+    assert (
+        confusion["suspicious_events_missed"]
+        == result.event_level.undetected_suspicious_events
+    )
+
+
+def test_alert_categories_match_helper():
+    """alert_categories_match() encodes the shared match definition."""
+    from sentinelforge.datasets.evaluation import alert_categories_match
+
+    alert_cats = {"password_spray", "t1110.003"}
+
+    # Category matches expected category.
+    assert alert_categories_match(alert_cats, "password_spray") is True
+    # Comma-separated list, one matches.
+    assert alert_categories_match(alert_cats, "c2_beacon, password_spray") is True
+    # No match -> not detected.
+    assert alert_categories_match(alert_cats, "failed_login_burst") is False
+    # No expected categories -> any alert counts as detected.
+    assert alert_categories_match(alert_cats, "") is True
+    assert alert_categories_match(alert_cats, []) is True
+    # Case-insensitive.
+    assert alert_categories_match(alert_cats, "PASSWORD_SPRAY") is True

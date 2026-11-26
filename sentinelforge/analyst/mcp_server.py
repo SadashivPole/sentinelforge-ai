@@ -24,10 +24,8 @@ try:
     from mcp.server.models import InitializationOptions
     from mcp.server.stdio import stdio_server
     from mcp.types import (
-        CallToolRequest,
         CallToolRequestParams,
         CallToolResult,
-        ListToolsRequest,
         ListToolsResult,
         PaginatedRequestParams,
         ServerCapabilities,
@@ -384,13 +382,13 @@ class AnalystMCPServer:
 
         server.add_request_handler(
             "tools/list",
-            ListToolsRequest,
-            handle_list_tools,  # type: ignore[arg-type]
+            PaginatedRequestParams,
+            handle_list_tools,
         )
         server.add_request_handler(
             "tools/call",
-            CallToolRequest,
-            handle_call_tool,  # type: ignore[arg-type]
+            CallToolRequestParams,
+            handle_call_tool,
         )
 
     def _dispatch(self, name: str, args: dict[str, Any]) -> CallToolResult:
