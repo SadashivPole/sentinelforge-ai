@@ -8,7 +8,7 @@
 **Classification:** Demonstrable SOC prototype — not production-ready
 **License:** MIT
 **Python:** >=3.11
-**Tests:** 460 pass in CI on Python 3.12 and 3.13
+**Tests:** 462 pass in CI on Python 3.12 and 3.13 (latest verified run, November 26, 2026)
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Project Status
@@ -127,6 +127,8 @@ Detection quality is evaluated against an independently authored holdout dataset
 - Timezone-aware timestamp filtering and chronological ordering across mixed UTC offsets.
 - Regression tests and Python 3.12/3.13 CI validation.
 - Default installation and optional MCP installation verified on clean virtual environments.
+- M8.1 evaluation: event-level evaluation and the confusion matrix now share category-matching logic (`alert_categories_match` / `CATEGORY_ALIASES`); wrong-category detections on suspicious evidence are counted as attribution errors, not true detections. Regenerated report is internally consistent: 641 suspicious events, 498 detected, 143 missed, 0.7769 recall.
+- MCP stdio: fixed tool-call parameter-model registration so all seven read-only tools invoke correctly over stdio; SQLite read-only enforcement (`mode=ro` + `PRAGMA query_only=ON`) retained.
 
 ## Documentation, contribution, and license
 

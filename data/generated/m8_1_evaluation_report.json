@@ -73,10 +73,10 @@
     "errors": []
   },
   "pipeline_timing": {
-    "normalization": 0.591594299999997,
-    "detection": 0.15790710000146646,
-    "risk_scoring": 0.0020218999998178333,
-    "total": 0.7515233000012813
+    "normalization": 0.7278466999996454,
+    "detection": 0.16706529998918995,
+    "risk_scoring": 0.004471899999771267,
+    "total": 0.8993838999886066
   },
   "db_verification": {
     "integrity": "ok",
@@ -185,10 +185,10 @@
       {
         "rule_id": "sentinelforge.detection.failed_login_burst",
         "rule_name": "Failed Login Burst",
-        "expected_events": 212,
+        "expected_events": 211,
         "detected_events": 69,
-        "missed_events": 143,
-        "recall": 0.3255
+        "missed_events": 142,
+        "recall": 0.327
       },
       {
         "rule_id": "sentinelforge.detection.password_spray",
@@ -320,8 +320,8 @@
   },
   "confusion_matrix": {
     "suspicious_events_total": 641,
-    "suspicious_events_detected": 501,
-    "suspicious_events_missed": 140,
+    "suspicious_events_detected": 498,
+    "suspicious_events_missed": 143,
     "alerts_on_suspicious_evidence": 18,
     "alerts_on_benign_evidence": 2,
     "alerts_on_unlabeled_evidence": 152

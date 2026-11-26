@@ -35,18 +35,17 @@ Implement your feature, fix a bug, or improve documentation. Add tests for any n
 python -m pytest
 ```
 
-**Expected:** `363 passed, 1 skipped`
+Test totals change as tests are added; compare the local result against the current GitHub Actions CI run (Python 3.12 and 3.13) rather than a hardcoded count.
 
-### Step 6: Run validation scripts
+### Step 6: Run validation checks
 
 ```bash
-python validate_ingestion.py
-python validate_reliability.py
-python validate_security.py
-python validate_detection_quality.py
-python validate_soc_usefulness.py
-python benchmark_replay.py
+ruff check sentinelforge/ tests/
+ruff format --check sentinelforge/ tests/
+mypy sentinelforge/
 ```
+
+When the optional scanning dependencies are installed, also run `bandit -r sentinelforge/` and `pip-audit -r requirements.txt`. Confirm the current GitHub Actions CI result before submitting a pull request.
 
 ### Step 7: Submit a pull request
 

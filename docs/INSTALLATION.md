@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.12 or later
+- Python 3.11 or later (package minimum; CI validates Python 3.12 and 3.13)
 - Git
 - Approximately 200 MB of disk space
 
@@ -48,7 +48,7 @@ sentinelforge dashboard --help
 python -m pytest
 ```
 
-Expected: `363 passed, 1 skipped`
+Test totals change as tests are added; compare the local result against the current GitHub Actions CI run (Python 3.12 and 3.13) rather than a hardcoded count.
 
 ## Configuration
 
