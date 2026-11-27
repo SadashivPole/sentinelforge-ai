@@ -13,7 +13,8 @@ against a real temporary SQLite database, covering:
 8. ``ioc validate`` never writes to the database.
 9. Oversized files are rejected with bounded reads.
 10. Non-object JSON records are rejected without crashing.
-11. A failed persistence operation never reports a false successful import.
+11. Conflicting existing indicator content is reported, not overwritten.
+12. Genuine database persistence failure returns EXIT_ERROR.
 """
 
 from __future__ import annotations
@@ -22,10 +23,12 @@ import argparse
 import hashlib
 import json
 import os
+import sqlite3
+from unittest.mock import patch
 
 import pytest
 
-from sentinelforge.cli.main import cmd_ioc
+from sentinelforge.cli.main import EXIT_ERROR, cmd_ioc
 from sentinelforge.storage.database import Database
 from sentinelforge.storage.repositories import DuplicateIdCollisionError, IOCRepository
 from sentinelforge.storage.schema import IOC
@@ -54,7 +57,9 @@ def _write_feed(db: Database, name: str, content: bytes) -> str:
     return path
 
 
-def _import_args(db: Database, feed_path: str, source: str = "test-src") -> argparse.Namespace:
+def _import_args(
+    db: Database, feed_path: str, source: str = "test-src"
+) -> argparse.Namespace:
     return argparse.Namespace(
         ioc_command="import",
         file=feed_path,
@@ -377,11 +382,19 @@ def test_cli_non_object_json_records_rejected(tmp_db: Database, capsys) -> None:
         "feed.json",
         json.dumps(
             [
-                {"indicator_type": "ipv4", "indicator_value": "1.2.3.4", "source_name": "s"},
+                {
+                    "indicator_type": "ipv4",
+                    "indicator_value": "1.2.3.4",
+                    "source_name": "s",
+                },
                 123,
                 None,
                 "malformed",
-                {"indicator_type": "domain", "indicator_value": "good.example.com", "source_name": "s"},
+                {
+                    "indicator_type": "domain",
+                    "indicator_value": "good.example.com",
+                    "source_name": "s",
+                },
             ]
         ).encode("utf-8"),
     )
@@ -398,9 +411,9 @@ def test_cli_non_object_json_records_rejected(tmp_db: Database, capsys) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 11. Failed persistence never reports false successful import
+# 11. Conflicting existing indicator content is reported, not stored
 # --------------------------------------------------------------------------- #
-def test_cli_persistence_failure_not_reported_as_success(tmp_db: Database, capsys) -> None:
+def test_cli_conflicting_content_reported_not_stored(tmp_db: Database, capsys) -> None:
     # Pre-insert with the same source name the import CLI uses ("test-src").
 
     indicator_id = _indicator_id("test-src", "domain", "conflict.example.com")
@@ -455,3 +468,46 @@ def test_cli_persistence_failure_not_reported_as_success(tmp_db: Database, capsy
                 confidence=80,
             )
         )
+
+
+# --------------------------------------------------------------------------- #
+# 12. Genuine database persistence failure returns EXIT_ERROR
+# --------------------------------------------------------------------------- #
+def test_cli_persistence_database_error_returns_exit_error(
+    tmp_db: Database, capsys
+) -> None:
+    # Force IOCRepository.insert_ioc() to raise a genuine database error.
+    # The CLI must return EXIT_ERROR, report the error on stderr, and never
+    # report the failed IOC as successfully stored.
+    feed = _write_feed(
+        tmp_db,
+        "feed.json",
+        _json(
+            [
+                {
+                    "indicator_type": "ipv4",
+                    "indicator_value": "198.51.100.7",
+                    "source_name": "test-src",
+                }
+            ]
+        ),
+    )
+    args = _import_args(tmp_db, feed)
+
+    with patch.object(
+        IOCRepository,
+        "insert_ioc",
+        side_effect=sqlite3.OperationalError("database is locked"),
+    ):
+        code = cmd_ioc(args)
+
+    assert code == EXIT_ERROR
+
+    captured = capsys.readouterr()
+    assert "ERROR: Failed to persist IOC" in captured.err
+    assert "database is locked" in captured.err
+    assert "Stored: 1" not in captured.out
+    assert "Already present: 1" not in captured.out
+
+    # No IOC was stored — count remains 0.
+    assert _count_iocs(tmp_db) == 0

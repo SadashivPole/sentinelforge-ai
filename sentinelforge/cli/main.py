@@ -410,6 +410,35 @@ def cmd_ioc(args: argparse.Namespace) -> int:
     from sentinelforge.threat_intel.retro_hunt import RetroHuntResult, run_retro_hunt
 
     db_path = getattr(args, "db_path", None) or settings.db_path
+
+    # --- validate-only path: no database initialization ---
+    if args.ioc_command == "validate":
+        try:
+            with open(args.file, "rb") as fh:
+                file_bytes = fh.read(MAX_IMPORT_FILE_BYTES + 1)
+        except OSError as exc:
+            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        if len(file_bytes) > MAX_IMPORT_FILE_BYTES:
+            print(
+                f"ERROR: Import file too large (max {MAX_IMPORT_FILE_BYTES} bytes)",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+        validate_result: ImportResult = import_iocs(
+            file_bytes,
+            args.source or "validate",
+            source_reference=args.source_reference,
+        )
+        print(
+            f"Would import: {len(validate_result.imported)}  "
+            f"Would reject: {len(validate_result.rejected)}"
+        )
+        for r in validate_result.rejected:
+            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
+        return EXIT_OK
+
+    # All other commands require a database.
     db = Database(db_path)
     try:
         db.initialize()
@@ -521,31 +550,6 @@ def cmd_ioc(args: argparse.Namespace) -> int:
             f"Conflicting: {conflicting}  Rejected: {len(import_result.rejected)}"
         )
         for r in import_result.rejected:
-            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
-        return EXIT_OK
-
-    if args.ioc_command == "validate":
-        try:
-            with open(args.file, "rb") as fh:
-                file_bytes = fh.read(MAX_IMPORT_FILE_BYTES + 1)
-        except OSError as exc:
-            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
-            return EXIT_ERROR
-        if len(file_bytes) > MAX_IMPORT_FILE_BYTES:
-            print(
-                f"ERROR: Import file too large (max {MAX_IMPORT_FILE_BYTES} bytes)",
-                file=sys.stderr,
-            )
-            return EXIT_ERROR
-        validate_result: ImportResult = import_iocs(
-            file_bytes,
-            args.source or "validate",
-            source_reference=args.source_reference,
-        )
-        print(
-            f"Would import: {len(validate_result.imported)}  Would reject: {len(validate_result.rejected)}"
-        )
-        for r in validate_result.rejected:
             print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
         return EXIT_OK
 
