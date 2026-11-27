@@ -20,6 +20,7 @@ from sentinelforge.ingestion.normalizer import (
 )
 from sentinelforge.risk.scorer import RiskAssessment, ScoringFactor
 from sentinelforge.storage.database import Database
+from sentinelforge.storage.schema import Incident
 
 
 class DuplicateIdCollisionError(ValueError):
@@ -1135,3 +1136,164 @@ class RiskAssessmentRepository:
                 [*params, limit, offset],
             ).fetchall()
             return [_row_to_assessment(row) for row in rows]
+
+
+def _row_to_incident(row) -> Incident:
+    return Incident(
+        incident_id=row["incident_id"],
+        title=row["title"],
+        correlation_rationale=row["correlation_rationale"],
+        severity=row["severity"],
+        status=row["status"],
+        hosts=json.loads(row["hosts_json"] or "[]"),
+        users=json.loads(row["users_json"] or "[]"),
+        source_addresses=json.loads(row["source_addresses_json"] or "[]"),
+        destination_addresses=json.loads(row["destination_addresses_json"] or "[]"),
+        first_seen=row["first_seen"],
+        last_seen=row["last_seen"],
+        evidence_complete=bool(row["evidence_complete"]),
+        related_alert_count=row["related_alert_count"],
+        related_event_count=row["related_event_count"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+class IncidentRepository:
+    """Repository for correlated incident groupings.
+
+    Incidents are analyst-facing groupings produced by explicit correlation
+    rules. Alerts and events are linked to an incident through junction
+    tables; the raw evidence itself remains in the ``events`` and
+    ``detections`` tables.
+    """
+
+    def __init__(self, db: Database) -> None:
+        self.db = db
+
+    def count_incidents(self) -> int:
+        """Return the total number of stored incidents."""
+        with self.db.connection() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM incidents").fetchone()
+            return int(row["c"]) if row else 0
+
+    def insert_incident(self, incident: Incident) -> str:
+        """Insert an incident.
+
+        Returns the incident_id. Re-inserting the same incident_id with
+        identical content is idempotent; conflicting content is rejected to
+        preserve the integrity of the correlation record.
+        """
+        row = incident.to_row()
+        with self.db.transaction() as conn:
+            existing = conn.execute(
+                "SELECT status, severity, first_seen, last_seen, "
+                "related_alert_count, related_event_count, updated_at "
+                "FROM incidents WHERE incident_id = ?",
+                (incident.incident_id,),
+            ).fetchone()
+            if existing is not None:
+                existing_hash = _content_hash(
+                    {
+                        "status": existing["status"],
+                        "severity": existing["severity"],
+                        "first_seen": existing["first_seen"],
+                        "last_seen": existing["last_seen"],
+                        "related_alert_count": existing["related_alert_count"],
+                        "related_event_count": existing["related_event_count"],
+                        "updated_at": existing["updated_at"],
+                    }
+                )
+                new_hash = _content_hash(
+                    {
+                        "status": incident.status,
+                        "severity": incident.severity,
+                        "first_seen": incident.first_seen,
+                        "last_seen": incident.last_seen,
+                        "related_alert_count": incident.related_alert_count,
+                        "related_event_count": incident.related_event_count,
+                        "updated_at": incident.updated_at,
+                    }
+                )
+                if existing_hash != new_hash:
+                    raise DuplicateIdCollisionError(
+                        f"Incident {incident.incident_id} already exists with "
+                        "different content; immutable record cannot be "
+                        "overwritten."
+                    )
+                return incident.incident_id
+
+            conn.execute(
+                """
+                INSERT INTO incidents (
+                    incident_id, title, correlation_rationale, severity,
+                    status, hosts_json, users_json, source_addresses_json,
+                    destination_addresses_json, first_seen, last_seen,
+                    evidence_complete, related_alert_count,
+                    related_event_count, created_at, updated_at
+                ) VALUES (
+                    :incident_id, :title, :correlation_rationale, :severity,
+                    :status, :hosts, :users, :source_addresses,
+                    :destination_addresses, :first_seen, :last_seen,
+                    :evidence_complete, :related_alert_count,
+                    :related_event_count, :created_at, :updated_at
+                )
+                """,
+                row,
+            )
+        return incident.incident_id
+
+    def get_incident(self, incident_id: str) -> Incident | None:
+        """Retrieve a single incident by ID."""
+        with self.db.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM incidents WHERE incident_id = ?",
+                (incident_id,),
+            ).fetchone()
+            return _row_to_incident(row) if row else None
+
+    def list_incidents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        severity: str | None = None,
+    ) -> list[Incident]:
+        """Retrieve incidents with optional status and severity filtering."""
+        status = status or None
+        severity = severity or None
+        params: list[Any] = [status, status, severity, severity]
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM incidents
+                WHERE (? IS NULL OR status = ?)
+                  AND (? IS NULL OR severity = ?)
+                ORDER BY first_seen DESC, incident_id
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+            return [_row_to_incident(row) for row in rows]
+
+    def link_alert(self, incident_id: str, detection_id: str) -> None:
+        """Link a detection (alert) to an incident."""
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO incident_alerts (incident_id, detection_id)
+                VALUES (?, ?)
+                """,
+                (incident_id, detection_id),
+            )
+
+    def link_event(self, incident_id: str, event_id: str) -> None:
+        """Link an event to an incident."""
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO incident_events (incident_id, event_id)
+                VALUES (?, ?)
+                """,
+                (incident_id, event_id),
+            )

@@ -24,6 +24,7 @@ from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
     Evidence,
+    RuleCatalogEntry,
     Severity,
 )
 from sentinelforge.ingestion.normalizer import NetworkInfo, NormalizedEvent
@@ -452,3 +453,48 @@ def _group_process_name(
     if not names:
         return None
     return Counter(names).most_common(1)[0][0]
+
+
+CATALOG_ENTRY = RuleCatalogEntry(
+    rule_id="sentinelforge.detection.c2_beacon",
+    name="Potential C2 Beaconing",
+    version="1.0.0",
+    objective=(
+        "Detect repeated, periodic outbound connections to a destination "
+        "consistent with command-and-control beaconing"
+    ),
+    category="command_and_control",
+    severity=Severity.MEDIUM,
+    attack_tactic="Command and Control",
+    attack_tactic_id="TA0011",
+    attack_technique="T1071",
+    attack_technique_id=None,
+    required_data_source="network connection logs (firewall, proxy, connection events)",
+    required_fields=[
+        "event_type",
+        "source_address",
+        "dest_address",
+        "dest_port",
+        "timestamp",
+        "protocol",
+    ],
+    threshold="min_connections >= settings.beacon_min_connections (default 6)",
+    time_window_seconds=None,
+    false_positive_conditions=[
+        "EDR heartbeats, software updates, monitoring agents, scheduled polling",
+        "Legitimate periodic API polling from known services",
+    ],
+    investigation_instructions=[
+        "Review connection interval regularity and destination reputation",
+        "Check allowlisted destinations/ports/processes",
+        "Correlate with process that initiated connections",
+    ],
+    external_references=["MITRE ATT&CK T1071"],
+    test_references=[
+        "tests/test_beacon.py::test_potential_beacon_detects_regular_intervals",
+        "tests/test_beacon.py::test_irregular_intervals_no_alert",
+        "tests/test_beacon.py::test_allowlisted_destination_no_alert",
+    ],
+    execution_status="working",
+    validation_status="validated",
+)

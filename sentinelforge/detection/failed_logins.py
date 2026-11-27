@@ -18,6 +18,7 @@ from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
     Evidence,
+    RuleCatalogEntry,
     Severity,
 )
 from sentinelforge.ingestion.normalizer import NormalizedEvent
@@ -225,3 +226,48 @@ class FailedLoginBurstRule(DetectionRule):
                 best_slice = events[i:j]
 
         return best_slice
+
+
+CATALOG_ENTRY = RuleCatalogEntry(
+    rule_id="sentinelforge.detection.failed_login_burst",
+    name="Failed Login Burst",
+    version="1.0.0",
+    objective=(
+        "Detect multiple failed authentication attempts from one source "
+        "against one account within a configurable time window"
+    ),
+    category="authentication",
+    severity=Severity.HIGH,
+    attack_tactic="Credential Access",
+    attack_tactic_id="TA0006",
+    attack_technique="T1110",
+    attack_technique_id="T1110.001",
+    required_data_source="authentication logs",
+    required_fields=[
+        "event_type",
+        "source_address",
+        "username",
+        "host",
+        "timestamp",
+        "outcome",
+    ],
+    threshold="settings.failed_login_threshold",
+    time_window_seconds="settings.failed_login_window_seconds",
+    false_positive_conditions=[
+        "Legitimate repeated login failures (e.g., user forgot password)",
+        "Service-account retry storms after credential rotation",
+    ],
+    investigation_instructions=[
+        "Check for successful logins from the same source IP",
+        "Review account lockout policies",
+        "Identify targeted accounts",
+    ],
+    external_references=["MITRE ATT&CK T1110 / T1110.001"],
+    test_references=[
+        "tests/test_detection.py::test_multiple_failures_from_one_source_trigger_alert",
+        "tests/test_detection.py::test_single_failed_login_no_alert",
+        "tests/test_detection.py::test_failures_outside_time_window_no_alert",
+    ],
+    execution_status="working",
+    validation_status="validated",
+)
