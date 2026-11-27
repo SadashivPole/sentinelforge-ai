@@ -137,3 +137,159 @@ class DetectionCorrelator:
             first_triggered=min(valid_ts) if valid_ts else None,
             last_triggered=max(valid_ts) if valid_ts else None,
         )
+
+
+def _incident_id(detection_ids: list[str]) -> str:
+    """Deterministic incident ID derived from the sorted detection IDs.
+
+    The same set of detections always yields the same incident ID, which makes
+    correlation reproducible and idempotent.
+    """
+    import hashlib
+
+    joined = ",".join(sorted(detection_ids))
+    return "incident-" + hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def _user_of(result: DetectionResult) -> str | None:
+    """Extract the affected user from a detection result."""
+    if result.metadata and result.metadata.get("user"):
+        return str(result.metadata["user"])
+    if result.evidence and result.evidence[0].user:
+        return result.evidence[0].user
+    return None
+
+
+def _addresses_of(result: DetectionResult, field: str) -> list[str]:
+    """Extract address values (source or destination) from evidence + metadata."""
+    values: list[str] = []
+    if result.metadata and result.metadata.get(field):
+        values.append(str(result.metadata[field]))
+    for evidence in result.evidence:
+        value = getattr(evidence, field, None)
+        if value:
+            values.append(str(value))
+    return values
+
+
+def _technique_of(result: DetectionResult) -> str | None:
+    """Extract the ATT&CK technique from detection metadata, if recorded."""
+    if result.metadata and result.metadata.get("attack_technique"):
+        return str(result.metadata["attack_technique"])
+    return None
+
+
+def _values_for_key(result: DetectionResult, key: str) -> list[str]:
+    """Extract the correlation values for a single key from a detection result."""
+    if key == "host":
+        host = _host_of(result)
+        return [host] if host else []
+    if key == "user":
+        user = _user_of(result)
+        return [user] if user else []
+    if key == "source_address":
+        return _addresses_of(result, "source_address")
+    if key == "destination_address":
+        return _addresses_of(result, "destination_address")
+    if key == "attack_technique":
+        technique = _technique_of(result)
+        return [technique] if technique else []
+    return []
+
+
+@dataclass(frozen=True)
+class CorrelationGroup:
+    """A group of detections sharing one correlation key within a time window.
+
+    Correlation does not imply causation; ``rationale`` records the key and
+    values that justified the grouping so analysts can verify it.
+    """
+
+    group_id: str
+    key_type: str
+    key_value: str
+    detection_ids: list[str]
+    rule_ids: set[str]
+    severities: list[Severity]
+    first_triggered: datetime | None
+    last_triggered: datetime | None
+    rationale: str
+
+
+def correlate_multi_key(
+    results: list[DetectionResult],
+    keys: tuple[str, ...] = ("host",),
+    window_seconds: int = 3600,
+) -> list[CorrelationGroup]:
+    """Group detections by shared correlation key within a time window.
+
+    For each key type, detections are grouped by key value; within each value
+    group a sliding time window splits the detections into sub-clusters. Each
+    sub-cluster becomes a :class:`CorrelationGroup` with a deterministic
+    ``group_id``. A detection can appear in multiple groups (once per matching
+    key), which is intentional — a host and an IP are independent pivot points.
+
+    Existing detections are counted once per group; unrelated key values are
+    never mixed.
+    """
+    groups: list[CorrelationGroup] = []
+    for key in keys:
+        by_value: dict[str, list[DetectionResult]] = {}
+        for result in results:
+            for value in _values_for_key(result, key):
+                by_value.setdefault(value, []).append(result)
+
+        for key_value, value_results in by_value.items():
+            sorted_results = sorted(
+                value_results,
+                key=lambda r: (
+                    _parse_triggered_at(r) or datetime.min.replace(tzinfo=UTC)
+                ),
+            )
+            current: list[DetectionResult] = []
+            cluster_start: datetime | None = None
+
+            for result in sorted_results:
+                ts = _parse_triggered_at(result)
+                if cluster_start is None:
+                    cluster_start = ts
+                    current = [result]
+                    continue
+                if ts is not None and cluster_start is not None:
+                    gap = (ts - cluster_start).total_seconds()
+                else:
+                    gap = float("inf")
+                if gap <= window_seconds:
+                    current.append(result)
+                else:
+                    groups.append(_make_group(key, key_value, current))
+                    current = [result]
+                    cluster_start = ts
+            if current:
+                groups.append(_make_group(key, key_value, current))
+    return groups
+
+
+def _make_group(
+    key: str, key_value: str, results: list[DetectionResult]
+) -> CorrelationGroup:
+    ids = [r.detection_id for r in results]
+    rule_ids = {r.rule_id for r in results}
+    severities = [r.severity for r in results]
+    timestamps = [_parse_triggered_at(r) for r in results]
+    valid_ts = [t for t in timestamps if t is not None]
+    rationale = (
+        f"{len(results)} detection(s) share {key}={key_value} "
+        f"within the correlation window"
+    )
+    return CorrelationGroup(
+        group_id=_incident_id(ids),
+        key_type=key,
+        key_value=key_value,
+        detection_ids=ids,
+        rule_ids=rule_ids,
+        severities=severities,
+        first_triggered=min(valid_ts) if valid_ts else None,
+        last_triggered=max(valid_ts) if valid_ts else None,
+        rationale=rationale,
+    )

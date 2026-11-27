@@ -15,12 +15,39 @@ from typing import Any
 
 from sentinelforge.config import settings
 from sentinelforge.datasets.evaluation import evaluate_detections
-from sentinelforge.detection.base import RuleRegistry
-from sentinelforge.detection.beacon import C2BeaconRule
-from sentinelforge.detection.failed_logins import FailedLoginBurstRule
-from sentinelforge.detection.password_spray import PasswordSprayRule
-from sentinelforge.detection.powershell import SuspiciousPowerShellRule
-from sentinelforge.detection.processtree import SuspiciousProcessTreeRule
+from sentinelforge.detection.base import (
+    RuleRegistry,
+)
+from sentinelforge.detection.beacon import (
+    CATALOG_ENTRY as BEACON_CATALOG_ENTRY,
+)
+from sentinelforge.detection.beacon import (
+    C2BeaconRule,
+)
+from sentinelforge.detection.failed_logins import (
+    CATALOG_ENTRY as FAILED_LOGIN_BURST_CATALOG_ENTRY,
+)
+from sentinelforge.detection.failed_logins import (
+    FailedLoginBurstRule,
+)
+from sentinelforge.detection.password_spray import (
+    CATALOG_ENTRY as PASSWORD_SPRAY_CATALOG_ENTRY,
+)
+from sentinelforge.detection.password_spray import (
+    PasswordSprayRule,
+)
+from sentinelforge.detection.powershell import (
+    CATALOG_ENTRY as SUSPICIOUS_POWERSHELL_CATALOG_ENTRY,
+)
+from sentinelforge.detection.powershell import (
+    SuspiciousPowerShellRule,
+)
+from sentinelforge.detection.processtree import (
+    CATALOG_ENTRY as SUSPICIOUS_PROCESSTREE_CATALOG_ENTRY,
+)
+from sentinelforge.detection.processtree import (
+    SuspiciousProcessTreeRule,
+)
 from sentinelforge.ingestion.normalizer import normalize
 from sentinelforge.ingestion.reader import LogParseError, reader_for
 from sentinelforge.storage.database import Database
@@ -28,6 +55,7 @@ from sentinelforge.storage.repositories import (
     DetectionRepository,
     DuplicateIdCollisionError,
     EventRepository,
+    IncidentRepository,
 )
 
 EXIT_OK = 0
@@ -35,14 +63,49 @@ EXIT_ERROR = 1
 
 
 def _build_registry() -> RuleRegistry:
-    """Build and register all detection rules."""
+    """Build and register all detection rules and their catalog entries."""
     registry = RuleRegistry()
     registry.register(FailedLoginBurstRule())
     registry.register(PasswordSprayRule())
     registry.register(SuspiciousPowerShellRule())
     registry.register(SuspiciousProcessTreeRule())
     registry.register(C2BeaconRule())
+    registry.register_catalog_entry(FAILED_LOGIN_BURST_CATALOG_ENTRY)
+    registry.register_catalog_entry(PASSWORD_SPRAY_CATALOG_ENTRY)
+    registry.register_catalog_entry(SUSPICIOUS_POWERSHELL_CATALOG_ENTRY)
+    registry.register_catalog_entry(SUSPICIOUS_PROCESSTREE_CATALOG_ENTRY)
+    registry.register_catalog_entry(BEACON_CATALOG_ENTRY)
     return registry
+
+
+def _list_rules(registry: RuleRegistry) -> int:
+    """Print the detection catalog as a table and return success."""
+    catalog = registry.catalog
+    report = catalog.validation_report()
+    print("Detection catalog")
+    print("=================")
+    print(f"Total entries: {report['total_entries']}")
+    print(f"All valid: {report['all_valid']}")
+    print()
+    header = (
+        f"{'RULE ID':<46} {'NAME':<28} {'SEVERITY':<10} {'TECHNIQUE':<14} {'STATUS'}"
+    )
+    print(header)
+    print("-" * len(header))
+    for entry in catalog.entries():
+        print(
+            f"{entry.rule_id:<46} {entry.name:<28} "
+            f"{entry.severity.value:<10} "
+            f"{entry.attack_technique or '-':<14} "
+            f"{entry.validation_status}/{entry.execution_status}"
+        )
+    if report["errors"]:
+        print()
+        print("Validation errors:")
+        for rule_id, errors in report["errors"].items():
+            for err in errors:
+                print(f"  {rule_id}: {err}")
+    return EXIT_OK
 
 
 def _source_from_reader(reader: Any) -> str:
@@ -174,6 +237,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
 def cmd_detect(args: argparse.Namespace) -> int:
     """Run detection rules on stored events and optionally write results."""
+    if args.list_rules:
+        return _list_rules(_build_registry())
     db = Database(args.db_path)
 
     try:
@@ -277,6 +342,58 @@ def cmd_detect(args: argparse.Namespace) -> int:
             json.dump(output_data, fh, indent=2)
         print(f"  Results written to: {output_path}")
 
+    return EXIT_OK
+
+
+def cmd_incidents(args: argparse.Namespace) -> int:
+    """List and inspect correlated incidents."""
+    db = Database(args.db_path)
+
+    try:
+        db.initialize()
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
+        print(f"ERROR: Failed to initialize database: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    repo = IncidentRepository(db)
+
+    if args.show:
+        incident = repo.get_incident(args.show)
+        if incident is None:
+            print(f"Incident {args.show} not found.")
+            return EXIT_ERROR
+        print(f"Incident {incident.incident_id}")
+        print(f"  Title: {incident.title}")
+        print(f"  Severity: {incident.severity}  Status: {incident.status}")
+        print(f"  Rationale: {incident.correlation_rationale}")
+        print(f"  Hosts: {', '.join(incident.hosts) or '-'}")
+        print(f"  Users: {', '.join(incident.users) or '-'}")
+        print(f"  Source addresses: {', '.join(incident.source_addresses) or '-'}")
+        print(f"  First seen: {incident.first_seen}  Last seen: {incident.last_seen}")
+        print(
+            f"  Alerts: {incident.related_alert_count}  Events: {incident.related_event_count}"
+        )
+        print(f"  Evidence complete: {incident.evidence_complete}")
+        print(f"  Created: {incident.created_at}  Updated: {incident.updated_at}")
+        return EXIT_OK
+
+    incidents = repo.list_incidents(
+        limit=args.limit, status=args.status, severity=args.severity
+    )
+    if not incidents:
+        print("No incidents.")
+        return EXIT_OK
+    header = (
+        f"{'INCIDENT ID':<22} {'SEVERITY':<9} {'STATUS':<10} "
+        f"{'ALERTS':<7} {'EVENTS':<7} {'TITLE'}"
+    )
+    print(header)
+    print("-" * len(header))
+    for inc in incidents:
+        print(
+            f"{inc.incident_id:<22} {inc.severity:<9} {inc.status:<10} "
+            f"{inc.related_alert_count:<7} {inc.related_event_count:<7} {inc.title}"
+        )
     return EXIT_OK
 
 
@@ -479,7 +596,37 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         help="Write detection results to a JSON file",
     )
+    p_detect.add_argument(
+        "--list-rules",
+        action="store_true",
+        help="List registered detection rules with catalog metadata and exit",
+    )
     p_detect.set_defaults(func=cmd_detect)
+
+    # incidents
+    p_inc = subparsers.add_parser(
+        "incidents", help="List and inspect correlated incidents"
+    )
+    p_inc.add_argument(
+        "--show",
+        metavar="INCIDENT_ID",
+        help="Show details for a single incident",
+    )
+    p_inc.add_argument(
+        "--status",
+        help="Filter listed incidents by status (default: all)",
+    )
+    p_inc.add_argument(
+        "--severity",
+        help="Filter listed incidents by severity (default: all)",
+    )
+    p_inc.add_argument(
+        "--limit",
+        type=int,
+        default=50,
+        help="Maximum incidents to list (default: 50)",
+    )
+    p_inc.set_defaults(func=cmd_incidents)
 
     # evaluate
     p_eval = subparsers.add_parser("evaluate", help="Evaluate detection quality")

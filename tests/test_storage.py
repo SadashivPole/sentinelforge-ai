@@ -1388,11 +1388,11 @@ def test_actual_v1_to_v3_migration():
 
         assert get_schema_version(path) == 1
 
-        # Migrate to v3 (v1 → v2 → v3).
+        # Migrate to the current schema version (v1 → v2 → v3 → v4).
         db = Database(path)
         version = db.initialize()
-        assert version == 3
-        assert db.schema_version() == 3
+        assert version == SCHEMA_VERSION
+        assert db.schema_version() == SCHEMA_VERSION
 
         # Verify all v1 data survives migration.
         event_repo = EventRepository(db)
