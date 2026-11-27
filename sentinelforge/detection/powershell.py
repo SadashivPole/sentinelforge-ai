@@ -25,6 +25,7 @@ from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
     Evidence,
+    RuleCatalogEntry,
     Severity,
 )
 from sentinelforge.ingestion.normalizer import NormalizedEvent
@@ -231,3 +232,47 @@ class SuspiciousPowerShellRule(DetectionRule):
         if total_weight >= SCORE_MEDIUM or indicator_count >= 2:
             return Severity.MEDIUM
         return Severity.LOW
+
+
+CATALOG_ENTRY = RuleCatalogEntry(
+    rule_id="sentinelforge.detection.suspicious_powershell",
+    name="Suspicious PowerShell",
+    version="1.0.0",
+    objective=(
+        "Flag PowerShell command lines exhibiting encoded, hidden, bypass, "
+        "download-and-execute, or obfuscation indicators"
+    ),
+    category="execution",
+    severity=Severity.HIGH,
+    attack_tactic="Execution",
+    attack_tactic_id="TA0002",
+    attack_technique="T1059.001",
+    attack_technique_id=None,
+    required_data_source="process execution logs (PowerShell operational, Sysmon)",
+    required_fields=[
+        "event_type",
+        "process_name",
+        "command_line",
+        "host",
+        "timestamp",
+    ],
+    threshold="indicator weight >= 4",
+    time_window_seconds=None,
+    false_positive_conditions=[
+        "Benign administrative PowerShell using encoded commands",
+        "Signed scripts with encoded content for obfuscation-free delivery",
+    ],
+    investigation_instructions=[
+        "Decode encoded commands",
+        "Check user account activity",
+        "Review PowerShell transcription logs",
+    ],
+    external_references=["MITRE ATT&CK T1059.001"],
+    test_references=[
+        "tests/test_detection_rules.py::test_encoded_powershell_triggers",
+        "tests/test_detection_rules.py::test_execution_policy_bypass_triggers",
+        "tests/test_detection_rules.py::test_normal_administrative_powershell_no_alert",
+    ],
+    execution_status="working",
+    validation_status="validated",
+)

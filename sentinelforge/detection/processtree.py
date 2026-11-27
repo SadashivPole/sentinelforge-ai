@@ -30,6 +30,7 @@ from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
     Evidence,
+    RuleCatalogEntry,
     Severity,
 )
 from sentinelforge.ingestion.normalizer import NormalizedEvent
@@ -466,3 +467,49 @@ class SuspiciousProcessTreeRule(DetectionRule):
             )
 
         return results
+
+
+CATALOG_ENTRY = RuleCatalogEntry(
+    rule_id="sentinelforge.detection.suspicious_processtree",
+    name="Suspicious Parent-Child Process",
+    version="1.0.0",
+    objective=(
+        "Flag suspicious parent-child process relationships (e.g., Office "
+        "application launching PowerShell) with confidence scoring"
+    ),
+    category="execution",
+    severity=Severity.MEDIUM,
+    attack_tactic="Execution",
+    attack_tactic_id="TA0002",
+    attack_technique="T1204.002",
+    attack_technique_id=None,
+    required_data_source="process execution logs (Sysmon)",
+    required_fields=[
+        "event_type",
+        "process_name",
+        "parent_process",
+        "host",
+        "timestamp",
+        "ppid",
+        "pid",
+    ],
+    threshold="configured suspicious relationships",
+    time_window_seconds="settings.failed_login_window_seconds (file-activity window)",
+    false_positive_conditions=[
+        "Legitimate administrative automation spawning interpreters",
+        "Developer toolchains launching child processes",
+    ],
+    investigation_instructions=[
+        "Examine parent and child command lines",
+        "Check file-activity events preceding process execution",
+        "Correlate by host and user within the time window",
+    ],
+    external_references=["MITRE ATT&CK T1204 / T1204.002"],
+    test_references=[
+        "tests/test_detection_rules.py::test_word_spawns_powershell_triggers",
+        "tests/test_detection_rules.py::test_normal_process_relationship_no_alert",
+        "tests/test_detection_rules.py::test_wrong_host_no_t1204",
+    ],
+    execution_status="working",
+    validation_status="validated",
+)

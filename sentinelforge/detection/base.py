@@ -117,10 +117,15 @@ class RuleRegistry:
 
     def __init__(self) -> None:
         self._rules: dict[str, DetectionRule] = {}
+        self.catalog: DetectionCatalog = DetectionCatalog()
 
     def register(self, rule: DetectionRule) -> None:
         """Register a detection rule."""
         self._rules[rule.rule_id] = rule
+
+    def register_catalog_entry(self, entry: RuleCatalogEntry) -> None:
+        """Register a structured catalog entry for a detection rule."""
+        self.catalog.register(entry)
 
     def get(self, rule_id: str) -> DetectionRule | None:
         """Return a registered rule by id, or None if not registered."""
@@ -136,3 +141,96 @@ class RuleRegistry:
         for rule in self._rules.values():
             results.extend(rule.evaluate(events))
         return results
+
+
+@dataclass(frozen=True)
+class RuleCatalogEntry:
+    """Structured metadata for a single detection rule.
+
+    Fields are intentionally flat and static so the catalog can be inspected
+    without executing any rule logic. Every field is evidence-backed: nothing
+    here is aspirational or imported from an unverified external source.
+    """
+
+    rule_id: str
+    name: str
+    version: str
+    objective: str
+    category: str
+    severity: Severity
+    attack_tactic: str | None = None
+    attack_tactic_id: str | None = None
+    attack_technique: str | None = None
+    attack_technique_id: str | None = None
+    required_data_source: str | None = None
+    required_fields: list[str] = field(default_factory=list)
+    threshold: str | None = None
+    time_window_seconds: str | None = None
+    false_positive_conditions: list[str] = field(default_factory=list)
+    investigation_instructions: list[str] = field(default_factory=list)
+    external_references: list[str] = field(default_factory=list)
+    test_references: list[str] = field(default_factory=list)
+    execution_status: str = "working"
+    validation_status: str = "unvalidated"
+
+
+class DetectionCatalog:
+    """Read-only catalog of structured detection-rule metadata.
+
+    Entries are keyed by ``rule_id``. The catalog supports listing, lookup, and
+    validation (duplicate rule IDs, ATT&CK identifier format) without executing
+    any detection logic.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, RuleCatalogEntry] = {}
+
+    def register(self, entry: RuleCatalogEntry) -> None:
+        """Register a catalog entry. Later entries with the same rule_id win."""
+        self._entries[entry.rule_id] = entry
+
+    def get(self, rule_id: str) -> RuleCatalogEntry | None:
+        """Return the catalog entry for ``rule_id``, or None if absent."""
+        return self._entries.get(rule_id)
+
+    def entries(self) -> list[RuleCatalogEntry]:
+        """Return all registered catalog entries, sorted by rule_id."""
+        return sorted(self._entries.values(), key=lambda e: e.rule_id)
+
+    def validate(self) -> dict[str, list[str]]:
+        """Validate every entry, returning {rule_id: [error messages]}.
+
+        An empty dict means every entry is structurally valid.
+        """
+        errors: dict[str, list[str]] = {}
+        seen_ids: set[str] = set()
+        for entry in self._entries.values():
+            entry_errors: list[str] = []
+            if entry.rule_id in seen_ids:
+                entry_errors.append(f"duplicate rule_id: {entry.rule_id}")
+            seen_ids.add(entry.rule_id)
+
+            if entry.attack_technique and not entry.attack_technique.startswith("T"):
+                entry_errors.append(
+                    f"invalid ATT&CK technique identifier: {entry.attack_technique}"
+                )
+            if entry.attack_technique_id and "." not in entry.attack_technique_id:
+                entry_errors.append(
+                    f"attack_technique_id should be a sub-technique (e.g. T1110.001), "
+                    f"got: {entry.attack_technique_id}"
+                )
+            if not entry.required_fields:
+                entry_errors.append("no required_fields declared")
+            if entry_errors:
+                errors[entry.rule_id] = entry_errors
+        return errors
+
+    def validation_report(self) -> dict[str, Any]:
+        """Return a machine-readable validation summary."""
+        entry_errors = self.validate()
+        return {
+            "total_entries": len(self._entries),
+            "invalid_entries": len(entry_errors),
+            "errors": entry_errors,
+            "all_valid": len(entry_errors) == 0,
+        }

@@ -21,6 +21,7 @@ from sentinelforge.detection.base import (
     DetectionResult,
     DetectionRule,
     Evidence,
+    RuleCatalogEntry,
     Severity,
 )
 from sentinelforge.ingestion.normalizer import NormalizedEvent
@@ -259,3 +260,48 @@ class PasswordSprayRule(DetectionRule):
                 best_slice = window_events
 
         return best_slice
+
+
+CATALOG_ENTRY = RuleCatalogEntry(
+    rule_id="sentinelforge.detection.password_spray",
+    name="Password Spray",
+    version="1.0.0",
+    objective=(
+        "Detect authentication attempts from one source IP against multiple "
+        "distinct usernames within a configurable time window"
+    ),
+    category="authentication",
+    severity=Severity.HIGH,
+    attack_tactic="Credential Access",
+    attack_tactic_id="TA0006",
+    attack_technique="T1110.003",
+    attack_technique_id=None,
+    required_data_source="authentication logs",
+    required_fields=[
+        "event_type",
+        "source_address",
+        "username",
+        "host",
+        "timestamp",
+        "outcome",
+    ],
+    threshold="username_threshold=3, attempt_threshold=3",
+    time_window_seconds="settings.password_spray_window_seconds (default 3600)",
+    false_positive_conditions=[
+        "Legitimate SSO or proxy auth across many usernames from one egress IP",
+        "Shared workstation with multiple named users",
+    ],
+    investigation_instructions=[
+        "Check for successful logins from source IP against targeted accounts",
+        "Force password reset for targeted accounts",
+        "Review account lockout thresholds",
+    ],
+    external_references=["MITRE ATT&CK T1110.003"],
+    test_references=[
+        "tests/test_password_spray.py::test_password_spray_detects_multiple_usernames_same_source",
+        "tests/test_password_spray.py::test_password_spray_below_username_threshold_no_alert",
+        "tests/test_password_spray.py::test_password_spray_outside_window_no_alert",
+    ],
+    execution_status="working",
+    validation_status="validated",
+)
