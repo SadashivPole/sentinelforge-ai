@@ -145,6 +145,11 @@ def import_iocs(
 
     for line_number, record in enumerate(raw_records, start=1):
         raw = str(record)
+        if not isinstance(record, dict):
+            rejected.append(
+                RejectedRecord(line_number, raw, "record is not a JSON object")
+            )
+            continue
         indicator_type = str(record.get("indicator_type", "")).strip().lower()
         value = str(record.get("indicator_value", "")).strip()
 

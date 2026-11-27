@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -401,10 +402,43 @@ def cmd_incidents(args: argparse.Namespace) -> int:
 def cmd_ioc(args: argparse.Namespace) -> int:
     """IOC inventory and retrospective hunting commands."""
     from sentinelforge.storage.schema import IOC
-    from sentinelforge.threat_intel.imports import ImportResult, import_iocs
+    from sentinelforge.threat_intel.imports import (
+        MAX_IMPORT_FILE_BYTES,
+        ImportResult,
+        import_iocs,
+    )
     from sentinelforge.threat_intel.retro_hunt import RetroHuntResult, run_retro_hunt
 
     db_path = getattr(args, "db_path", None) or settings.db_path
+
+    # --- validate-only path: no database initialization ---
+    if args.ioc_command == "validate":
+        try:
+            with open(args.file, "rb") as fh:
+                file_bytes = fh.read(MAX_IMPORT_FILE_BYTES + 1)
+        except OSError as exc:
+            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        if len(file_bytes) > MAX_IMPORT_FILE_BYTES:
+            print(
+                f"ERROR: Import file too large (max {MAX_IMPORT_FILE_BYTES} bytes)",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+        validate_result: ImportResult = import_iocs(
+            file_bytes,
+            args.source or "validate",
+            source_reference=args.source_reference,
+        )
+        print(
+            f"Would import: {len(validate_result.imported)}  "
+            f"Would reject: {len(validate_result.rejected)}"
+        )
+        for r in validate_result.rejected:
+            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
+        return EXIT_OK
+
+    # All other commands require a database.
     db = Database(db_path)
     try:
         db.initialize()
@@ -462,38 +496,60 @@ def cmd_ioc(args: argparse.Namespace) -> int:
     if args.ioc_command == "import":
         try:
             with open(args.file, "rb") as fh:
-                file_bytes = fh.read()
+                file_bytes = fh.read(MAX_IMPORT_FILE_BYTES + 1)
         except OSError as exc:
             print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
             return EXIT_ERROR
-        import_result: ImportResult = import_iocs(
-            file_bytes,
-            args.source,
-            source_reference=args.source_reference,
-        )
+        if len(file_bytes) > MAX_IMPORT_FILE_BYTES:
+            print(
+                f"ERROR: Import file too large (max {MAX_IMPORT_FILE_BYTES} bytes)",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+        try:
+            import_result: ImportResult = import_iocs(
+                file_bytes,
+                args.source,
+                source_reference=args.source_reference,
+            )
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+
+        newly_stored = 0
+        already_present = 0
+        conflicting = 0
+        for imported_ioc in import_result.imported:
+            existing = repo.get_ioc(imported_ioc.indicator_id)
+            if existing is not None:
+                if (
+                    existing.indicator_value == imported_ioc.indicator_value
+                    and existing.indicator_type == imported_ioc.indicator_type
+                    and existing.source_name == imported_ioc.source_name
+                    and existing.confidence == imported_ioc.confidence
+                    and existing.validation_status == imported_ioc.validation_status
+                ):
+                    already_present += 1
+                else:
+                    conflicting += 1
+                continue
+            try:
+                repo.insert_ioc(IOC(**asdict(imported_ioc)))
+                newly_stored += 1
+            except DuplicateIdCollisionError:
+                conflicting += 1
+            except Exception as exc:  # noqa: BLE001 - report DB failures accurately
+                print(
+                    f"ERROR: Failed to persist IOC {imported_ioc.indicator_id}: {exc}",
+                    file=sys.stderr,
+                )
+                return EXIT_ERROR
+
         print(
-            f"Imported: {len(import_result.imported)}  Rejected: {len(import_result.rejected)}"
+            f"Stored: {newly_stored}  Already present: {already_present}  "
+            f"Conflicting: {conflicting}  Rejected: {len(import_result.rejected)}"
         )
         for r in import_result.rejected:
-            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
-        return EXIT_OK
-
-    if args.ioc_command == "validate":
-        try:
-            with open(args.file, "rb") as fh:
-                file_bytes = fh.read()
-        except OSError as exc:
-            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
-            return EXIT_ERROR
-        validate_result: ImportResult = import_iocs(
-            file_bytes,
-            args.source or "validate",
-            source_reference=args.source_reference,
-        )
-        print(
-            f"Would import: {len(validate_result.imported)}  Would reject: {len(validate_result.rejected)}"
-        )
-        for r in validate_result.rejected:
             print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
         return EXIT_OK
 

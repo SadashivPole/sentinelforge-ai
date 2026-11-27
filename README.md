@@ -8,7 +8,8 @@
 **Classification:** Demonstrable SOC prototype — not production-ready
 **License:** MIT
 **Python:** >=3.11
-**Tests:** 624 passed in CI on Python 3.12 and 3.13 (November 27, 2026)
+**Tests:** 635 passed on Python 3.12 and 3.13 in GitHub CI.
+**Local:** 634 passed, 1 skipped on Python 3.14.9 (development host).
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Project Status
@@ -25,7 +26,7 @@
 | Telemetry adapters (Windows Security, Linux auth, auditd) | Implemented |
 | Incident correlation and incidents CLI | Implemented |
 | Local IOC validation, matching and retrospective hunting | Implemented |
-| IOC CLI import persistence | Hotfix pending (import does not persist) |
+|| IOC CLI import persistence | Implemented (validates, persists via IOCRepository, idempotent re-import, conflicting-content handling) |
 | Public website | Deployed (GitHub Pages) |
 | AI support assistant | Preview only (no backend) |
 | Production deployment | Not planned |
@@ -133,7 +134,6 @@ Detection quality is evaluated against an independently authored holdout dataset
 - SentinelForge is a prototype, not a production SIEM or autonomous SOC.
 - Local IOC validation, matching, and retrospective hunting are implemented. External enrichment through VirusTotal, MISP, or OpenCTI is not implemented, and the dashboard IOC view is not implemented.
 - Full case management and autonomous response are not implemented.
-- The CLI IOC import persistence fix remains pending: `sentinelforge ioc import` validates and reports accepted/rejected counts but does not yet store accepted indicators through `IOCRepository.insert_ioc()`.
 - The public demo uses synthetic, precomputed data and performs no live detection.
 
 ## Recent improvements
@@ -212,6 +212,12 @@ sentinelforge incidents --limit 50
 
 # List stored IOCs
 sentinelforge ioc list --limit 50
+
+# Inspect a stored IOC's metadata
+sentinelforge ioc inspect <indicator-id>
+
+# Import a local IOC feed (validates, persists, idempotent re-import)
+sentinelforge ioc import path/to/feed.json --source local-review
 
 # Validate a local IOC feed without storing it
 sentinelforge ioc validate path/to/feed.json --source local-review
