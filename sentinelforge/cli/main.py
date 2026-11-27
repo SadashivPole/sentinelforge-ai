@@ -56,6 +56,7 @@ from sentinelforge.storage.repositories import (
     DuplicateIdCollisionError,
     EventRepository,
     IncidentRepository,
+    IOCRepository,
 )
 
 EXIT_OK = 0
@@ -397,6 +398,169 @@ def cmd_incidents(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_ioc(args: argparse.Namespace) -> int:
+    """IOC inventory and retrospective hunting commands."""
+    from sentinelforge.storage.schema import IOC
+    from sentinelforge.threat_intel.imports import ImportResult, import_iocs
+    from sentinelforge.threat_intel.retro_hunt import RetroHuntResult, run_retro_hunt
+
+    db_path = getattr(args, "db_path", None) or settings.db_path
+    db = Database(db_path)
+    try:
+        db.initialize()
+    except Exception as exc:  # noqa: BLE001 - intentional broad catch for CLI error reporting
+        print(f"ERROR: Failed to initialize database: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    repo = IOCRepository(db)
+
+    if args.ioc_command == "list":
+        iocs = repo.list_iocs(limit=args.limit, offset=args.offset)
+        if not iocs:
+            print("No IOCs.")
+            return EXIT_OK
+        header = (
+            f"{'INDICATOR ID':<20} {'TYPE':<8} {'VALUE':<40} "
+            f"{'SOURCE':<20} {'CONFIDENCE':<11} {'STATUS'}"
+        )
+        print(header)
+        print("-" * len(header))
+        for indicator in iocs:
+            conf = (
+                str(indicator.confidence) if indicator.confidence is not None else "-"
+            )
+            print(
+                f"{indicator.indicator_id:<20} {indicator.indicator_type:<8} "
+                f"{indicator.indicator_value:<40} {indicator.source_name:<20} "
+                f"{conf:<11} {indicator.validation_status}"
+            )
+        return EXIT_OK
+
+    if args.ioc_command == "inspect":
+        ioc: IOC | None = repo.get_ioc(args.indicator_id)
+        if ioc is None:
+            print(f"IOC {args.indicator_id} not found.")
+            return EXIT_ERROR
+        print(f"Indicator ID: {ioc.indicator_id}")
+        print(f"Value: {ioc.indicator_value}")
+        print(f"Type: {ioc.indicator_type}")
+        print(f"Source: {ioc.source_name}")
+        if ioc.source_reference:
+            print(f"Source reference: {ioc.source_reference}")
+        print(f"Confidence: {ioc.confidence if ioc.confidence is not None else '-'}")
+        print(f"First seen: {ioc.first_seen or '-'}")
+        print(f"Last seen: {ioc.last_seen or '-'}")
+        print(f"Expiration: {ioc.expiration or '-'}")
+        print(f"Imported at: {ioc.imported_at or '-'}")
+        print(f"Context: {ioc.context or '-'}")
+        print(f"Provenance: {ioc.provenance or '-'}")
+        print(f"Validation status: {ioc.validation_status}")
+        matches = repo.get_ioc_matches(ioc.indicator_id)
+        print(f"Historical matches: {len(matches)}")
+        return EXIT_OK
+
+    if args.ioc_command == "import":
+        try:
+            with open(args.file, "rb") as fh:
+                file_bytes = fh.read()
+        except OSError as exc:
+            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        import_result: ImportResult = import_iocs(
+            file_bytes,
+            args.source,
+            source_reference=args.source_reference,
+        )
+        print(
+            f"Imported: {len(import_result.imported)}  Rejected: {len(import_result.rejected)}"
+        )
+        for r in import_result.rejected:
+            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
+        return EXIT_OK
+
+    if args.ioc_command == "validate":
+        try:
+            with open(args.file, "rb") as fh:
+                file_bytes = fh.read()
+        except OSError as exc:
+            print(f"ERROR: Cannot read file: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        validate_result: ImportResult = import_iocs(
+            file_bytes,
+            args.source or "validate",
+            source_reference=args.source_reference,
+        )
+        print(
+            f"Would import: {len(validate_result.imported)}  Would reject: {len(validate_result.rejected)}"
+        )
+        for r in validate_result.rejected:
+            print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
+        return EXIT_OK
+
+    if args.ioc_command == "search":
+        # Retro-hunt: search existing events for the IOC's matches.
+        event_repo = EventRepository(db)
+        events = [
+            {
+                "event_id": e.event_id,
+                "timestamp": e.timestamp,
+                "auth_source_address": (
+                    e.authentication.source_address if e.authentication else None
+                ),
+                "network_remote_address": (
+                    e.network.remote_address if e.network else None
+                ),
+                "network_local_address": (
+                    e.network.local_address if e.network else None
+                ),
+                "process_hash_sha256": (e.process.hash_sha256 if e.process else None),
+                "raw": json.dumps(e.raw),
+            }
+            for e in event_repo.get_events(limit=None)
+        ]
+        ioc_record: IOC | None = repo.get_ioc(args.indicator_id)
+        if ioc_record is None:
+            print(f"IOC {args.indicator_id} not found.")
+            return EXIT_ERROR
+        try:
+            hunt_result: RetroHuntResult = run_retro_hunt(
+                db,
+                args.indicator_id,
+                events,
+                search_timestamp=args.search_timestamp,
+            )
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+        print(f"Retro-hunt: {hunt_result.hunt.hunt_id}")
+        print(f"Scope: {hunt_result.hunt.search_scope}")
+        print(f"Events searched: {hunt_result.hunt.total_events_searched}")
+        print(f"Matches: {hunt_result.hunt.match_count}")
+        for m in hunt_result.matches:
+            print(
+                f"  {m.match_type} "
+                f"event={m.event_id} field={m.matched_field} value={m.matched_value}"
+            )
+        return EXIT_OK
+
+    if args.ioc_command == "provenance":
+        ioc = repo.get_ioc(args.indicator_id)
+        if ioc is None:
+            print(f"IOC {args.indicator_id} not found.")
+            return EXIT_ERROR
+        print(f"Indicator ID: {ioc.indicator_id}")
+        print(f"Value: {ioc.indicator_value} ({ioc.indicator_type})")
+        print(f"Source: {ioc.source_name}")
+        print(f"Source reference: {ioc.source_reference or '-'}")
+        print(f"Provenance: {ioc.provenance or '-'}")
+        print(f"Imported at: {ioc.imported_at or '-'}")
+        print(f"Validation status: {ioc.validation_status}")
+        return EXIT_OK
+
+    print(f"Unknown IOC command: {args.ioc_command}", file=sys.stderr)
+    return EXIT_ERROR
+
+
 # ---------------------------------------------------------------------------
 # evaluate command
 # ---------------------------------------------------------------------------
@@ -627,6 +791,63 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum incidents to list (default: 50)",
     )
     p_inc.set_defaults(func=cmd_incidents)
+
+    # ioc / threat intelligence (local, read-only for the MCP server)
+    p_ioc = subparsers.add_parser(
+        "ioc", help="IOC inventory and retrospective hunting (local only)"
+    )
+    ioc_sub = p_ioc.add_subparsers(dest="ioc_command", required=True)
+
+    p_ioc_list = ioc_sub.add_parser("list", help="List stored indicators")
+    p_ioc_list.add_argument(
+        "--limit", type=int, default=50, help="Maximum indicators to list (default: 50)"
+    )
+    p_ioc_list.add_argument(
+        "--offset", type=int, default=0, help="Offset for pagination (default: 0)"
+    )
+    p_ioc_list.set_defaults(func=cmd_ioc)
+
+    p_ioc_inspect = ioc_sub.add_parser(
+        "inspect", help="Show details for a single indicator"
+    )
+    p_ioc_inspect.add_argument("indicator_id", help="Indicator ID")
+    p_ioc_inspect.set_defaults(func=cmd_ioc)
+
+    p_ioc_import = ioc_sub.add_parser(
+        "import", help="Import indicators from a local CSV/JSON file"
+    )
+    p_ioc_import.add_argument("file", help="Path to CSV/JSON import file")
+    p_ioc_import.add_argument(
+        "--source", required=True, help="Source name (provenance)"
+    )
+    p_ioc_import.add_argument("--source-reference", help="Source reference")
+    p_ioc_import.set_defaults(func=cmd_ioc)
+
+    p_ioc_validate = ioc_sub.add_parser(
+        "validate", help="Validate an import without storing"
+    )
+    p_ioc_validate.add_argument("file", help="Path to CSV/JSON import file")
+    p_ioc_validate.add_argument(
+        "--source", default="validate", help="Source name (default: validate)"
+    )
+    p_ioc_validate.add_argument("--source-reference", help="Source reference")
+    p_ioc_validate.set_defaults(func=cmd_ioc)
+
+    p_ioc_search = ioc_sub.add_parser(
+        "search", help="Run a retrospective hunt for an indicator"
+    )
+    p_ioc_search.add_argument("indicator_id", help="Indicator ID to hunt for")
+    p_ioc_search.add_argument(
+        "--search-timestamp",
+        help="Fixed search timestamp (for reproducible tests)",
+    )
+    p_ioc_search.set_defaults(func=cmd_ioc)
+
+    p_ioc_provenance = ioc_sub.add_parser(
+        "provenance", help="Show indicator provenance"
+    )
+    p_ioc_provenance.add_argument("indicator_id", help="Indicator ID")
+    p_ioc_provenance.set_defaults(func=cmd_ioc)
 
     # evaluate
     p_eval = subparsers.add_parser("evaluate", help="Evaluate detection quality")

@@ -20,7 +20,12 @@ from sentinelforge.ingestion.normalizer import (
 )
 from sentinelforge.risk.scorer import RiskAssessment, ScoringFactor
 from sentinelforge.storage.database import Database
-from sentinelforge.storage.schema import Incident
+from sentinelforge.storage.schema import (
+    IOC,
+    Incident,
+    IOCMatch,
+    RetroHunt,
+)
 
 
 class DuplicateIdCollisionError(ValueError):
@@ -1297,3 +1302,261 @@ class IncidentRepository:
                 """,
                 (incident_id, event_id),
             )
+
+
+class IOCRepository:
+    """Repository for local threat-intelligence indicators and retrospective
+    hunt findings.
+
+    IOCs are immutable once validated and stored. Retro-hunt findings are
+    append-only records of historical searches; they never modify the
+    original alerts or detection records.
+    """
+
+    def __init__(self, db: Database) -> None:
+        self.db = db
+
+    def count_iocs(self) -> int:
+        """Return the total number of stored IOCs."""
+        with self.db.connection() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM iocs").fetchone()
+            return int(row["c"]) if row else 0
+
+    def insert_ioc(self, ioc: IOC) -> str:
+        """Insert a validated IOC.
+
+        Returns the indicator_id. Re-inserting the same indicator_id with
+        identical content is idempotent; conflicting content is rejected to
+        preserve the integrity of the indicator record.
+        """
+        row = ioc.to_row()
+        with self.db.transaction() as conn:
+            existing = conn.execute(
+                "SELECT indicator_value, indicator_type, source_name, "
+                "confidence, validation_status FROM iocs WHERE indicator_id = ?",
+                (ioc.indicator_id,),
+            ).fetchone()
+            if existing is not None:
+                existing_hash = _content_hash(
+                    {
+                        "indicator_value": existing["indicator_value"],
+                        "indicator_type": existing["indicator_type"],
+                        "source_name": existing["source_name"],
+                        "confidence": existing["confidence"],
+                        "validation_status": existing["validation_status"],
+                    }
+                )
+                new_hash = _content_hash(
+                    {
+                        "indicator_value": ioc.indicator_value,
+                        "indicator_type": ioc.indicator_type,
+                        "source_name": ioc.source_name,
+                        "confidence": ioc.confidence,
+                        "validation_status": ioc.validation_status,
+                    }
+                )
+                if existing_hash != new_hash:
+                    raise DuplicateIdCollisionError(
+                        f"IOC {ioc.indicator_id} already exists with "
+                        "different content; immutable record cannot be "
+                        "overwritten."
+                    )
+                return ioc.indicator_id
+
+            conn.execute(
+                """
+                INSERT INTO iocs (
+                    indicator_id, indicator_value, indicator_type,
+                    source_name, source_reference, confidence, first_seen,
+                    last_seen, expiration, imported_at, context, provenance,
+                    validation_status
+                ) VALUES (
+                    :indicator_id, :indicator_value, :indicator_type,
+                    :source_name, :source_reference, :confidence, :first_seen,
+                    :last_seen, :expiration, :imported_at, :context,
+                    :provenance, :validation_status
+                )
+                """,
+                row,
+            )
+        return ioc.indicator_id
+
+    def get_ioc(self, indicator_id: str) -> IOC | None:
+        """Retrieve a single IOC by ID."""
+        with self.db.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM iocs WHERE indicator_id = ?",
+                (indicator_id,),
+            ).fetchone()
+            return _row_to_ioc(row) if row else None
+
+    def get_ioc_by_value(self, indicator_value: str, indicator_type: str) -> IOC | None:
+        """Retrieve a single IOC by value and type."""
+        with self.db.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM iocs WHERE indicator_value = ? AND indicator_type = ?",
+                (indicator_value, indicator_type),
+            ).fetchone()
+            return _row_to_ioc(row) if row else None
+
+    def list_iocs(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        indicator_type: str | None = None,
+        validation_status: str | None = None,
+    ) -> list[IOC]:
+        """Retrieve IOCs with optional type and validation-status filtering."""
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM iocs
+                WHERE (? IS NULL OR indicator_type = ?)
+                  AND (? IS NULL OR validation_status = ?)
+                ORDER BY imported_at DESC, indicator_id
+                LIMIT ? OFFSET ?
+                """,
+                [
+                    indicator_type,
+                    indicator_type,
+                    validation_status,
+                    validation_status,
+                    limit,
+                    offset,
+                ],
+            ).fetchall()
+            return [_row_to_ioc(row) for row in rows]
+
+    def insert_ioc_match(self, match: IOCMatch) -> str:
+        """Record a single IOC match against a stored event.
+
+        Returns the match_id. Duplicate matches are ignored.
+        """
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO ioc_matches (
+                    match_id, indicator_id, event_id, event_timestamp,
+                    matched_field, matched_value, indicator_source, match_type
+                ) VALUES (
+                    :match_id, :indicator_id, :event_id, :event_timestamp,
+                    :matched_field, :matched_value, :indicator_source,
+                    :match_type
+                )
+                """,
+                match.to_row(),
+            )
+        return match.match_id
+
+    def get_ioc_matches(self, indicator_id: str) -> list[IOCMatch]:
+        """Return all recorded matches for an IOC."""
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM ioc_matches WHERE indicator_id = ? "
+                "ORDER BY event_timestamp, match_id",
+                (indicator_id,),
+            ).fetchall()
+            return [_row_to_ioc_match(row) for row in rows]
+
+    def insert_retro_hunt(self, hunt: RetroHunt) -> str:
+        """Record a retrospective hunt and return its hunt_id.
+
+        Idempotent: re-recording a hunt whose ID already exists (deterministic
+        hunt IDs are derived from indicator + timestamp) returns the existing
+        ID without duplicating the row, so re-running the same hunt is safe.
+        """
+        with self.db.transaction() as conn:
+            existing = conn.execute(
+                "SELECT hunt_id FROM retro_hunts WHERE hunt_id = ?",
+                (hunt.hunt_id,),
+            ).fetchone()
+            if existing is not None:
+                return existing[0]
+            conn.execute(
+                """
+                INSERT INTO retro_hunts (
+                    hunt_id, indicator_id, search_scope,
+                    total_events_searched, match_count, search_timestamp
+                ) VALUES (
+                    :hunt_id, :indicator_id, :search_scope,
+                    :total_events_searched, :match_count, :search_timestamp
+                )
+                """,
+                hunt.to_row(),
+            )
+        return hunt.hunt_id
+
+    def get_retro_hunt(self, hunt_id: str) -> RetroHunt | None:
+        """Retrieve a single retro-hunt by ID."""
+        with self.db.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM retro_hunts WHERE hunt_id = ?",
+                (hunt_id,),
+            ).fetchone()
+            return _row_to_retro_hunt(row) if row else None
+
+    def link_retro_hunt_match(self, hunt_id: str, match_id: str) -> None:
+        """Associate an IOC match with a retro-hunt finding."""
+        with self.db.transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO retro_hunt_matches (hunt_id, match_id)
+                VALUES (?, ?)
+                """,
+                (hunt_id, match_id),
+            )
+
+    def list_retro_hunts(self, limit: int = 100, offset: int = 0) -> list[RetroHunt]:
+        """List retro-hunts, most recent first."""
+        with self.db.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM retro_hunts
+                ORDER BY search_timestamp DESC, hunt_id
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+            return [_row_to_retro_hunt(row) for row in rows]
+
+
+def _row_to_ioc(row: Any) -> IOC:
+    return IOC(
+        indicator_id=row["indicator_id"],
+        indicator_value=row["indicator_value"],
+        indicator_type=row["indicator_type"],
+        source_name=row["source_name"],
+        source_reference=row["source_reference"],
+        confidence=row["confidence"],
+        first_seen=row["first_seen"],
+        last_seen=row["last_seen"],
+        expiration=row["expiration"],
+        imported_at=row["imported_at"],
+        context=row["context"],
+        provenance=row["provenance"],
+        validation_status=row["validation_status"],
+    )
+
+
+def _row_to_ioc_match(row: Any) -> IOCMatch:
+    return IOCMatch(
+        match_id=row["match_id"],
+        indicator_id=row["indicator_id"],
+        event_id=row["event_id"],
+        event_timestamp=row["event_timestamp"],
+        matched_field=row["matched_field"],
+        matched_value=row["matched_value"],
+        indicator_source=row["indicator_source"],
+        match_type=row["match_type"],
+    )
+
+
+def _row_to_retro_hunt(row: Any) -> RetroHunt:
+    return RetroHunt(
+        hunt_id=row["hunt_id"],
+        indicator_id=row["indicator_id"],
+        search_scope=row["search_scope"],
+        total_events_searched=row["total_events_searched"],
+        match_count=row["match_count"],
+        search_timestamp=row["search_timestamp"],
+    )

@@ -11,7 +11,7 @@ import json
 from dataclasses import asdict, dataclass, field
 
 # Current schema version. Increment on every breaking schema change.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,68 @@ class Incident:
         data["destination_addresses"] = json.dumps(data["destination_addresses"])
         data["evidence_complete"] = int(data["evidence_complete"])
         return data
+
+
+@dataclass(frozen=True)
+class IOC:
+    """A local threat-intelligence indicator of compromise.
+
+    IOCs are imported from bounded local sources (CSV/JSON) and validated
+    before storage. Confidence, reputation and attribution are never
+    invented; they are recorded only when supplied by the source.
+    """
+
+    indicator_id: str
+    indicator_value: str
+    indicator_type: str  # ipv4 | ipv6 | domain | url | sha256
+    source_name: str
+    source_reference: str | None = None
+    confidence: int | None = None
+    first_seen: str | None = None
+    last_seen: str | None = None
+    expiration: str | None = None
+    imported_at: str = ""
+    context: str | None = None
+    provenance: str | None = None
+    validation_status: str = "valid"
+
+    def to_row(self) -> dict[str, object]:
+        """Serialize to a row suitable for the ``iocs`` table."""
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class IOCMatch:
+    """A single IOC match against a stored event."""
+
+    match_id: str
+    indicator_id: str
+    event_id: str
+    event_timestamp: str | None = None
+    matched_field: str = ""
+    matched_value: str = ""
+    indicator_source: str = ""
+    match_type: str = ""  # exact_ip | exact_hash | normalized_domain | normalized_url
+
+    def to_row(self) -> dict[str, object]:
+        """Serialize to a row suitable for the ``ioc_matches`` table."""
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RetroHunt:
+    """A retrospective hunt: searching stored events for a newly imported IOC."""
+
+    hunt_id: str
+    indicator_id: str
+    search_scope: str
+    total_events_searched: int = 0
+    match_count: int = 0
+    search_timestamp: str = ""
+
+    def to_row(self) -> dict[str, object]:
+        """Serialize to a row suitable for the ``retro_hunts`` table."""
+        return asdict(self)
 
 
 # Full DDL for all tables, in dependency order.
@@ -178,6 +240,57 @@ CREATE_TABLES: list[str] = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS iocs (
+        indicator_id       TEXT PRIMARY KEY,
+        indicator_value    TEXT NOT NULL,
+        indicator_type     TEXT NOT NULL CHECK (indicator_type IN ('ipv4', 'ipv6', 'domain', 'url', 'sha256')),
+        source_name        TEXT NOT NULL,
+        source_reference   TEXT,
+        confidence         INTEGER,
+        first_seen         TEXT,
+        last_seen          TEXT,
+        expiration         TEXT,
+        imported_at        TEXT NOT NULL,
+        context            TEXT,
+        provenance         TEXT,
+        validation_status  TEXT NOT NULL DEFAULT 'valid'
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS ioc_matches (
+        match_id         TEXT PRIMARY KEY,
+        indicator_id     TEXT NOT NULL,
+        event_id         TEXT NOT NULL,
+        event_timestamp  TEXT,
+        matched_field    TEXT NOT NULL,
+        matched_value    TEXT NOT NULL,
+        indicator_source TEXT NOT NULL,
+        match_type       TEXT NOT NULL,
+        FOREIGN KEY (indicator_id) REFERENCES iocs(indicator_id),
+        FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE RESTRICT
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS retro_hunts (
+        hunt_id             TEXT PRIMARY KEY,
+        indicator_id        TEXT NOT NULL,
+        search_scope        TEXT NOT NULL,
+        total_events_searched INTEGER NOT NULL DEFAULT 0,
+        match_count         INTEGER NOT NULL DEFAULT 0,
+        search_timestamp    TEXT NOT NULL,
+        FOREIGN KEY (indicator_id) REFERENCES iocs(indicator_id)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS retro_hunt_matches (
+        hunt_id   TEXT NOT NULL,
+        match_id  TEXT NOT NULL,
+        PRIMARY KEY (hunt_id, match_id),
+        FOREIGN KEY (hunt_id) REFERENCES retro_hunts(hunt_id) ON DELETE CASCADE,
+        FOREIGN KEY (match_id) REFERENCES ioc_matches(match_id) ON DELETE CASCADE
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS schema_metadata (
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -204,6 +317,10 @@ CREATE_INDEXES: list[str] = [
     "CREATE INDEX IF NOT EXISTS idx_incidents_first_seen ON incidents(first_seen);",
     "CREATE INDEX IF NOT EXISTS idx_incident_alerts_detection ON incident_alerts(detection_id);",
     "CREATE INDEX IF NOT EXISTS idx_incident_events_event ON incident_events(event_id);",
+    "CREATE INDEX IF NOT EXISTS idx_iocs_type_value ON iocs(indicator_type, indicator_value);",
+    "CREATE INDEX IF NOT EXISTS idx_ioc_matches_event ON ioc_matches(event_id);",
+    "CREATE INDEX IF NOT EXISTS idx_ioc_matches_indicator ON ioc_matches(indicator_id);",
+    "CREATE INDEX IF NOT EXISTS idx_retro_hunts_indicator ON retro_hunts(indicator_id);",
 ]
 
 
@@ -362,6 +479,25 @@ def _migrate_v3_to_v4(cur) -> None:
         cur.execute(statement)
 
 
+def _migrate_v4_to_v5(cur) -> None:
+    """Migrate schema from v4 to v5.
+
+    Changes:
+    * Add ``iocs``, ``ioc_matches``, ``retro_hunts`` and ``retro_hunt_matches``
+      tables for local-first threat intelligence and retrospective hunting
+      (additive; existing tables untouched).
+    """
+    for statement in (
+        s
+        for s in get_schema_sql()
+        if "iocs" in s
+        or "ioc_matches" in s
+        or "retro_hunts" in s
+        or "retro_hunt_matches" in s
+    ):
+        cur.execute(statement)
+
+
 def migrate(db_path: str, target_version: int = SCHEMA_VERSION) -> int:
     """Ensure the database at ``db_path`` is migrated to ``target_version``.
 
@@ -403,11 +539,16 @@ def migrate(db_path: str, target_version: int = SCHEMA_VERSION) -> int:
             _migrate_v1_to_v2(cur)
             _migrate_v2_to_v3(cur)
             _migrate_v3_to_v4(cur)
+            _migrate_v4_to_v5(cur)
         elif current_version == 2:
             _migrate_v2_to_v3(cur)
             _migrate_v3_to_v4(cur)
+            _migrate_v4_to_v5(cur)
         elif current_version == 3:
             _migrate_v3_to_v4(cur)
+            _migrate_v4_to_v5(cur)
+        elif current_version == 4:
+            _migrate_v4_to_v5(cur)
         else:
             raise ValueError(
                 f"Cannot migrate from schema version {current_version} to "
