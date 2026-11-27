@@ -8,7 +8,7 @@
 **Classification:** Demonstrable SOC prototype — not production-ready
 **License:** MIT
 **Python:** >=3.11
-**Tests:** 462 pass in CI on Python 3.12 and 3.13 (latest verified run, November 26, 2026)
+**Tests:** 624 passed in CI on Python 3.12 and 3.13 (November 27, 2026)
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Project Status
@@ -21,6 +21,11 @@
 | Synthetic dataset generation | Implemented |
 | Detection evaluation | Implemented |
 | Local SOC dashboard | Implemented (localhost only) |
+| Detection catalog and MITRE ATT&CK metadata | Implemented |
+| Telemetry adapters (Windows Security, Linux auth, auditd) | Implemented |
+| Incident correlation and incidents CLI | Implemented |
+| Local IOC validation, matching and retrospective hunting | Implemented |
+| IOC CLI import persistence | Hotfix pending (import does not persist) |
 | Public website | Deployed (GitHub Pages) |
 | AI support assistant | Preview only (no backend) |
 | Production deployment | Not planned |
@@ -54,11 +59,13 @@ Genuine screenshots from the local dashboard (`sentinelforge dashboard`, bound t
 
 ```
 sentinelforge/
-├── cli/                  # CLI: ingest, detect, evaluate, dashboard
-├── ingestion/            # JSON / JSONL / Sysmon readers + normalizer
-├── detection/            # 5 detection rules + rule registry
-├── risk/                 # Explainable risk scoring + correlator
-├── storage/              # SQLite schema (v3) + repositories
+├── cli/                  # CLI: ingest, detect, incidents, ioc, evaluate, dashboard
+├── ingestion/            # JSON / JSONL / Sysmon readers, normalizer, adapters/
+│   └── adapters/         # Windows Security, Linux auth, auditd telemetry adapters
+├── detection/            # 5 detection rules + rule registry, detection catalog
+├── risk/                 # Explainable risk scoring + incident correlator
+├── storage/              # SQLite schema (v5) + repositories, incident & IOC storage
+├── threat_intel/         # IOC validation, matching, retrospective hunting
 ├── datasets/             # Synthetic dataset generation + evaluation
 ├── dashboard/            # Local read-only HTTP dashboard (127.0.0.1:8080)
 └── analyst/              # Optional MCP server (7 read-only tools)
@@ -100,6 +107,16 @@ The MCP server communicates over stdio only — no network, no HTTP, no shell ex
 
 **Correlation does not imply causation.** Host/time-window grouping separates same-host detections from detections within a configured correlation window. Proximity alone never establishes an attack chain.
 
+## Incident Correlation and Threat Intelligence
+
+SentinelForge groups related detections into incidents using multi-key correlation across host, user, IP, and MITRE ATT&CK technique within a configurable time window. Each incident receives a deterministic ID and an explainable rationale so reviewers can verify grouping — correlation is treated as a lead, not confirmation of an attack chain. Incidents can be listed and inspected through the CLI (`sentinelforge incidents`).
+
+A detection catalog wraps the five detection rules with metadata, MITRE ATT&CK mappings, required fields, false positives, and investigation instructions. Telemetry adapters parse Windows Security (4624/4625/4648/4672/4688), Linux authentication (sshd, sudo, su), and auditd process-execution events, returning `None` and recording warnings for missing or malformed fields rather than inventing data.
+
+Local-first threat intelligence supports IOC types IPv4, IPv6, domain, URL, and SHA256. Indicators are imported from bounded local CSV/JSON feeds (5 MiB file limit, 10,000-record limit) with syntax validation, conservative canonicalization, duplicate handling, and rejection reasons recorded. Source name, source reference, and provenance are preserved; confidence is stored only when supplied and never invented. Matching uses explicit structured-field extraction (IP vs source/destination addresses, hash vs process hash, domain/URL vs structured fields) rather than arbitrary substring search of serialized payloads. Retrospective hunts search previously ingested events for IOC matches and record append-only findings separate from real-time detections.
+
+An IOC match or retrospective-hunt finding is an investigation lead, not proof of compromise.
+
 ## Dataset and evaluation summary
 
 SentinelForge generates reproducible synthetic enterprise SOC datasets (11,298 events across 19 scenarios, seed 42) written to `data/generated/`. Ground truth labels are stored separately from raw events to prevent data leakage.
@@ -114,7 +131,9 @@ Detection quality is evaluated against an independently authored holdout dataset
 - Real security logs may contain sensitive information (PII, credentials, IP addresses).
 - The local dashboard binds to `127.0.0.1` only and exposes no state-changing endpoints.
 - SentinelForge is a prototype, not a production SIEM or autonomous SOC.
-- Real-time collection, threat-intelligence integrations, case management, and autonomous response are not implemented.
+- Local IOC validation, matching, and retrospective hunting are implemented. External enrichment through VirusTotal, MISP, or OpenCTI is not implemented, and the dashboard IOC view is not implemented.
+- Full case management and autonomous response are not implemented.
+- The CLI IOC import persistence fix remains pending: `sentinelforge ioc import` validates and reports accepted/rejected counts but does not yet store accepted indicators through `IOCRepository.insert_ioc()`.
 - The public demo uses synthetic, precomputed data and performs no live detection.
 
 ## Recent improvements
@@ -129,6 +148,12 @@ Detection quality is evaluated against an independently authored holdout dataset
 - Default installation and optional MCP installation verified on clean virtual environments.
 - M8.1 evaluation: event-level evaluation and the confusion matrix now share category-matching logic (`alert_categories_match` / `CATEGORY_ALIASES`); wrong-category detections on suspicious evidence are counted as attribution errors, not true detections. Regenerated report is internally consistent: 641 suspicious events, 498 detected, 143 missed, 0.7769 recall.
 - MCP stdio: fixed tool-call parameter-model registration so all seven read-only tools invoke correctly over stdio; SQLite read-only enforcement (`mode=ro` + `PRAGMA query_only=ON`) retained.
+- Detection catalog and source adapters: catalog entries with MITRE ATT&CK metadata for all five rules; Windows Security, Linux auth, and auditd telemetry adapters.
+- Incident schema and correlation: SQLite schema v4 incidents tables, multi-key incident correlation with deterministic IDs, incidents CLI.
+- Schema v5 and additive migration: IOC and retrospective-hunt tables, IOCRepository, v4-to-v5 migration preserving existing records.
+- Local-first IOC inventory and retrospective hunting: IOC validation, canonicalization, structured-field matching, append-only retro-hunts, IOC CLI.
+
+The 70% SOC improvement target remains unproven; no detection thresholds were changed and no tuning was performed against the independent holdout.
 
 ## Documentation, contribution, and license
 
@@ -136,6 +161,7 @@ Detection quality is evaluated against an independently authored holdout dataset
 - [Local Dashboard](docs/LOCAL_DASHBOARD.md) — running the localhost SOC dashboard
 - [Public Demo](docs/PUBLIC_DEMO.md) — synthetic demo details and access
 - [Security & Privacy](docs/SECURITY_AND_PRIVACY.md) — security model, data handling, limitations
+- [SOC Upgrade](docs/soc-upgrade/) — SOC upgrade baseline, design, coverage, and maturity notes
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute
 - [SECURITY.md](SECURITY.md) — vulnerability reporting and security policy
 - [LICENSE](LICENSE) — MIT license
@@ -180,6 +206,15 @@ sentinelforge evaluate
 
 # Start the local dashboard (localhost only, http://127.0.0.1:8080)
 sentinelforge dashboard
+
+# List correlated incidents
+sentinelforge incidents --limit 50
+
+# List stored IOCs
+sentinelforge ioc list --limit 50
+
+# Validate a local IOC feed without storing it
+sentinelforge ioc validate path/to/feed.json --source local-review
 ```
 
 ### Optional MCP installation
