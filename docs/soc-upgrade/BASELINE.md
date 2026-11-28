@@ -125,7 +125,7 @@ Ingest → normalize → detect → correlate → risk score → SQLite produces
 | `bandit -r sentinelforge/` | No issues identified |
 | `pip-audit -r requirements.txt` | PASSED — no known vulnerabilities found (pip-audit 2.10.1, local) |
 
-CI matrix targets Python 3.11, 3.12 and 3.13 (local 3.14.9 is outside the CI matrix and untested in CI).
+CI matrix targets Python 3.11, 3.12 and 3.13 — all three verified passing on GitHub Actions.
 
 ### 3.8 Packaging
 
