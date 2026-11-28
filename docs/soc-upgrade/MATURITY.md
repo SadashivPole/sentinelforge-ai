@@ -28,7 +28,7 @@ This register classifies each SentinelForge capability using evidence-based matu
 | ATT&CK coverage map | DOCS-ONLY | ATT&CK IDs in rule metadata; no coverage register or gap report | `sentinelforge/detection/*.py` metadata | No machine-readable coverage map |
 | Log ingestion (JSON/JSONL/Sysmon) | WORKING | Tests pass; raw payload preserved; normalization deterministic | `sentinelforge/ingestion/` | Only 3 source formats; no Windows/Linux/network/cloud adapters |
 | Normalization + provenance | PARTIAL | Raw payload + source preserved; parser version/mapping provenance not fully tracked | `sentinelforge/ingestion/normalizer.py` | Provenance fields not complete |
-| SQLite evidence storage (schema v3) | WORKING | `PRAGMA integrity_check` ok; zero FK violations; repositories tested | `sentinelforge/storage/` | No encryption at rest |
+| SQLite evidence storage (schema v5) | WORKING | `PRAGMA integrity_check` ok; zero FK violations; repositories tested | `sentinelforge/storage/` | No encryption at rest |
 | Synthetic dataset generation | WORKING | Deterministic seed 42; 11,298 events; ground truth separate from raw events | `sentinelforge/datasets/` | Synthetic only; not real telemetry |
 | Detection evaluation (event-level) | WORKING | Alert-level and event-level metrics separate; category-match logic shared; reproducible report | `sentinelforge/datasets/evaluation.py` | Per-rule multi-label vs global unique distinction must be preserved |
 | Risk scoring (0–100, explainable) | WORKING | Tests pass; severity/evidence/frequency/correlation factors; score not probability of compromise | `sentinelforge/risk/scorer.py` | Asset criticality not supplied by default |

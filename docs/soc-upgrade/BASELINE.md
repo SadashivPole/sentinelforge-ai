@@ -38,7 +38,7 @@ Supporting:
 | | C2BeaconRule (T1071) | Implemented + tested | `sentinelforge/detection/beacon.py` |
 | Ingestion | JSON, JSONL, Sysmon readers | Implemented + tested | `sentinelforge/ingestion/reader.py` |
 | Normalization | Common event schema + raw preservation | Implemented + tested | `sentinelforge/ingestion/normalizer.py` |
-| Storage | SQLite schema v3, migrations, repositories | Implemented + tested | `sentinelforge/storage/schema.py`, `repositories.py` |
+| Storage | SQLite schema v5, migrations, repositories | Implemented + tested | `sentinelforge/storage/schema.py`, `repositories.py` |
 | Risk scoring | Explainable 0-100 score, separate evidence confidence | Implemented + tested | `sentinelforge/risk/scorer.py` |
 | Correlation | Host-scoped time-window clustering | Implemented + tested | `sentinelforge/risk/correlator.py` |
 | Evaluation | Alert-level + event-level, separate F1 validity | Implemented + tested | `sentinelforge/datasets/evaluation.py` |
@@ -118,14 +118,14 @@ Ingest → normalize → detect → correlate → risk score → SQLite produces
 
 | Check | Result |
 |-------|--------|
-| `pytest tests/` | **461 passed, 1 skipped** (Python 3.14.9 local) |
+| `pytest tests/` | **641 passed, 1 skipped** (Python 3.14.9 local) |
 | `ruff check sentinelforge/ tests/` | All checks passed |
 | `ruff format --check sentinelforge/ tests/` | Passed |
-| `mypy sentinelforge/` | No issues in 43 source files |
+| `mypy sentinelforge/` | No issues in 53 source files |
 | `bandit -r sentinelforge/` | No issues identified |
-| `pip-audit -r requirements.txt` | No known vulnerabilities |
+| `pip-audit -r requirements.txt` | PASSED — no known vulnerabilities found (pip-audit 2.10.1, local) |
 
-CI matrix targets Python 3.12 and 3.13 (local 3.14.9 is outside the CI matrix and untested in CI).
+CI matrix targets Python 3.11, 3.12 and 3.13 (local 3.14.9 is outside the CI matrix and untested in CI).
 
 ### 3.8 Packaging
 
@@ -145,7 +145,7 @@ CI matrix targets Python 3.12 and 3.13 (local 3.14.9 is outside the CI matrix an
 8. **No autonomous response** — advisory-only; no blocking, isolation, or vendor API actions.
 9. **Dashboard AI chat** (public website) is a UI preview with no connected backend.
 10. **No investigation/audit ledger** for AI findings — no traceable record of prompts, tool calls, or AI verdicts.
-11. **CI matrix** covers 3.12/3.13 only; local 3.14.9 is untested in CI.
+11. **CI matrix** covers 3.11/3.12/3.13; local 3.14.9 is untested in CI. Python 3.11 awaiting first green CI run.
 12. **`git push` is blocked** (>600s, no credential helper/network auth configured) — branches cannot be pushed or PRs opened via CLI yet.
 
 ## 5. Measurements defined for the 70% target
@@ -157,7 +157,7 @@ Per the upgrade brief, improvement must be measured, not asserted. Candidate mea
 | Detection coverage | Validated rule count | Rules with positive + negative + boundary tests | 5 |
 | Telemetry sources | Tested source adapters | JSON, JSONL, Sysmon parsers with fixtures | 3 |
 | Event-level recall | TP / (TP + FN) | 498 / 641 | 0.7769 |
-| Test count | Passing tests | pytest suite | 461 passed |
+| Test count | Passing tests | pytest suite | 639 passed |
 | MCP tools | Read-only tools | Enumerated MCP tools | 7 |
 | Dashboard views | Routes served | overview, alerts, events, rules, attacks, diagnostics | 6 |
 | ATT&CK techniques | Techniques backed by tested detections | T1110, T1110.001, T1110.003, T1059.001, T1204, T1204.002, T1071 | 7 |
