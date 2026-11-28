@@ -118,7 +118,7 @@ Ingest → normalize → detect → correlate → risk score → SQLite produces
 
 | Check | Result |
 |-------|--------|
-| `pytest tests/` | **641 passed, 1 skipped** (Python 3.14.9 local) |
+| `pytest tests/` | **641 passed, 1 skipped** (Python 3.14.9 local); **642 passed** (Python 3.11/3.12/3.13 GitHub CI) |
 | `ruff check sentinelforge/ tests/` | All checks passed |
 | `ruff format --check sentinelforge/ tests/` | Passed |
 | `mypy sentinelforge/` | No issues in 53 source files |
@@ -145,7 +145,7 @@ CI matrix targets Python 3.11, 3.12 and 3.13 — all three verified passing on G
 8. **No autonomous response** — advisory-only; no blocking, isolation, or vendor API actions.
 9. **Dashboard AI chat** (public website) is a UI preview with no connected backend.
 10. **No investigation/audit ledger** for AI findings — no traceable record of prompts, tool calls, or AI verdicts.
-11. **CI matrix** covers 3.11/3.12/3.13; local 3.14.9 is untested in CI. Python 3.11 awaiting first green CI run.
+11. **CI matrix** covers 3.11/3.12/3.13 — all verified passing on GitHub Actions; local 3.14.9 is outside CI.
 12. **`git push` is blocked** (>600s, no credential helper/network auth configured) — branches cannot be pushed or PRs opened via CLI yet.
 
 ## 5. Measurements defined for the 70% target
@@ -157,7 +157,7 @@ Per the upgrade brief, improvement must be measured, not asserted. Candidate mea
 | Detection coverage | Validated rule count | Rules with positive + negative + boundary tests | 5 |
 | Telemetry sources | Tested source adapters | JSON, JSONL, Sysmon parsers with fixtures | 3 |
 | Event-level recall | TP / (TP + FN) | 498 / 641 | 0.7769 |
-| Test count | Passing tests | pytest suite | 639 passed |
+| Test count | Passing tests | pytest suite | 639 passed (historical baseline; current local: 641 passed, 1 skipped; current CI: 642 passed each on 3.11/3.12/3.13) |
 | MCP tools | Read-only tools | Enumerated MCP tools | 7 |
 | Dashboard views | Routes served | overview, alerts, events, rules, attacks, diagnostics | 6 |
 | ATT&CK techniques | Techniques backed by tested detections | T1110, T1110.001, T1110.003, T1059.001, T1204, T1204.002, T1071 | 7 |

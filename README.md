@@ -8,7 +8,7 @@
 **Classification:** Demonstrable SOC prototype — not production-ready
 **License:** MIT
 **Python:** >=3.11
-**Tests:** 641 passed on Python 3.11, 3.12 and 3.13 in GitHub CI.
+**Tests:** 642 passed each on Python 3.11, 3.12 and 3.13 in GitHub CI.
 **Local:** 641 passed, 1 skipped on Python 3.12.10, 3.13 and 3.14.9 (Windows development host).
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 

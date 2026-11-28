@@ -243,3 +243,62 @@ The 3.13 failures are all in `test_mcp_database.py` and are caused by the missin
 | Pull request | Not yet opened |
 
 **Next steps:** Commit with message `chore: complete P5.0 quality and documentation audit`, push branch, open PR against `main`. Do not merge without explicit human approval.
+
+---
+
+## 13. Final Verification and Closeout
+
+### 13.1 Final Verified Results
+
+All P5.0 objectives were completed and verified on GitHub Actions (PR #11, run 46151761364), plus locally where possible.
+
+| Check | Result | Verified |
+|---|---|---|
+| pytest Python 3.11 (CI) | 642 passed | GitHub Actions SUCCESS |
+| pytest Python 3.12 (CI) | 642 passed | GitHub Actions SUCCESS |
+| pytest Python 3.13 (CI) | 642 passed | GitHub Actions SUCCESS |
+| pytest Python 3.12.10 (local) | 641 passed, 1 skipped | Local run |
+| pytest Python 3.13 (local) | 641 passed, 1 skipped | Local run |
+| pytest Python 3.14.9 (local) | 641 passed, 1 skipped | Local run |
+| pip-audit (local) | No known vulnerabilities found | Local run |
+| pip-audit (CI Security scanning) | SUCCESS | GitHub Actions SUCCESS |
+| Wheel build | SUCCESS | GitHub Actions SUCCESS |
+| Clean installation smoke test | SUCCESS | GitHub Actions SUCCESS |
+| MCP extra smoke test | SUCCESS | GitHub Actions SUCCESS |
+| MCP stdio protocol | Initialize, tools/list (7 tools), tools/call each, read-only enforcement, clean shutdown — all verified | Local + CI |
+| Dashboard smoke test | SUCCESS | Local + CI |
+| Website validation | PASSED | Local + CI |
+| All 10 GitHub Actions jobs | SUCCESS | GitHub Actions SUCCESS |
+| `data/generated/` unchanged | Empty `git diff --stat -- data/generated/` | Verified |
+| Stash `@{0}` | Untouched | Verified |
+
+### 13.2 Historical Statements Resolved
+
+The following statements from the original audit (Sections 6, 7, 8, 10 of this report) are superseded by verified results:
+
+| Historical claim | Original status | Final verified status |
+|---|---|---|
+| Python 3.11 not installed locally → NOT TESTED | Python 3.11 support claimed only via CI matrix addition | **RESOLVED** — Python 3.11 CI: 642 passed, SUCCESS on GitHub Actions |
+| Python 3.13 MCP tests failed with `NameError` | Fixed via `_MCP_AVAILABLE` guard; 3.13 tests pass with MCP extra installed | **RESOLVED** — Python 3.13 CI: 642 passed, SUCCESS on GitHub Actions |
+| pip-audit NOT RUN (not installed; C: drive full) | Marked NOT TESTED locally | **RESOLVED** — pip-audit passed locally (v2.10.1) and in CI Security scanning job |
+| Python 3.11 awaiting first green CI run | CI matrix added, awaiting first green run | **RESOLVED** — All three CI versions verified passing |
+| CI count 635 NOT TESTED locally | CI count left as claimed, NOT TESTED | **RESOLVED** — CI count 642 verified on each of 3.11/3.12/3.13 |
+
+### 13.3 Historical Audit Chronology Retained
+
+Sections 1–12 of this report document the original P5.0 audit chronology, including:
+- Initial discrepancy register (schema v3 → v5, test count 461 → 639, CI matrix 3.12/3.13 → 3.11/3.12/3.13)
+- Python 3.11 local unavailability and 3.13 MCP environment issues
+- Failed-login root-cause analysis and PowerShell attribution findings
+- Original file change list (Section 9)
+
+These historical sections remain as evidence of the audit process. Section 13 above records the final closeout state after CI verification.
+
+### 13.4 PR Status
+
+- **Branch:** `chore/p5-0-quality-docs-python311`
+- **Commit:** `47db7eb` (HEAD)
+- **PR:** #11 against `main` — OPEN, not merged
+- **CI:** All 10 jobs SUCCESS on run 46151761364
+- **Next:** Awaiting explicit human approval before merge
+
