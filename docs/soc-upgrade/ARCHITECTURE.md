@@ -15,7 +15,7 @@ Log files (JSON / JSONL / Sysmon)
 sentinelforge/ingestion/   (readers + normalizer)
         |
         v
-sentinelforge/storage/     (SQLite schema v3, repositories)
+sentinelforge/storage/     (SQLite schema v5, repositories)
         |
         v
 sentinelforge/detection/   (5 rules + registry)

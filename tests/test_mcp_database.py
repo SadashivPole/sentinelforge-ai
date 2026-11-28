@@ -2506,3 +2506,37 @@ class TestTimestampConsistency:
             assert score85_ids == ["risk-b", "risk-a"]
             # risk-c score 70 comes after
             assert ids.index("risk-c") > ids.index("risk-b")
+
+
+class TestMcpServerMissingOptionalDependency:
+    """Regression test: AnalystMCPServer must fail clearly when the MCP extra is absent.
+
+    Covers the environment where ``mcp`` is not installed (e.g. a Python
+    installation without the optional ``analyst-mcp`` extra).  The constructor
+    must raise a clear ``ImportError`` rather than a confusing ``NameError``
+    referencing the undefined ``Server`` name.
+    """
+
+    def test_constructor_raises_import_error_when_mcp_unavailable(self, monkeypatch):
+        import sentinelforge.analyst.mcp_server as mcp_server_module
+
+        monkeypatch.setattr(mcp_server_module, "_MCP_AVAILABLE", False)
+
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            db_path = os.path.join(tmp, "test.db")
+
+            with pytest.raises(ImportError, match="analyst-mcp"):
+                mcp_server_module.AnalystMCPServer(db_path)
+
+    def test_constructor_error_mentions_install_command(self, monkeypatch):
+        import sentinelforge.analyst.mcp_server as mcp_server_module
+
+        monkeypatch.setattr(mcp_server_module, "_MCP_AVAILABLE", False)
+
+        with tempfile.TemporaryDirectory(**_TMPDIR_KWARGS) as tmp:
+            db_path = os.path.join(tmp, "test.db")
+
+            with pytest.raises(
+                ImportError, match="pip install 'sentinelforge\\[analyst-mcp\\]'"
+            ):
+                mcp_server_module.AnalystMCPServer(db_path)

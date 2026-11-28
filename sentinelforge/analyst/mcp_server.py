@@ -359,6 +359,11 @@ class AnalystMCPServer:
     """Wraps the MCP Server with SentinelForge read-only data access."""
 
     def __init__(self, db_path: str) -> None:
+        if not _MCP_AVAILABLE:
+            raise ImportError(
+                "The MCP server requires the optional 'analyst-mcp' extra. "
+                "Install it with: pip install 'sentinelforge[analyst-mcp]'"
+            )
         self.db_path = db_path
         self.server = Server(SERVER_NAME)
         self._register_handlers()
