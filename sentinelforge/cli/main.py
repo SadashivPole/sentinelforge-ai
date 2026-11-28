@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -471,7 +472,14 @@ def cmd_ioc(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     if args.ioc_command == "inspect":
-        ioc: IOC | None = repo.get_ioc(args.indicator_id)
+        try:
+            ioc: IOC | None = repo.get_ioc(args.indicator_id)
+        except sqlite3.Error as exc:  # report DB read failures accurately
+            print(
+                f"ERROR: Failed to read IOC {args.indicator_id}: {exc}",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
         if ioc is None:
             print(f"IOC {args.indicator_id} not found.")
             return EXIT_ERROR
@@ -519,8 +527,19 @@ def cmd_ioc(args: argparse.Namespace) -> int:
         newly_stored = 0
         already_present = 0
         conflicting = 0
+        interrupted = False
+        failed_ioc_id: str | None = None
         for imported_ioc in import_result.imported:
-            existing = repo.get_ioc(imported_ioc.indicator_id)
+            try:
+                existing = repo.get_ioc(imported_ioc.indicator_id)
+            except sqlite3.Error as exc:  # report DB read failures accurately
+                interrupted = True
+                failed_ioc_id = imported_ioc.indicator_id
+                print(
+                    f"ERROR: Failed to read IOC {imported_ioc.indicator_id}: {exc}",
+                    file=sys.stderr,
+                )
+                break
             if existing is not None:
                 if (
                     existing.indicator_value == imported_ioc.indicator_value
@@ -538,17 +557,26 @@ def cmd_ioc(args: argparse.Namespace) -> int:
                 newly_stored += 1
             except DuplicateIdCollisionError:
                 conflicting += 1
-            except Exception as exc:  # noqa: BLE001 - report DB failures accurately
+            except sqlite3.Error as exc:  # report DB failures accurately
+                interrupted = True
+                failed_ioc_id = imported_ioc.indicator_id
                 print(
                     f"ERROR: Failed to persist IOC {imported_ioc.indicator_id}: {exc}",
                     file=sys.stderr,
                 )
-                return EXIT_ERROR
+                break
 
         print(
             f"Stored: {newly_stored}  Already present: {already_present}  "
             f"Conflicting: {conflicting}  Rejected: {len(import_result.rejected)}"
         )
+        if interrupted:
+            print(
+                f"Import interrupted at IOC {failed_ioc_id}; "
+                "partial results reported above.",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
         for r in import_result.rejected:
             print(f"  [line {r.line_number}] {r.reason}: {r.raw[:80]}")
         return EXIT_OK
@@ -574,7 +602,14 @@ def cmd_ioc(args: argparse.Namespace) -> int:
             }
             for e in event_repo.get_events(limit=None)
         ]
-        ioc_record: IOC | None = repo.get_ioc(args.indicator_id)
+        try:
+            ioc_record: IOC | None = repo.get_ioc(args.indicator_id)
+        except sqlite3.Error as exc:  # report DB read failures accurately
+            print(
+                f"ERROR: Failed to read IOC {args.indicator_id}: {exc}",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
         if ioc_record is None:
             print(f"IOC {args.indicator_id} not found.")
             return EXIT_ERROR
@@ -600,7 +635,14 @@ def cmd_ioc(args: argparse.Namespace) -> int:
         return EXIT_OK
 
     if args.ioc_command == "provenance":
-        ioc = repo.get_ioc(args.indicator_id)
+        try:
+            ioc = repo.get_ioc(args.indicator_id)
+        except sqlite3.Error as exc:  # report DB read failures accurately
+            print(
+                f"ERROR: Failed to read IOC {args.indicator_id}: {exc}",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
         if ioc is None:
             print(f"IOC {args.indicator_id} not found.")
             return EXIT_ERROR
