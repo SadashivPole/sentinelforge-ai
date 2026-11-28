@@ -15,6 +15,10 @@ against a real temporary SQLite database, covering:
 10. Non-object JSON records are rejected without crashing.
 11. Conflicting existing indicator content is reported, not overwritten.
 12. Genuine database persistence failure returns EXIT_ERROR.
+13. ``ioc validate`` does not create a SQLite database file when none exists.
+14. ``ioc validate`` does not modify an existing database or its schema.
+15. Partial batch persistence: second IOC insert fails, first stored intact.
+16. ``get_ioc()`` read failure during import returns EXIT_ERROR.
 """
 
 from __future__ import annotations
@@ -31,7 +35,7 @@ import pytest
 from sentinelforge.cli.main import EXIT_ERROR, cmd_ioc
 from sentinelforge.storage.database import Database
 from sentinelforge.storage.repositories import DuplicateIdCollisionError, IOCRepository
-from sentinelforge.storage.schema import IOC
+from sentinelforge.storage.schema import IOC, get_schema_version
 
 
 def _json(records) -> bytes:
@@ -510,4 +514,179 @@ def test_cli_persistence_database_error_returns_exit_error(
     assert "Already present: 1" not in captured.out
 
     # No IOC was stored — count remains 0.
+    assert _count_iocs(tmp_db) == 0
+
+
+# --------------------------------------------------------------------------- #
+# 13. ioc validate does not create a SQLite database file when none exists
+# --------------------------------------------------------------------------- #
+def test_cli_validate_nonexistent_db_not_created(tmp_db: Database) -> None:
+    # Point validate at a database path that does not exist, beside the tmp_db
+    # directory so we stay on the writable scratch volume.
+    nonexistent_db = os.path.join(os.path.dirname(tmp_db.db_path), "nonexistent.db")
+    assert not os.path.exists(nonexistent_db)
+
+    feed_path = os.path.join(os.path.dirname(tmp_db.db_path), "feed.json")
+    with open(feed_path, "wb") as fh:
+        fh.write(
+            _json(
+                [
+                    {
+                        "indicator_type": "domain",
+                        "indicator_value": "validate.example.com",
+                        "source_name": "validate-src",
+                    }
+                ]
+            )
+        )
+
+    args = argparse.Namespace(
+        ioc_command="validate",
+        file=feed_path,
+        source="validate-src",
+        source_reference=None,
+        db_path=nonexistent_db,
+    )
+    code = cmd_ioc(args)
+    assert code == 0
+
+    # Validate must not have created the database file.
+    assert not os.path.exists(nonexistent_db), (
+        "validate created a database file at a path that previously did not exist"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# 14. ioc validate does not modify an existing database or its schema
+# --------------------------------------------------------------------------- #
+def test_cli_validate_existing_db_not_modified(tmp_db: Database) -> None:
+    feed = _write_feed(
+        tmp_db,
+        "feed.json",
+        _json(
+            [
+                {
+                    "indicator_type": "domain",
+                    "indicator_value": "validate.example.com",
+                    "source_name": "validate-src",
+                }
+            ]
+        ),
+    )
+    args = _validate_args(tmp_db, feed)
+
+    # Capture state before validation.
+    import hashlib as _hashlib
+
+    with open(tmp_db.db_path, "rb") as fh:
+        before_hash = _hashlib.sha256(fh.read()).hexdigest()
+    before_version = get_schema_version(tmp_db.db_path)
+
+    code = cmd_ioc(args)
+    assert code == 0
+
+    # State must be unchanged after validation.
+    with open(tmp_db.db_path, "rb") as fh:
+        after_hash = _hashlib.sha256(fh.read()).hexdigest()
+    after_version = get_schema_version(tmp_db.db_path)
+
+    assert after_hash == before_hash, "validate modified the database file bytes"
+    assert after_version == before_version, "validate modified the schema version"
+    assert _count_iocs(tmp_db) == 0, "validate inserted indicators into the database"
+
+
+# --------------------------------------------------------------------------- #
+# 15. Partial batch persistence: second IOC insert fails, first stored intact
+# --------------------------------------------------------------------------- #
+def test_cli_import_partial_persistence_second_fails(tmp_db: Database, capsys) -> None:
+    # Feed with two valid IOCs; second insert raises -> import interrupted.
+    feed = _write_feed(
+        tmp_db,
+        "feed.json",
+        _json(
+            [
+                {
+                    "indicator_type": "ipv4",
+                    "indicator_value": "198.51.100.1",
+                    "source_name": "test-src",
+                },
+                {
+                    "indicator_type": "ipv4",
+                    "indicator_value": "198.51.100.2",
+                    "source_name": "test-src",
+                },
+            ]
+        ),
+    )
+    args = _import_args(tmp_db, feed)
+
+    repo = IOCRepository(tmp_db)
+    real_insert = IOCRepository.insert_ioc
+    call_count = {"n": 0}
+
+    def failing_insert(self, ioc):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise sqlite3.OperationalError("database is locked")
+        return real_insert(self, ioc)
+
+    with patch.object(IOCRepository, "insert_ioc", failing_insert):
+        code = cmd_ioc(args)
+
+    assert code == EXIT_ERROR
+
+    captured = capsys.readouterr()
+    # Partial results reported before the interruption.
+    assert "Stored: 1" in captured.out
+    assert "Already present: 0" in captured.out
+    assert "Rejected: 0" in captured.out
+    assert "Import interrupted" in captured.err
+    assert "database is locked" in captured.err
+    failed_id = _indicator_id("test-src", "ipv4", "198.51.100.2")
+    assert failed_id in captured.err
+
+    # The first IOC was actually stored; the second was not.
+    assert _count_iocs(tmp_db) == 1
+    assert repo.get_ioc_by_value("198.51.100.1", "ipv4") is not None
+    assert repo.get_ioc_by_value("198.51.100.2", "ipv4") is None
+
+
+# --------------------------------------------------------------------------- #
+# 16. get_ioc() read failure during import returns EXIT_ERROR
+# --------------------------------------------------------------------------- #
+def test_cli_import_get_ioc_read_failure_returns_exit_error(
+    tmp_db: Database, capsys
+) -> None:
+    feed = _write_feed(
+        tmp_db,
+        "feed.json",
+        _json(
+            [
+                {
+                    "indicator_type": "domain",
+                    "indicator_value": "readfail.example.com",
+                    "source_name": "test-src",
+                }
+            ]
+        ),
+    )
+    args = _import_args(tmp_db, feed)
+
+    with patch.object(
+        IOCRepository,
+        "get_ioc",
+        side_effect=sqlite3.OperationalError("disk I/O error"),
+    ):
+        code = cmd_ioc(args)
+
+    assert code == EXIT_ERROR
+
+    captured = capsys.readouterr()
+    assert "ERROR: Failed to read IOC" in captured.err
+    assert "Import interrupted" in captured.err
+    failed_id = _indicator_id("test-src", "domain", "readfail.example.com")
+    assert failed_id in captured.err
+    assert "disk I/O error" in captured.err
+    assert "Stored: 1" not in captured.out
+    # Nothing stored because the read happened before any insert.
     assert _count_iocs(tmp_db) == 0

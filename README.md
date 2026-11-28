@@ -9,7 +9,7 @@
 **License:** MIT
 **Python:** >=3.11
 **Tests:** 635 passed on Python 3.12 and 3.13 in GitHub CI.
-**Local:** 634 passed, 1 skipped on Python 3.14.9 (development host).
+**Local:** 639 passed, 1 skipped on Python 3.12.10 (Windows development host).
 **Live website:** https://sadashivpole.github.io/sentinelforge-ai/
 
 ## Project Status
@@ -26,7 +26,7 @@
 | Telemetry adapters (Windows Security, Linux auth, auditd) | Implemented |
 | Incident correlation and incidents CLI | Implemented |
 | Local IOC validation, matching and retrospective hunting | Implemented |
-|| IOC CLI import persistence | Implemented (validates, persists via IOCRepository, idempotent re-import, conflicting-content handling) |
+| IOC CLI import persistence | Implemented (validates, persists via IOCRepository, idempotent re-import, conflicting-content handling) |
 | Public website | Deployed (GitHub Pages) |
 | AI support assistant | Preview only (no backend) |
 | Production deployment | Not planned |
